@@ -182,6 +182,20 @@ create trigger staff_updated_at before update on app.staff for each row execute 
 create trigger customers_updated_at before update on app.customers for each row execute function app.set_updated_at();
 create trigger pos_devices_updated_at before update on app.pos_devices for each row execute function app.set_updated_at();
 
+-- A branch time zone decides local dates in analytics and the transit expiry guard, so a
+-- name Postgres does not know would break both for the whole tenant: reject it on write.
+create function app.check_branch_timezone() returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  perform pg_catalog.now() at time zone new.timezone;
+  return new;
+end
+$$;
+create trigger branches_timezone_check before insert or update of timezone on app.branches
+  for each row execute function app.check_branch_timezone();
+
 -- A role must be a system role or belong to the assignment's tenant.
 create function app.check_assignment_role() returns trigger
 language plpgsql

@@ -3,7 +3,7 @@
 -- a cashier take over accounts, grant itself more power or switch off loss prevention.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(16);
+select plan(18);
 
 set local role market_backend;
 
@@ -94,6 +94,12 @@ select lives_ok(
   $$ insert into app.loss_prevention_settings (tenant_id, unlinked_refund_amount)
      values ('bbbbbbbb-0000-0000-0000-000000000000', 100.00) $$,
   'the owner can tune the loss-prevention thresholds');
+
+-- A branch time zone decides local dates in analytics and the transit expiry guard
+select throws_ok($$ update app.branches set timezone = 'Cairo' where id = 'bbbbbbbb-0002-0000-0000-000000000003' $$,
+  '22023', null, 'a branch time zone must be one Postgres knows');
+select lives_ok($$ update app.branches set timezone = 'Africa/Cairo' where id = 'bbbbbbbb-0002-0000-0000-000000000003' $$,
+  'a real IANA zone is accepted');
 reset role;
 
 select * from finish();
