@@ -257,7 +257,7 @@ on conflict do nothing;
 -- Request context and reach
 -- ---------------------------------------------------------------------------
 
--- Validates and binds the request context for the current transaction (ADR-004).
+-- Validates, binds and seals the request context for the current transaction (ADR-004).
 create function app.set_context(
   p_tenant_id    uuid default null,
   p_staff_id     uuid default null,
@@ -325,6 +325,9 @@ begin
   perform pg_catalog.set_config('app.current_device_id', coalesce(p_device_id::text, ''), true);
   perform pg_catalog.set_config('app.current_customer_id', coalesce(p_customer_id::text, ''), true);
   perform pg_catalog.set_config('app.current_system_actor', coalesce(p_system_actor, ''), true);
+  perform pg_catalog.set_config('app.context_seal', app_private.context_seal(array[
+    coalesce(p_tenant_id::text, ''), coalesce(v_branch_id::text, ''), coalesce(p_staff_id::text, ''),
+    coalesce(p_device_id::text, ''), coalesce(p_customer_id::text, ''), coalesce(p_system_actor, '')]), true);
 end
 $$;
 
@@ -337,11 +340,13 @@ security definer
 set search_path = ''
 as $$
   with ctx as (
-    select app.current_tenant_id()    as tenant_id,
-           app.current_staff_id()     as staff_id,
-           app.current_device_id()    as device_id,
-           app.current_branch_id()    as branch_id,
-           app.current_system_actor() as system_actor
+    -- one seal check, then the raw values (each reader would check again)
+    select nullif(pg_catalog.current_setting('app.current_tenant_id', true), '')::uuid    as tenant_id,
+           nullif(pg_catalog.current_setting('app.current_staff_id', true), '')::uuid     as staff_id,
+           nullif(pg_catalog.current_setting('app.current_device_id', true), '')::uuid    as device_id,
+           nullif(pg_catalog.current_setting('app.current_branch_id', true), '')::uuid    as branch_id,
+           nullif(pg_catalog.current_setting('app.current_system_actor', true), '')       as system_actor
+     where app.context_is_sealed()
   ),
   device_branch as (
     select d.branch_id

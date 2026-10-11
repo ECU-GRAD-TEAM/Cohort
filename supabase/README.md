@@ -26,7 +26,7 @@ flowchart LR
 | Role | Logs in | Used by | Reaches |
 |---|---|---|---|
 | `market_backend` | yes | the backend's connection pool | `app` tables through row level security; every transaction starts with `app.set_context(...)` |
-| `market_ai_reader` | no | the backend, for LLM-generated SQL (`set local role market_ai_reader`) | the `analytics` views only, still filtered by the request context |
+| `market_ai_reader` | no | `analytics.run_query`, which runs LLM-generated SQL as this role | the `analytics` views only, still filtered by the request context |
 | `market_analytics_owner` | no | nobody: it owns the `analytics` views | — |
 | `market_biometric` | yes | the face-matching service | `biometric.face_templates` and its two functions |
 
@@ -81,7 +81,9 @@ The migrations create all four roles without login. No password is stored in thi
 3. **`set_context` validates its arguments.** The tenant must be active and the staff member
    an active member of it. The device must be an active device of the tenant, and its branch
    becomes the context's branch. The branch must belong to the tenant, and the customer must
-   exist. Anything else raises SQLSTATE `42501`.
+   exist. Anything else raises SQLSTATE `42501`. It also **seals** the context: every reader
+   checks a keyed hash that only `set_context` can produce. If a value is written any other
+   way (`set_config`, `SET`), the next query fails with `42501` instead of widening access.
 4. **The right context for each caller:**
 
    | Caller | `set_context` arguments | Reach |
@@ -115,20 +117,23 @@ The migrations create all four roles without login. No password is stored in thi
    `'[0.12,-0.03,…]'`, in a query parameter without a cast. The app roles may have no access to
    the `extensions` schema, so `$2::extensions.vector` can fail where
    `app.kb_hybrid_search($1, $2, 8)` works.
-8. **Run LLM-generated SQL in its own read-only transaction**, and accept only a single
-   `SELECT` statement from the model:
+8. **Run LLM-generated SQL only through `analytics.run_query`**, in its own read-only
+   transaction, and accept only a single `SELECT` statement from the model:
 
    ```sql
    begin read only;
    select app.set_context(p_tenant_id => $1, p_staff_id => $2);
-   set local role market_ai_reader;
    set local statement_timeout = '5s';
-   -- the generated SELECT over analytics.* runs here
+   select * from analytics.run_query($3);   -- $3 is the generated SELECT; one JSON object per row
    commit;
    ```
 
-   `market_ai_reader` sees only `analytics.sales_daily`, `analytics.product_sales_daily` and
-   `analytics.stock_on_hand`, and it cannot call `set_context`.
+   `run_query` runs the statement as `market_ai_reader`, which sees only
+   `analytics.sales_daily`, `analytics.product_sales_daily` and `analytics.stock_on_hand`.
+   Postgres refuses role switches inside it, and the sealed context stops the statement from
+   rewriting its own tenant or reach. It also releases any advisory locks the statement took.
+   Never run model SQL directly, and never switch roles to run it: `market_backend` is
+   deliberately not a member of `market_ai_reader`.
 
 ### Node.js (pg)
 
@@ -319,6 +324,10 @@ the tenant prefix is `aaaaaaaa` or `bbbbbbbb` (customers use `cccccccc`), and th
   `.env` files are ignored.
 - The apps hold only the Supabase URL and anon key (for Auth) and the backend's URL. They never
   hold the `service_role` key or a database password.
-- Keep `app`, `analytics` and `biometric` out of the Data API's exposed schemas.
+- Keep `app`, `analytics`, `biometric` and `app_private` out of the Data API's exposed schemas.
+  `app_private` holds the key that seals the request context; no role but its owner can enter.
+- Hash staff PINs with a slow, salted function such as argon2id or bcrypt, never plain
+  SHA-256: a 4–6 digit PIN is trivial to brute-force from its SHA-256. Till API keys are long
+  random secrets, so SHA-256 is enough for them.
 - Give the `market_biometric` credentials only to the face-matching service. An erasure request
   calls `biometric.delete_subject(token)` and revokes the enrollment.

@@ -78,12 +78,40 @@ grant select on analytics.sales_daily, analytics.product_sales_daily, analytics.
   to market_ai_reader, market_backend;
 grant usage on schema analytics to market_backend;
 
+-- The only way to run model-generated SQL (spec §3.2): one SELECT, executed as
+-- market_ai_reader, which can read the analytics views and nothing else. The function is
+-- security definer and owned by market_ai_reader, and Postgres refuses SET ROLE inside
+-- security-definer functions, so the statement cannot climb back to the backend's role; the
+-- sealed context stops it rewriting its own tenant or reach. Advisory locks it takes are
+-- released, so it cannot leave them on a pooled connection.
+create function analytics.run_query(p_sql text) returns setof json
+language plpgsql
+security definer
+set search_path = analytics, pg_catalog, pg_temp
+as $$
+begin
+  begin
+    return query execute 'select pg_catalog.row_to_json(q) from (' || p_sql || ') as q';
+  exception when others then
+    perform pg_catalog.pg_advisory_unlock_all();
+    raise;
+  end;
+  perform pg_catalog.pg_advisory_unlock_all();
+end
+$$;
+grant create on schema analytics to market_ai_reader;
+alter function analytics.run_query(text) owner to market_ai_reader;
+revoke create on schema analytics from market_ai_reader;
+revoke execute on function analytics.run_query(text) from public;
+grant execute on function analytics.run_query(text) to market_backend;
+
 -- RLS policies on the base tables call these read-only context functions, and Postgres
 -- checks EXECUTE (and, for inlined SQL functions, schema USAGE) as the querying role.
--- market_ai_reader still has no privilege on any app table, and set_context is
--- deliberately not granted, so LLM-generated SQL can never switch tenant or widen its reach.
+-- market_ai_reader still has no privilege on any app table, set_context is deliberately not
+-- granted, and the readers reject any context value set_context did not seal, so
+-- LLM-generated SQL can never switch tenant or widen its reach.
 grant usage on schema app to market_ai_reader;
 grant execute on function
-  app.current_tenant_id(), app.current_branch_id(), app.current_staff_id(), app.current_device_id(),
+  app.context_is_sealed(), app.current_tenant_id(), app.current_branch_id(), app.current_staff_id(), app.current_device_id(),
   app.current_customer_id(), app.current_system_actor(), app.is_internal(), app.accessible_branch_ids()
   to market_ai_reader;

@@ -2,7 +2,7 @@
 -- runs as market_ai_reader, sees only governed views, and RLS still bounds every row.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(14);
+select plan(21);
 
 -- Fixtures (as the table owner)
 insert into app.sales (id, tenant_id, branch_id, device_id, sale_type, original_sale_id,
@@ -34,6 +34,16 @@ select throws_ok($$ select count(*) from app.sales $$, '42501', null,
 select throws_ok(
   $$ select app.set_context(p_tenant_id => 'aaaaaaaa-0000-0000-0000-000000000000', p_system_actor => 'llm') $$,
   '42501', null, 'LLM-generated SQL cannot switch itself to another tenant');
+
+-- Nor can prompt-injected SQL rewrite the context it was given
+select set_config('app.current_tenant_id', 'aaaaaaaa-0000-0000-0000-000000000000', true);
+select throws_ok($$ select count(*) from analytics.sales_daily $$, '42501', null,
+  'LLM-generated SQL cannot move its own context to another tenant with set_config');
+reset role;
+set local role market_backend;
+select app.set_context(p_tenant_id => 'bbbbbbbb-0000-0000-0000-000000000000',
+                       p_staff_id  => 'bbbbbbbb-0003-0000-0000-000000000001');
+set local role market_ai_reader;
 
 select results_eq(
   $$ select transactions, gross_sales, discounts, returns, net_revenue, tax_collected, average_basket
@@ -73,6 +83,32 @@ select is((select count(*)::int from analytics.sales_daily
 select is((select count(*)::int from analytics.stock_on_hand
             where branch_id <> 'bbbbbbbb-0002-0000-0000-000000000002'), 0,
   'a Maadi cashier''s stock view shows Maadi only');
+set local app.current_system_actor = 'report_job';
+select throws_ok($$ select count(*) from analytics.sales_daily $$, '42501', null,
+  'nor can it widen a cashier''s reach by posing as a background job');
+
+-- The backend runs model SQL only through analytics.run_query
+reset role;
+set local role market_backend;
+select app.set_context(p_tenant_id => 'bbbbbbbb-0000-0000-0000-000000000000',
+                       p_staff_id  => 'bbbbbbbb-0003-0000-0000-000000000001');
+select is((select (r ->> 'net_revenue')::numeric
+             from analytics.run_query($q$ select net_revenue from analytics.sales_daily
+                                          where branch_id = 'bbbbbbbb-0002-0000-0000-000000000002'
+                                            and sales_date = '2026-10-12' $q$) r),
+  70.00, 'analytics.run_query returns each result row as JSON');
+select throws_ok($$ select * from analytics.run_query($q$ select set_config('role', 'market_backend', true) $q$) $$,
+  '42501', null, 'model SQL cannot switch back to the backend role');
+select throws_ok($$ select * from analytics.run_query($q$ select provider_token from app.customer_payment_methods $q$) $$,
+  '42501', null, 'model SQL cannot read raw tables');
+select throws_ok(
+  $$ select * from analytics.run_query($q$
+       with ctx as materialized (select set_config('app.current_tenant_id', 'aaaaaaaa-0000-0000-0000-000000000000', true) as t)
+       select d.* from ctx, lateral (select * from analytics.sales_daily where ctx.t is not null) d $q$) $$,
+  '42501', null, 'model SQL cannot rewrite its context inside run_query either');
+create temp table model_lock as select * from analytics.run_query($q$ select pg_try_advisory_lock(42) as locked $q$);
+select is((select count(*)::int from pg_catalog.pg_locks where locktype = 'advisory' and pid = pg_backend_pid()), 0,
+  'advisory locks taken by model SQL are released when run_query returns');
 
 -- Without context nothing comes back
 reset role;

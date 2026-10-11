@@ -62,6 +62,7 @@ Defaults taken by the builder (open to change):
 | `app` | All business tables, helpers, RLS policies | `market_backend` |
 | `analytics` | Read-only "semantic layer" views for NL-to-SQL | `market_ai_reader` (select), views owned by `market_analytics_owner` |
 | `biometric` | Face templates (embeddings) only | `market_biometric` only |
+| `app_private` | The key that seals the request context (§3.3) | nobody but the owner |
 | `extensions` | `vector` (pgvector), plus `pgtap` in tests | Supabase convention |
 
 None of these schemas is exposed through Supabase's Data API, and Supabase's built-in
@@ -72,9 +73,13 @@ None of these schemas is exposed through Supabase's Data API, and Supabase's bui
 Every role is created `NOLOGIN` by migrations. Passwords are set by hand and never committed.
 
 - `market_backend`: the backend's login. Not the table owner and no `BYPASSRLS`, so every
-  query is subject to RLS. It is a member of `market_ai_reader`.
-- `market_ai_reader`: the backend switches to it (`SET LOCAL ROLE`) to run LLM-generated
-  SQL. It can only `SELECT` from `analytics` views.
+  query is subject to RLS. It is deliberately **not** a member of `market_ai_reader`.
+- `market_ai_reader`: runs LLM-generated SQL. It can only `SELECT` from `analytics` views.
+  The backend never switches to it, because a statement could switch back. Instead it calls
+  `analytics.run_query(sql)`, a security-definer function owned by `market_ai_reader`.
+  Postgres refuses `SET ROLE` inside security-definer functions, so the model's statement
+  stays `market_ai_reader`; the function also releases any advisory locks the statement
+  took.
 - `market_analytics_owner`: owns the `analytics` views and has `SELECT` on the base tables
   they read. It is not the table owner, so RLS still applies through the views.
 - `market_biometric`: login for the separate Face Pay matching service. It is the only role
@@ -115,8 +120,14 @@ Reader functions (`stable`): `app.current_tenant_id()`, `app.current_branch_id()
 `app.current_system_actor()`, `app.is_internal()`. The last is true when a tenant is set and
 there is a staff member, a device or a system actor.
 
-Unset context returns NULL, so policies match **zero rows** (fail closed). A malformed value
-raises a cast error.
+Unset context returns NULL, so policies match **zero rows** (fail closed).
+
+`set_context` also seals the context. It stores `app.context_seal` = sha256(outer key ‖
+sha256(inner key ‖ [backend pid, transaction start, the six values])), using two random
+64-byte keys in `app_private.context_key` that only the owner can read. Every reader checks the
+seal through `app.context_is_sealed()` and raises `42501` when any value was written another way
+(`set_config`, `SET`). So neither LLM-generated SQL nor SQL injected into the backend can widen
+or switch its own context, and a seal cannot be replayed in a later transaction.
 
 Lookup functions callable before any context exists (`security definer`, backend only):
 
@@ -181,7 +192,7 @@ Reference tables that shoppers may read (products, prices, promotions) use TP fo
 and TI for writes. Children of customer-visible parents (sale lines, payments, receipts) add
 a CO path through `exists (…parent…)`.
 
-Every table in `app` and `biometric` has RLS enabled. A test enforces this.
+Every table in `app`, `app_private` and `biometric` has RLS enabled. A test enforces this.
 
 ## 4. Integrity conventions
 
@@ -440,8 +451,9 @@ Every table in `app` and `biometric` has RLS enabled. A test enforces this.
     discounts, tax, returns, net revenue, average basket.
   - `analytics.product_sales_daily`.
   - `analytics.stock_on_hand`: quantity and batch-cost value.
-  - The backend runs LLM SQL as `market_ai_reader` in a read-only transaction with a short
-    statement timeout. RLS still filters to the caller's tenant and branches (addendum §3.3).
+  - The backend runs LLM SQL through `analytics.run_query` (§3.2) in a read-only transaction
+    with a short statement timeout. RLS still filters to the caller's tenant and branches
+    (addendum §3.3), and the sealed context (§3.3) stops the SQL from rewriting them.
 
 ### 5.11 Face Pay (optional stage 5)
 

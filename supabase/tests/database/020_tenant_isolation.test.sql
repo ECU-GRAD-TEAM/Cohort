@@ -76,10 +76,10 @@ select app.set_context(p_tenant_id => 'aaaaaaaa-0000-0000-0000-000000000000',
 select is((select count(*)::int from app.branches), 1, 'Alpha owner sees its single store');
 select is((select count(*)::int from app.pos_devices), 1, 'Alpha owner sees its single till');
 
--- A malformed context value fails closed instead of matching anything
-select set_config('app.current_tenant_id', 'not-a-uuid', true);
-select throws_ok($$ select count(*) from app.branches $$, '22P02', null,
-  'a malformed tenant id raises instead of leaking rows');
+-- A context value written around set_context is rejected instead of trusted
+select set_config('app.current_tenant_id', 'bbbbbbbb-0000-0000-0000-000000000000', true);
+select throws_ok($$ select count(*) from app.branches $$, '42501', null,
+  'another tenant''s id written with set_config raises instead of switching tenant');
 
 reset role;
 select is((select name from app.branches where id = 'aaaaaaaa-0002-0000-0000-000000000001'), 'Alpha Maadi',
