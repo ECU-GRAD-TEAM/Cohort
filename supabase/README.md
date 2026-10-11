@@ -110,14 +110,23 @@ The migrations create all four roles without login. No password is stored in thi
    `auth_user_id` is the `sub` claim of the Supabase Auth access token. Verify the token's
    signature in the backend before trusting it; Supabase's
    [JWT guide](https://supabase.com/docs/guides/auth/jwts) shows how.
-6. **Till uploads are idempotent.** POS events go into `app.sync_events`. Each event's `id` is
+6. **Check permissions before business writes.** Call
+   `app.has_permission(permission, branch_id)` before every sale void, refund, price change,
+   promotion and so on: row level security enforces tenant and branch boundaries, not each
+   role's permissions. The database does enforce authority over the business itself. Changing
+   tenant settings, regions or branches needs `BRANCH_MANAGE` tenant-wide, and loss-prevention
+   thresholds need `FRAUD_REVIEW` tenant-wide. Staff accounts need `STAFF_MANAGE` over every
+   branch the person works in. Role grants need `STAFF_MANAGE` over the assignment's scope plus
+   every permission of the granted role. So a missing check in the backend can never let
+   someone raise their own power or take over another account.
+7. **Till uploads are idempotent.** POS events go into `app.sync_events`. Each event's `id` is
    the UUID the till generated, and each till numbers its events with `sequence_no`. Insert with
    `on conflict (id) do nothing` so a retry never duplicates an event.
-7. **Pass embeddings as parameters.** Send a vector as its text form, for example
+8. **Pass embeddings as parameters.** Send a vector as its text form, for example
    `'[0.12,-0.03,…]'`, in a query parameter without a cast. The app roles may have no access to
    the `extensions` schema, so `$2::extensions.vector` can fail where
    `app.kb_hybrid_search($1, $2, 8)` works.
-8. **Run LLM-generated SQL only through `analytics.run_query`**, in its own read-only
+9. **Run LLM-generated SQL only through `analytics.run_query`**, in its own read-only
    transaction, and accept only a single `SELECT` statement from the model:
 
    ```sql
@@ -301,6 +310,7 @@ Supabase project already has: the API roles and the `extensions` schema.
 | `010_security_baseline` | schemas, roles and grants; the API roles are locked out |
 | `020_tenant_isolation`, `021_context_autocommit` | tenants never see each other; the context dies with its transaction |
 | `030_hierarchy_rbac` | owner, regional manager and branch reach; branch-scoped permissions |
+| `031_management_writes` | who may grant roles, manage staff and configure the market |
 | `040_catalog` | products, GS1 barcodes, branch prices |
 | `050_inventory_ledger` | double-entry stock moves, derived levels, FEFO, the transit expiry guard |
 | `060_promotions` | mechanics, targeting, rule-set checksums, coupons |

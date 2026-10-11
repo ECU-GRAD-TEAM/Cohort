@@ -220,7 +220,7 @@ insert into app.permissions (code, description) values
   ('PROMOTION_MANAGE',   'Create and publish promotions'),
   ('LOYALTY_MANAGE',     'Manage loyalty members and points'),
   ('STAFF_MANAGE',       'Invite staff and assign roles'),
-  ('BRANCH_MANAGE',      'Create and configure regions and branches'),
+  ('BRANCH_MANAGE',      'Configure the market, its regions and branches'),
   ('DEVICE_MANAGE',      'Register and retire tills'),
   ('REPORT_VIEW',        'See sales and stock reports'),
   ('AUDIT_VIEW',         'Read the audit trail'),
@@ -410,6 +410,46 @@ as $$
               end)
 $$;
 
+-- Granting is bounded by the grantor's own power (spec §3.4): STAFF_MANAGE over the
+-- assignment's scope, and every permission of the granted role held there too. Region and
+-- tenant assignments need tenant-wide authority.
+create function app.can_grant(p_role_id uuid, p_scope text, p_branch_id uuid) returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select case when p_scope = 'branch' then
+           app.has_permission('STAFF_MANAGE', p_branch_id)
+           and not exists (select 1 from app.role_permissions rp
+                            where rp.role_id = p_role_id
+                              and not app.has_permission(rp.permission_code, p_branch_id))
+         else
+           app.has_permission('STAFF_MANAGE')
+           and not exists (select 1 from app.role_permissions rp
+                            where rp.role_id = p_role_id
+                              and not app.has_permission(rp.permission_code))
+         end
+$$;
+
+-- Managing a staff account (login, PIN, badge, active flag) needs STAFF_MANAGE over every
+-- branch the person works in: tenant-wide authority for anyone, regional or branch authority
+-- only for staff whose assignments all sit inside it (new staff have none yet).
+create function app.can_manage_staff(p_staff_id uuid) returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select app.has_permission('STAFF_MANAGE')
+      or (exists (select 1 from app.branches b
+                   where b.tenant_id = app.current_tenant_id()
+                     and app.has_permission('STAFF_MANAGE', b.id))
+          and not exists (select 1 from app.staff_assignments sa
+                           where sa.staff_id = p_staff_id and sa.revoked_at is null
+                             and (sa.scope <> 'branch' or not app.has_permission('STAFF_MANAGE', sa.branch_id))))
+$$;
+
 -- ---------------------------------------------------------------------------
 -- Lookups the backend needs before a context exists
 -- ---------------------------------------------------------------------------
@@ -556,43 +596,85 @@ alter table app.pos_device_secrets enable row level security;
 
 create policy tenants_read on app.tenants for select
   using (id = (select app.current_tenant_id()));
+-- Role checks are the backend's job (spec §3.4), except authority over the business itself:
+-- tenant and branch configuration, staff accounts and role grants are enforced here, so a
+-- backend bug cannot let staff escalate their own power or take over someone else's account.
 create policy tenants_update on app.tenants for update
-  using (id = (select app.current_tenant_id()) and (select app.is_internal()))
-  with check (id = (select app.current_tenant_id()) and (select app.is_internal()));
+  using (id = (select app.current_tenant_id()) and (select app.has_permission('BRANCH_MANAGE')))
+  with check (id = (select app.current_tenant_id()) and (select app.has_permission('BRANCH_MANAGE')));
 
-create policy regions_internal on app.regions for all
-  using (tenant_id = (select app.current_tenant_id()) and (select app.is_internal()))
-  with check (tenant_id = (select app.current_tenant_id()) and (select app.is_internal()));
+create policy regions_read on app.regions for select
+  using (tenant_id = (select app.current_tenant_id()) and (select app.is_internal()));
+create policy regions_insert on app.regions for insert
+  with check (tenant_id = (select app.current_tenant_id()) and (select app.has_permission('BRANCH_MANAGE')));
+create policy regions_update on app.regions for update
+  using (tenant_id = (select app.current_tenant_id()) and (select app.has_permission('BRANCH_MANAGE')))
+  with check (tenant_id = (select app.current_tenant_id()) and (select app.has_permission('BRANCH_MANAGE')));
+create policy regions_delete on app.regions for delete
+  using (tenant_id = (select app.current_tenant_id()) and (select app.has_permission('BRANCH_MANAGE')));
 
 create policy branches_read on app.branches for select
   using (tenant_id = (select app.current_tenant_id()));
-create policy branches_write on app.branches for all
-  using (tenant_id = (select app.current_tenant_id()) and (select app.is_internal()))
-  with check (tenant_id = (select app.current_tenant_id()) and (select app.is_internal()));
+create policy branches_insert on app.branches for insert
+  with check (tenant_id = (select app.current_tenant_id()) and (select app.has_permission('BRANCH_MANAGE')));
+create policy branches_update on app.branches for update
+  using (tenant_id = (select app.current_tenant_id()) and (select app.has_permission('BRANCH_MANAGE')))
+  with check (tenant_id = (select app.current_tenant_id()) and (select app.has_permission('BRANCH_MANAGE')));
+create policy branches_delete on app.branches for delete
+  using (tenant_id = (select app.current_tenant_id()) and (select app.has_permission('BRANCH_MANAGE')));
 
-create policy staff_internal on app.staff for all
-  using (tenant_id = (select app.current_tenant_id()) and (select app.is_internal()))
-  with check (tenant_id = (select app.current_tenant_id()) and (select app.is_internal()));
+create policy staff_read on app.staff for select
+  using (tenant_id = (select app.current_tenant_id()) and (select app.is_internal()));
+create policy staff_insert on app.staff for insert
+  with check (tenant_id = (select app.current_tenant_id()) and app.can_manage_staff(id));
+create policy staff_update on app.staff for update
+  using (tenant_id = (select app.current_tenant_id()) and app.can_manage_staff(id))
+  with check (tenant_id = (select app.current_tenant_id()) and app.can_manage_staff(id));
+create policy staff_delete on app.staff for delete
+  using (tenant_id = (select app.current_tenant_id()) and app.can_manage_staff(id));
 
 create policy permissions_read on app.permissions for select using (true);
 
 create policy roles_read on app.roles for select
   using ((select app.is_internal()) and (tenant_id is null or tenant_id = (select app.current_tenant_id())));
-create policy roles_write on app.roles for all
-  using (tenant_id = (select app.current_tenant_id()) and (select app.is_internal()))
-  with check (tenant_id = (select app.current_tenant_id()) and (select app.is_internal()));
+create policy roles_insert on app.roles for insert
+  with check (tenant_id = (select app.current_tenant_id()) and (select app.has_permission('STAFF_MANAGE')));
+create policy roles_update on app.roles for update
+  using (tenant_id = (select app.current_tenant_id()) and (select app.has_permission('STAFF_MANAGE')))
+  with check (tenant_id = (select app.current_tenant_id()) and (select app.has_permission('STAFF_MANAGE')));
+create policy roles_delete on app.roles for delete
+  using (tenant_id = (select app.current_tenant_id()) and (select app.has_permission('STAFF_MANAGE')));
 
 create policy role_permissions_read on app.role_permissions for select
   using (exists (select 1 from app.roles r where r.id = role_id));
-create policy role_permissions_write on app.role_permissions for all
-  using (exists (select 1 from app.roles r
-                  where r.id = role_id and r.tenant_id = (select app.current_tenant_id())))
+-- A tenant role can only be given permissions its editor holds tenant-wide.
+create policy role_permissions_insert on app.role_permissions for insert
   with check (exists (select 1 from app.roles r
-                       where r.id = role_id and r.tenant_id = (select app.current_tenant_id())));
+                       where r.id = role_id and r.tenant_id = (select app.current_tenant_id()))
+              and (select app.has_permission('STAFF_MANAGE'))
+              and app.has_permission(permission_code));
+create policy role_permissions_update on app.role_permissions for update
+  using (exists (select 1 from app.roles r
+                  where r.id = role_id and r.tenant_id = (select app.current_tenant_id()))
+         and (select app.has_permission('STAFF_MANAGE')))
+  with check (exists (select 1 from app.roles r
+                       where r.id = role_id and r.tenant_id = (select app.current_tenant_id()))
+              and (select app.has_permission('STAFF_MANAGE'))
+              and app.has_permission(permission_code));
+create policy role_permissions_delete on app.role_permissions for delete
+  using (exists (select 1 from app.roles r
+                  where r.id = role_id and r.tenant_id = (select app.current_tenant_id()))
+         and (select app.has_permission('STAFF_MANAGE')));
 
-create policy staff_assignments_internal on app.staff_assignments for all
-  using (tenant_id = (select app.current_tenant_id()) and (select app.is_internal()))
-  with check (tenant_id = (select app.current_tenant_id()) and (select app.is_internal()));
+create policy staff_assignments_read on app.staff_assignments for select
+  using (tenant_id = (select app.current_tenant_id()) and (select app.is_internal()));
+create policy staff_assignments_insert on app.staff_assignments for insert
+  with check (tenant_id = (select app.current_tenant_id()) and app.can_grant(role_id, scope, branch_id));
+create policy staff_assignments_update on app.staff_assignments for update
+  using (tenant_id = (select app.current_tenant_id()) and app.can_grant(role_id, scope, branch_id))
+  with check (tenant_id = (select app.current_tenant_id()) and app.can_grant(role_id, scope, branch_id));
+create policy staff_assignments_delete on app.staff_assignments for delete
+  using (tenant_id = (select app.current_tenant_id()) and app.can_grant(role_id, scope, branch_id));
 
 create policy customers_self on app.customers for select
   using (id = (select app.current_customer_id()));

@@ -159,7 +159,16 @@ branch cannot widen access.
 true when the current staff member holds an active assignment whose role grants the
 permission and whose scope covers `p_branch_id`. A NULL branch requires `tenant` scope. At a
 device, `p_branch_id` must also be the device's branch. The backend uses it for role checks;
-RLS only enforces tenant and branch boundaries.
+RLS enforces tenant and branch boundaries, plus authority over the business itself, so a
+backend bug cannot let staff raise their own power or take over another account:
+
+- tenant settings, regions and branches: `BRANCH_MANAGE` tenant-wide;
+- loss-prevention thresholds: `FRAUD_REVIEW` tenant-wide;
+- staff accounts: `STAFF_MANAGE` over every branch the person works in
+  (`app.can_manage_staff`);
+- role assignments: `STAFF_MANAGE` over the assignment's scope plus every permission of the
+  granted role (`app.can_grant`; region and tenant scopes need tenant-wide authority);
+- tenant roles: `STAFF_MANAGE` tenant-wide, and only permissions the editor holds tenant-wide.
 
 System roles, seeded by migration and shared by all tenants:
 

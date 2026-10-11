@@ -34,7 +34,7 @@ select throws_ok(
      values ('bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0003-0000-0000-000000000005',
              (select id from app.roles where code = 'cashier' and tenant_id is null),
              'branch', 'aaaaaaaa-0002-0000-0000-000000000001') $$,
-  '23503', null, 'an assignment cannot point at another tenant''s branch');
+  '42501', null, 'an assignment cannot point at another tenant''s branch');
 
 update app.branches set name = 'Hijacked' where id = 'aaaaaaaa-0002-0000-0000-000000000001';
 

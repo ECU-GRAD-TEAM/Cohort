@@ -321,9 +321,17 @@ $$;
 alter table app.loss_prevention_settings enable row level security;
 alter table app.fraud_flags enable row level security;
 
-create policy loss_prevention_settings_internal on app.loss_prevention_settings for all
-  using (tenant_id = (select app.current_tenant_id()) and (select app.is_internal()))
-  with check (tenant_id = (select app.current_tenant_id()) and (select app.is_internal()));
+-- Thresholds are tenant-wide, so changing them needs tenant-wide FRAUD_REVIEW: a cashier must
+-- not be able to switch off the rules that watch its own till.
+create policy loss_prevention_settings_read on app.loss_prevention_settings for select
+  using (tenant_id = (select app.current_tenant_id()) and (select app.is_internal()));
+create policy loss_prevention_settings_insert on app.loss_prevention_settings for insert
+  with check (tenant_id = (select app.current_tenant_id()) and (select app.has_permission('FRAUD_REVIEW')));
+create policy loss_prevention_settings_update on app.loss_prevention_settings for update
+  using (tenant_id = (select app.current_tenant_id()) and (select app.has_permission('FRAUD_REVIEW')))
+  with check (tenant_id = (select app.current_tenant_id()) and (select app.has_permission('FRAUD_REVIEW')));
+create policy loss_prevention_settings_delete on app.loss_prevention_settings for delete
+  using (tenant_id = (select app.current_tenant_id()) and (select app.has_permission('FRAUD_REVIEW')));
 
 create policy fraud_flags_branch on app.fraud_flags for all
   using (tenant_id = (select app.current_tenant_id())
