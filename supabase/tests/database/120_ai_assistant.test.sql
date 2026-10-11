@@ -2,7 +2,7 @@
 -- hybrid keyword + vector search with RRF, plus the forecasting tables it reports on.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(20);
+select plan(24);
 
 -- Deterministic embeddings: one-hot vectors, so cosine distances are 0 (same) or 1 (orthogonal)
 create temp table onehot as
@@ -131,6 +131,35 @@ select lives_ok(
      values ('bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0002-0000-0000-000000000001',
              'bbbbbbbb-0005-0000-0000-000000000001', 3, 27.92, 132.92) $$,
   'a forecasting job can store a dynamic reorder point');
+
+-- Supabase may not let the backend use the extensions schema directly: retrieval must still
+-- work (and stay isolated) for a role without USAGE on it. Results are captured as the app
+-- role and asserted as the owner, because pgTAP itself lives in extensions.
+reset role;
+revoke usage on schema extensions
+  from public, market_backend, market_ai_reader, market_analytics_owner, market_biometric;
+set local role market_backend;
+select app.set_context(p_tenant_id   => 'bbbbbbbb-0000-0000-0000-000000000000',
+                       p_customer_id => 'cccccccc-0007-0000-0000-000000000001');
+create temp table shopper_hits as
+  select chunk_id from app.kb_hybrid_search('returns receipt', (select v from onehot where i = 1), 10);
+select app.set_context(p_tenant_id => 'bbbbbbbb-0000-0000-0000-000000000000',
+                       p_staff_id  => 'bbbbbbbb-0003-0000-0000-000000000001');
+create temp table staff_hits as
+  select chunk_id from app.kb_hybrid_search('net revenue', (select v from onehot where i = 3), 10);
+select app.set_context();
+create temp table no_context_hits as
+  select chunk_id from app.kb_hybrid_search('returns receipt', (select v from onehot where i = 1), 10);
+reset role;
+select is((select chunk_id from shopper_hits limit 1), 'bbbbbbbb-00e1-0000-0000-000000000001'::uuid,
+  'retrieval works for a backend without USAGE on the extensions schema');
+select is((select count(*)::int from shopper_hits
+            where chunk_id in ('aaaaaaaa-00e1-0000-0000-000000000001', 'bbbbbbbb-00e1-0000-0000-000000000003',
+                               'bbbbbbbb-00e1-0000-0000-000000000004')),
+  0, 'without RLS help, the shopper still gets only published public Nile chunks');
+select ok((select bool_or(chunk_id = 'bbbbbbbb-00e1-0000-0000-000000000003') from staff_hits),
+  'staff still retrieve admin chunks of their own tenant');
+select is((select count(*)::int from no_context_hits), 0, 'with no request context, retrieval returns nothing');
 
 select * from finish();
 rollback;

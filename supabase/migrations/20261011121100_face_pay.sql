@@ -93,6 +93,8 @@ create index face_templates_embedding_idx on biometric.face_templates using hnsw
 create index face_templates_subject_idx on biometric.face_templates (subject_token);
 
 -- 1:K match: nearest templates, accepted at squared L2 distance <= 1.10 (proposal §6.2).
+-- Security definer because pgvector's operators live in the extensions schema, which Supabase
+-- may not let postgres open to market_biometric.
 create function biometric.match_face(
   p_embedding            extensions.vector(128),
   p_max_squared_distance float8 default 1.10,
@@ -100,12 +102,13 @@ create function biometric.match_face(
 ) returns table (subject_token text, squared_distance float8)
 language sql
 stable
-set search_path = pg_catalog, extensions
+security definer
+set search_path = ''
 as $$
   select m.subject_token, m.distance * m.distance
-    from (select t.subject_token, t.embedding <-> p_embedding as distance
+    from (select t.subject_token, t.embedding operator(extensions.<->) p_embedding as distance
             from biometric.face_templates t
-           order by t.embedding <-> p_embedding
+           order by t.embedding operator(extensions.<->) p_embedding
            limit p_limit) m
    where m.distance * m.distance <= p_max_squared_distance
    order by m.distance

@@ -33,13 +33,17 @@ begin
 end $$;
 
 grant market_ai_reader to market_backend;
+-- On Supabase the migrating role (postgres) is not a superuser: it needs membership to hand
+-- objects to these roles and to SET ROLE into them for tests (Supabase docs: grant the
+-- custom role to postgres).
+grant market_backend, market_ai_reader, market_analytics_owner, market_biometric to current_user;
 
 revoke all on schema app, analytics, biometric from public;
 grant usage on schema app to market_backend, market_analytics_owner;
 grant usage on schema analytics to market_ai_reader;
 grant usage on schema biometric to market_biometric;
-grant usage on schema extensions
-  to market_backend, market_ai_reader, market_analytics_owner, market_biometric;
+-- No grant on the extensions schema: Supabase may not let postgres give it away, so code that
+-- needs pgvector's operators runs as security definer instead.
 
 -- Supabase's API roles must never reach these schemas, whatever the project defaults are.
 do $$

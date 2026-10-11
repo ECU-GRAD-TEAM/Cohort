@@ -2,7 +2,7 @@
 -- separate schema only the matching service can touch (PDPL Law 151/2020), limits at checkout.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(15);
+select plan(16);
 
 -- Fixtures (as the table owner)
 create temp table probe as
@@ -102,6 +102,17 @@ select is(biometric.delete_subject(lpad('a1', 64, '0')), 1, 'erasing a subject r
 select is_empty($$ select * from biometric.match_face((select mona from probe)) $$,
   'an erased face no longer matches');
 reset role;
+
+-- Matching must not depend on USAGE on the extensions schema (Supabase may not let postgres
+-- grant it). The result is captured as the service role and asserted as the owner, because
+-- pgTAP itself lives in extensions.
+revoke usage on schema extensions
+  from public, market_backend, market_ai_reader, market_analytics_owner, market_biometric;
+set local role market_biometric;
+create temp table restricted_match as select subject_token from biometric.match_face((select karim from probe));
+reset role;
+select is((select subject_token from restricted_match), lpad('a2', 64, '0'),
+  'matching works for a service role without USAGE on the extensions schema');
 
 select * from finish();
 rollback;

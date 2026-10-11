@@ -97,8 +97,10 @@ create trigger kb_documents_updated_at before update on app.kb_documents
   for each row execute function app.set_updated_at();
 
 -- Hybrid retrieval: keyword (ts_rank_cd) and vector (cosine) rankings fused with RRF.
--- Security invoker, so RLS applies; the tenant filter also sits inside the query itself
--- (the addendum's "mandatory metadata pre-filter").
+-- Security definer: pgvector's operators live in the extensions schema, which Supabase may not
+-- let postgres open to the app roles. Running as the owner also bypasses RLS, so tenant,
+-- audience and publication are enforced in the query itself (the addendum's "mandatory
+-- metadata pre-filter"), and only market_backend may execute it.
 create function app.kb_hybrid_search(
   p_query_text       text,
   p_query_embedding  extensions.vector(1024),
@@ -110,13 +112,15 @@ create function app.kb_hybrid_search(
 ) returns table (chunk_id uuid, document_id uuid, content text, score float8)
 language sql
 stable
-set search_path = pg_catalog, extensions
+security definer
+set search_path = ''
 as $$
   with candidates as (
     select c.id, c.document_id, c.content, c.fts, c.embedding, c.language
       from app.kb_chunks c
       join app.kb_documents d on d.id = c.document_id
-     where c.tenant_id = app.current_tenant_id()
+     where c.tenant_id = (select app.current_tenant_id())
+       and ((select app.is_internal()) or c.audience = 'public')
        and (p_audience is null or c.audience = p_audience)
        and d.status = 'published'
        and (d.effective_from is null or d.effective_from <= current_date)
@@ -136,7 +140,7 @@ as $$
      limit least(p_match_count, 30) * 2
   ),
   semantic as (
-    select c.id, row_number() over (order by c.embedding <=> p_query_embedding, c.id) as rank_ix
+    select c.id, row_number() over (order by c.embedding operator(extensions.<=>) p_query_embedding, c.id) as rank_ix
       from candidates c
      where c.embedding is not null
      order by rank_ix

@@ -4,8 +4,6 @@
 -- not the owner of the base tables, so row level security still filters every row by the
 -- caller's tenant and branch reach.
 
-grant market_analytics_owner to current_user;
-
 grant select on app.sales, app.sale_lines, app.branches, app.products,
                 app.stock_levels, app.stock_locations, app.stock_batches
   to market_analytics_owner;
