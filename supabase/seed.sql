@@ -112,3 +112,37 @@ insert into app.product_barcodes (tenant_id, product_id, barcode, kind) values
 
 insert into app.branch_prices (tenant_id, branch_id, product_id, price) values
   ('bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0002-0000-0000-000000000002', 'bbbbbbbb-0005-0000-0000-000000000002', 95.00);
+
+-- ---------------------------------------------------------------------------
+-- Inventory: suppliers, batches and opening stock (through the ledger)
+-- ---------------------------------------------------------------------------
+insert into app.suppliers (id, tenant_id, name, lead_time_days, lead_time_stddev_days) values
+  ('aaaaaaaa-0008-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000000', 'Maadi Wholesale',          2, 0.5),
+  ('bbbbbbbb-0008-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000000', 'Cairo Foods Distribution', 3, 1.0);
+
+insert into app.supplier_products (tenant_id, supplier_id, product_id, pack_size, min_order_quantity, unit_cost) values
+  ('bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0008-0000-0000-000000000001', 'bbbbbbbb-0005-0000-0000-000000000001', 12, 24, 24.00),
+  ('bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0008-0000-0000-000000000001', 'bbbbbbbb-0005-0000-0000-000000000002',  4,  8, 70.00);
+
+insert into app.stock_batches (id, tenant_id, product_id, supplier_id, batch_code, expiry_date, unit_cost, received_at) values
+  ('aaaaaaaa-0006-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0005-0000-0000-000000000002', 'aaaaaaaa-0008-0000-0000-000000000001', 'W-2610', null,         5.5000, '2026-10-01 09:00+03'),
+  ('aaaaaaaa-0006-0000-0000-000000000002', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0005-0000-0000-000000000001', 'aaaaaaaa-0008-0000-0000-000000000001', 'M-2610', '2026-10-24', 25.0000, '2026-10-05 09:00+03'),
+  ('bbbbbbbb-0006-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0005-0000-0000-000000000002', 'bbbbbbbb-0008-0000-0000-000000000001', 'R-2609', null,         70.0000, '2026-09-28 09:00+03'),
+  ('bbbbbbbb-0006-0000-0000-000000000002', 'bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0005-0000-0000-000000000001', 'bbbbbbbb-0008-0000-0000-000000000001', 'M-2610A', '2026-10-25', 24.0000, '2026-10-04 09:00+03'),
+  ('bbbbbbbb-0006-0000-0000-000000000003', 'bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0005-0000-0000-000000000001', 'bbbbbbbb-0008-0000-0000-000000000001', 'M-2610B', '2026-11-05', 24.5000, '2026-10-08 09:00+03'),
+  ('bbbbbbbb-0006-0000-0000-000000000004', 'bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0005-0000-0000-000000000001', 'bbbbbbbb-0008-0000-0000-000000000001', 'M-2610C', '2026-10-30', 24.0000, '2026-10-06 09:00+03');
+
+insert into app.stock_moves (tenant_id, product_id, batch_id, from_location_id, from_branch_id,
+                             to_location_id, to_branch_id, quantity, move_type, occurred_at)
+select b.tenant_id, b.product_id, b.id,
+       app.location_id(r.branch_id, 'supplier'), r.branch_id,
+       app.location_id(r.branch_id, 'storage'), r.branch_id,
+       r.quantity, 'receipt', b.received_at
+  from (values ('aaaaaaaa-0006-0000-0000-000000000001'::uuid, 'aaaaaaaa-0002-0000-0000-000000000001'::uuid, 100),
+               ('aaaaaaaa-0006-0000-0000-000000000002',       'aaaaaaaa-0002-0000-0000-000000000001',        40),
+               ('bbbbbbbb-0006-0000-0000-000000000001',       'bbbbbbbb-0002-0000-0000-000000000001',        50),
+               ('bbbbbbbb-0006-0000-0000-000000000002',       'bbbbbbbb-0002-0000-0000-000000000004',       120),
+               ('bbbbbbbb-0006-0000-0000-000000000003',       'bbbbbbbb-0002-0000-0000-000000000004',       120),
+               ('bbbbbbbb-0006-0000-0000-000000000004',       'bbbbbbbb-0002-0000-0000-000000000001',        30)
+       ) as r (batch_id, branch_id, quantity)
+  join app.stock_batches b on b.id = r.batch_id;
