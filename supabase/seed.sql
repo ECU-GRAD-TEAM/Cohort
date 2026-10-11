@@ -1,0 +1,8 @@
+-- Demo and test data: two canary tenants with fixed, readable UUIDs.
+--   aaaaaaaa-…  Alpha Mini Market (one store, no regions)
+--   bbbbbbbb-…  Nile Hypermarket (Cairo + Alexandria regions, 3 stores, 1 warehouse)
+--   cccccccc-…  global shoppers
+-- UUID layout: TTTTTTTT-EEEE-0000-0000-00000000000N, EEEE = entity type
+--   0000 tenant, 0001 region, 0002 branch, 0003 staff, 0004 device, 0005 product,
+--   0006 batch, 0007 customer, 0008 supplier, 0009 category.
+-- Loaded by `supabase db reset` and scripts/db-test.sh. Never load it into production.
