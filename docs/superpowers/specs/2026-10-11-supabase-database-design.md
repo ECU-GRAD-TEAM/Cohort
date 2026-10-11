@@ -174,7 +174,7 @@ Policies wrap context calls in `(select …)` so Postgres evaluates them once pe
 |---|---|
 | **TP** tenant, any context (storefront-readable) | `tenant_id = (select app.current_tenant_id())` |
 | **TI** tenant, internal only | TP `and (select app.is_internal())` |
-| **BI** branch-scoped internal | TP `and branch_id = any ((select app.accessible_branch_ids()))` |
+| **BI** branch-scoped internal | TP `and branch_id = any ((select app.accessible_branch_ids())::uuid[])` |
 | **CO** customer-owned | `customer_id = (select app.current_customer_id())` |
 
 Reference tables that shoppers may read (products, prices, promotions) use TP for `SELECT`
