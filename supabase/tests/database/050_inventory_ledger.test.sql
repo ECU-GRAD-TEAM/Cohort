@@ -1,7 +1,7 @@
 -- Double-entry stock ledger (ADR-005): locations, batches, FEFO, transfers, oversells.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(28);
+select plan(30);
 
 set local role market_backend;
 select app.set_context(p_tenant_id => 'bbbbbbbb-0000-0000-0000-000000000000',
@@ -120,6 +120,29 @@ select is((select quantity from app.stock_levels
             where location_id = app.location_id('bbbbbbbb-0002-0000-0000-000000000002', 'storage')
               and batch_id = 'bbbbbbbb-0006-0000-0000-000000000001'),
   10.000, 'the receiving branch gains what was dispatched');
+
+-- A receipt can only bring in what its transfer dispatched (REQ-INVN-01)
+select throws_ok(
+  $$ insert into app.stock_moves (tenant_id, product_id, batch_id, from_location_id, from_branch_id,
+                                  to_location_id, to_branch_id, quantity, move_type, reference_type, reference_id)
+     values ('bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0005-0000-0000-000000000002',
+             'bbbbbbbb-0006-0000-0000-000000000001',
+             app.location_id('bbbbbbbb-0002-0000-0000-000000000001', 'transit'), 'bbbbbbbb-0002-0000-0000-000000000001',
+             app.location_id('bbbbbbbb-0002-0000-0000-000000000002', 'storage'), 'bbbbbbbb-0002-0000-0000-000000000002',
+             1, 'transfer_receive', 'transfer', 'bbbbbbbb-00f0-0000-0000-000000000001') $$,
+  'P0001', null, 'a transfer cannot deliver more than it dispatched');
+insert into app.stock_transfers (id, tenant_id, from_branch_id, to_branch_id, expected_arrival_at) values
+  ('bbbbbbbb-00f0-0000-0000-000000000003', 'bbbbbbbb-0000-0000-0000-000000000000',
+   'bbbbbbbb-0002-0000-0000-000000000003', 'bbbbbbbb-0002-0000-0000-000000000002', now() + interval '1 day');
+select throws_ok(
+  $$ insert into app.stock_moves (tenant_id, product_id, batch_id, from_location_id, from_branch_id,
+                                  to_location_id, to_branch_id, quantity, move_type, reference_type, reference_id)
+     values ('bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0005-0000-0000-000000000002',
+             'bbbbbbbb-0006-0000-0000-000000000001',
+             app.location_id('bbbbbbbb-0002-0000-0000-000000000003', 'transit'), 'bbbbbbbb-0002-0000-0000-000000000003',
+             app.location_id('bbbbbbbb-0002-0000-0000-000000000002', 'storage'), 'bbbbbbbb-0002-0000-0000-000000000002',
+             500, 'transfer_receive', 'transfer', 'bbbbbbbb-00f0-0000-0000-000000000003') $$,
+  'P0001', null, 'a transfer that dispatched nothing cannot deliver anything');
 
 -- 48-hour guard on perishable transfers (REQ-INV-03), judged in the destination's time zone
 insert into app.stock_transfers (id, tenant_id, from_branch_id, to_branch_id, expected_arrival_at) values

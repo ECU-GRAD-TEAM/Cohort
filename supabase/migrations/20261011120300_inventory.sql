@@ -267,6 +267,7 @@ declare
   v_transfer    record;
   v_expiry      date;
   v_cutoff      date;
+  v_in_transit  numeric;
 begin
   select l.kind into v_from_kind from app.stock_locations l where l.id = new.from_location_id;
   select l.kind into v_to_kind from app.stock_locations l where l.id = new.to_location_id;
@@ -286,15 +287,33 @@ begin
   end if;
 
   if new.move_type in ('transfer_dispatch', 'transfer_receive') then
+    -- Locking the transfer serialises its legs, so concurrent receipts cannot both pass the
+    -- in-transit check below.
     select t.* into v_transfer
       from app.stock_transfers t
-     where t.id = new.reference_id and new.reference_type = 'transfer' and t.tenant_id = new.tenant_id;
+     where t.id = new.reference_id and new.reference_type = 'transfer' and t.tenant_id = new.tenant_id
+       for update;
     if not found then
       raise exception '% moves must reference their transfer', new.move_type;
     end if;
     if v_transfer.from_branch_id <> new.from_branch_id
        or (new.move_type = 'transfer_receive' and v_transfer.to_branch_id <> new.to_branch_id) then
       raise exception 'move does not match the branches of transfer %', v_transfer.id;
+    end if;
+
+    -- A receipt can only bring in what this transfer dispatched and has not yet delivered,
+    -- batch by batch, so in transit = dispatched - received never goes negative (REQ-INVN-01).
+    if new.move_type = 'transfer_receive' then
+      select coalesce(sum(case m.move_type when 'transfer_dispatch' then m.quantity else -m.quantity end), 0)
+        into v_in_transit
+        from app.stock_moves m
+       where m.reference_type = 'transfer' and m.reference_id = v_transfer.id
+         and m.batch_id = new.batch_id
+         and m.move_type in ('transfer_dispatch', 'transfer_receive');
+      if new.quantity > v_in_transit then
+        raise exception 'transfer % has only % of batch % in transit, not %',
+          v_transfer.id, v_in_transit, new.batch_id, new.quantity;
+      end if;
     end if;
 
     if new.move_type = 'transfer_dispatch' then
