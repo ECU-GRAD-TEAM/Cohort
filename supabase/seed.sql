@@ -4,7 +4,8 @@
 --   cccccccc-…  global shoppers
 -- UUID layout: TTTTTTTT-EEEE-0000-0000-00000000000N, EEEE = entity type
 --   0000 tenant, 0001 region, 0002 branch, 0003 staff, 0004 device, 0005 product,
---   0006 batch, 0007 customer, 0008 supplier, 0009 category, 000a promotion, 000b coupon.
+--   0006 batch, 0007 customer, 0008 supplier, 0009 category, 000a promotion, 000b coupon,
+--   000c loyalty programme, 000d loyalty account.
 -- Tests create their own rows under 00f0/…-0000000000xN so they never collide with this seed.
 -- Loaded by `supabase db reset` and scripts/db-test.sh. Never load it into production.
 
@@ -162,3 +163,20 @@ insert into app.promotions (id, tenant_id, name_en, name_ar, mechanic, rule, sta
 insert into app.coupons (id, tenant_id, promotion_id, code, customer_id, max_redemptions, per_customer_limit) values
   ('bbbbbbbb-000b-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-000a-0000-0000-000000000002', 'SAVE5',      null,                                   null, 1),
   ('bbbbbbbb-000b-0000-0000-000000000002', 'bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-000a-0000-0000-000000000002', 'MONA-REWARD', 'cccccccc-0007-0000-0000-000000000001', 1,    1);
+
+-- ---------------------------------------------------------------------------
+-- Loyalty: Mona belongs to both markets, Karim only to Nile
+-- ---------------------------------------------------------------------------
+insert into app.loyalty_programs (id, tenant_id, name_en, name_ar, points_per_egp, egp_per_point, points_expiry_days, tiers) values
+  ('aaaaaaaa-000c-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000000', 'Alpha Points', 'نقاط ألفا', 1, 0.05, 365, '[]'),
+  ('bbbbbbbb-000c-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000000', 'Nile Rewards', 'مكافآت النيل', 1, 0.05, 365,
+   '[{"code": "silver", "min_points": 0}, {"code": "gold", "min_points": 2000}]');
+
+insert into app.loyalty_accounts (id, tenant_id, program_id, customer_id, card_number, tier) values
+  ('aaaaaaaa-000d-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-000c-0000-0000-000000000001', 'cccccccc-0007-0000-0000-000000000001', 'ALP-0001',  null),
+  ('bbbbbbbb-000d-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-000c-0000-0000-000000000001', 'cccccccc-0007-0000-0000-000000000001', 'NILE-0001', 'silver'),
+  ('bbbbbbbb-000d-0000-0000-000000000002', 'bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-000c-0000-0000-000000000001', 'cccccccc-0007-0000-0000-000000000002', 'NILE-0002', 'silver');
+
+insert into app.loyalty_ledger (tenant_id, account_id, customer_id, branch_id, entry_type, points, occurred_at) values
+  ('bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-000d-0000-0000-000000000001', 'cccccccc-0007-0000-0000-000000000001',
+   'bbbbbbbb-0002-0000-0000-000000000002', 'earn', 420, '2026-09-20 18:30+03');

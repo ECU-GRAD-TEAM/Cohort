@@ -202,7 +202,8 @@ create policy sales_branch on app.sales for all
   with check (tenant_id = (select app.current_tenant_id())
               and branch_id = any ((select app.accessible_branch_ids())::uuid[]));
 create policy sales_customer_read on app.sales for select
-  using (customer_id = (select app.current_customer_id()));
+  using (customer_id = (select app.current_customer_id())
+         and ((select app.current_tenant_id()) is null or tenant_id = (select app.current_tenant_id())));
 
 create policy sale_lines_branch on app.sale_lines for all
   using (tenant_id = (select app.current_tenant_id())

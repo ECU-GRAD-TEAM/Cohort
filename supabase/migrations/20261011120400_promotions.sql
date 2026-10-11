@@ -113,7 +113,8 @@ create policy coupons_internal on app.coupons for all
   using (tenant_id = (select app.current_tenant_id()) and (select app.is_internal()))
   with check (tenant_id = (select app.current_tenant_id()) and (select app.is_internal()));
 create policy coupons_personal on app.coupons for select
-  using (customer_id = (select app.current_customer_id()));
+  using (customer_id = (select app.current_customer_id())
+         and ((select app.current_tenant_id()) is null or tenant_id = (select app.current_tenant_id())));
 
 grant select, insert, update, delete on app.promotions, app.promotion_branches, app.coupons to market_backend;
 grant select, insert on app.promotion_rule_sets to market_backend;
