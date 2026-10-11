@@ -214,3 +214,126 @@ grant update (anchored_at, anchor_reference) on app.audit_checkpoints to market_
 
 revoke execute on all functions in schema app from public;
 grant execute on all functions in schema app to market_backend;
+
+-- ---------------------------------------------------------------------------
+-- Loss prevention: exception-based flags per cashier shift (T9 §4.3)
+-- ---------------------------------------------------------------------------
+
+create table app.loss_prevention_settings (
+  tenant_id                     uuid primary key references app.tenants (id),
+  unlinked_refund_amount        numeric(14,2) not null default 50.00 check (unlinked_refund_amount >= 0),
+  unlinked_refunds_per_hour     int not null default 3 check (unlinked_refunds_per_hour >= 0),
+  void_amount_per_shift         numeric(14,2) not null default 200.00 check (void_amount_per_shift >= 0),
+  manual_drawer_opens_per_shift int not null default 3 check (manual_drawer_opens_per_shift >= 0),
+  updated_at                    timestamptz not null default now()
+);
+comment on table app.loss_prevention_settings is 'Per-tenant thresholds. Without a row the research defaults apply.';
+
+create table app.fraud_flags (
+  id          uuid primary key default gen_random_uuid(),
+  tenant_id   uuid not null,
+  branch_id   uuid not null,
+  shift_id    uuid,
+  staff_id    uuid,
+  rule        text not null check (rule in ('UNLINKED_REFUND_AMOUNT', 'UNLINKED_REFUND_FREQUENCY', 'VOID_AMOUNT',
+                                            'POST_CLOSE_VOID', 'MANUAL_DRAWER_OPENS')),
+  severity    text not null check (severity in ('low', 'medium', 'high')),
+  subject_id  uuid not null,
+  details     jsonb not null default '{}' check (jsonb_typeof(details) = 'object'),
+  status      text not null default 'open' check (status in ('open', 'reviewed', 'dismissed', 'confirmed')),
+  detected_at timestamptz not null default now(),
+  reviewed_by uuid,
+  reviewed_at timestamptz,
+  review_note text,
+  unique (rule, subject_id),
+  foreign key (tenant_id, branch_id) references app.branches (tenant_id, id),
+  foreign key (tenant_id, shift_id) references app.cashier_shifts (tenant_id, id),
+  foreign key (tenant_id, staff_id) references app.staff (tenant_id, id),
+  foreign key (tenant_id, reviewed_by) references app.staff (tenant_id, id)
+);
+comment on column app.fraud_flags.subject_id is 'The sale (per-sale rules) or the shift (per-shift rules) the flag is about.';
+
+create trigger loss_prevention_settings_updated_at before update on app.loss_prevention_settings
+  for each row execute function app.set_updated_at();
+
+-- Evaluates one shift and stores new flags; already-raised flags are not repeated.
+create function app.detect_shift_exceptions(p_shift_id uuid) returns setof app.fraud_flags
+language sql
+as $$
+  with shift as (
+    select s.id, s.tenant_id, s.branch_id, s.staff_id from app.cashier_shifts s where s.id = p_shift_id
+  ),
+  cfg as (
+    select coalesce(lp.unlinked_refund_amount, 50.00)       as refund_amount,
+           coalesce(lp.unlinked_refunds_per_hour, 3)        as refunds_per_hour,
+           coalesce(lp.void_amount_per_shift, 200.00)       as void_amount,
+           coalesce(lp.manual_drawer_opens_per_shift, 3)    as drawer_opens
+      from shift
+      left join app.loss_prevention_settings lp on lp.tenant_id = shift.tenant_id
+  ),
+  unlinked as (
+    select s.id, s.grand_total, s.occurred_at
+      from app.sales s
+     where s.shift_id = p_shift_id and s.sale_type = 'return' and s.original_sale_id is null
+  ),
+  candidates as (
+    select 'UNLINKED_REFUND_AMOUNT'::text as rule, 'medium'::text as severity, u.id as subject_id,
+           jsonb_build_object('sale_id', u.id, 'amount', u.grand_total, 'threshold', cfg.refund_amount) as details
+      from unlinked u, cfg
+     where u.grand_total > cfg.refund_amount
+    union all
+    select 'UNLINKED_REFUND_FREQUENCY', 'high', p_shift_id,
+           jsonb_build_object('max_in_one_hour', max(w.n), 'threshold', max(cfg.refunds_per_hour))
+      from (select (select count(*) from unlinked u2
+                     where u2.occurred_at >= u1.occurred_at
+                       and u2.occurred_at < u1.occurred_at + interval '1 hour') as n
+              from unlinked u1) w, cfg
+    having max(w.n) > max(cfg.refunds_per_hour)
+    union all
+    select 'VOID_AMOUNT', 'medium', p_shift_id,
+           jsonb_build_object('voided_amount', v.total, 'threshold', cfg.void_amount)
+      from (select coalesce((select sum(s.grand_total) from app.sales s
+                              where s.shift_id = p_shift_id and s.status = 'voided'), 0)
+                 + coalesce((select sum(l.line_total) from app.sale_lines l join app.sales s on s.id = l.sale_id
+                              where s.shift_id = p_shift_id and s.status <> 'voided' and l.voided_at is not null), 0)
+                   as total) v, cfg
+     where v.total > cfg.void_amount
+    union all
+    select 'POST_CLOSE_VOID', 'high', s.id, jsonb_build_object('sale_id', s.id, 'amount', s.grand_total)
+      from app.sales s
+     where s.shift_id = p_shift_id and s.status = 'voided'
+       and exists (select 1 from app.sale_payments p where p.sale_id = s.id and p.method = 'cash')
+    union all
+    select 'MANUAL_DRAWER_OPENS', 'medium', p_shift_id,
+           jsonb_build_object('manual_opens', d.n, 'threshold', cfg.drawer_opens)
+      from (select count(*) as n from app.audit_log a
+             where a.shift_id = p_shift_id and a.event_type = 'DRAWER_OPEN'
+               and a.payload_json ->> 'reason' = 'manual') d, cfg
+     where d.n > cfg.drawer_opens
+  )
+  insert into app.fraud_flags (tenant_id, branch_id, shift_id, staff_id, rule, severity, subject_id, details)
+  select shift.tenant_id, shift.branch_id, shift.id, shift.staff_id, c.rule, c.severity, c.subject_id, c.details
+    from candidates c, shift
+  on conflict (rule, subject_id) do nothing
+  returning *
+$$;
+
+alter table app.loss_prevention_settings enable row level security;
+alter table app.fraud_flags enable row level security;
+
+create policy loss_prevention_settings_internal on app.loss_prevention_settings for all
+  using (tenant_id = (select app.current_tenant_id()) and (select app.is_internal()))
+  with check (tenant_id = (select app.current_tenant_id()) and (select app.is_internal()));
+
+create policy fraud_flags_branch on app.fraud_flags for all
+  using (tenant_id = (select app.current_tenant_id())
+         and branch_id = any ((select app.accessible_branch_ids())::uuid[]))
+  with check (tenant_id = (select app.current_tenant_id())
+              and branch_id = any ((select app.accessible_branch_ids())::uuid[]));
+
+grant select, insert, update on app.loss_prevention_settings to market_backend;
+grant select, insert on app.fraud_flags to market_backend;
+grant update (status, reviewed_by, reviewed_at, review_note) on app.fraud_flags to market_backend;
+
+revoke execute on all functions in schema app from public;
+grant execute on all functions in schema app to market_backend;
