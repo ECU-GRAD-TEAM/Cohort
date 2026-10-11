@@ -82,3 +82,33 @@ insert into app.customers (id, auth_user_id, full_name, phone, email, preferred_
 
 insert into app.customer_payment_methods (customer_id, provider, provider_token, brand, last4, exp_month, exp_year, is_default) values
   ('cccccccc-0007-0000-0000-000000000001', 'paymob', 'tok_test_mona_visa', 'visa', '4242', 12, 2029, true);
+
+-- ---------------------------------------------------------------------------
+-- Catalog (prices are net of VAT, EGP)
+-- ---------------------------------------------------------------------------
+insert into app.product_categories (id, tenant_id, name_en, name_ar) values
+  ('aaaaaaaa-0009-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000000', 'Dairy',     'ألبان'),
+  ('aaaaaaaa-0009-0000-0000-000000000002', 'aaaaaaaa-0000-0000-0000-000000000000', 'Beverages', 'مشروبات'),
+  ('bbbbbbbb-0009-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000000', 'Dairy',     'ألبان'),
+  ('bbbbbbbb-0009-0000-0000-000000000002', 'bbbbbbbb-0000-0000-0000-000000000000', 'Pantry',    'بقالة'),
+  ('bbbbbbbb-0009-0000-0000-000000000003', 'bbbbbbbb-0000-0000-0000-000000000000', 'Produce',   'خضروات'),
+  ('bbbbbbbb-0009-0000-0000-000000000004', 'bbbbbbbb-0000-0000-0000-000000000000', 'Bakery',    'مخبوزات');
+
+insert into app.products (id, tenant_id, category_id, sku, name_en, name_ar, unit_of_measure, is_weighed, is_perishable, base_price, eta_item_code, eta_item_type) values
+  ('aaaaaaaa-0005-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0009-0000-0000-000000000001', 'ALP-MILK-1L',  'Fresh Milk 1L',    'لبن طازج ١ لتر',     'unit', false, true,  33.00, '06221000000010', 'GS1'),
+  ('aaaaaaaa-0005-0000-0000-000000000002', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0009-0000-0000-000000000002', 'ALP-WATER-15', 'Mineral Water 1.5L','مياه معدنية ١.٥ لتر', 'unit', false, false,  8.00, '06222000000017', 'GS1'),
+  ('bbbbbbbb-0005-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0009-0000-0000-000000000001', 'NIL-MILK-1L',  'Fresh Milk 1L',    'لبن طازج ١ لتر',     'unit', false, true,  32.00, '06221000000010', 'GS1'),
+  ('bbbbbbbb-0005-0000-0000-000000000002', 'bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0009-0000-0000-000000000002', 'NIL-RICE-5KG', 'Egyptian Rice 5kg','أرز مصري ٥ كجم',     'unit', false, false, 89.50, '06221000000027', 'GS1'),
+  ('bbbbbbbb-0005-0000-0000-000000000003', 'bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0009-0000-0000-000000000003', 'NIL-TOMATO',   'Tomatoes (per kg)','طماطم (بالكيلو)',    'kg',   true,  true,  18.00, 'EG-EGS-TOMATO',  'EGS'),
+  ('bbbbbbbb-0005-0000-0000-000000000004', 'bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0009-0000-0000-000000000004', 'NIL-BREAD',    'Baladi Bread x5',  'عيش بلدي ٥ أرغفة',   'unit', false, true,   5.00, '06221000000041', 'GS1');
+
+insert into app.product_barcodes (tenant_id, product_id, barcode, kind) values
+  ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0005-0000-0000-000000000001', '06221000000010', 'gtin'),
+  ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0005-0000-0000-000000000002', '06222000000017', 'gtin'),
+  ('bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0005-0000-0000-000000000001', '06221000000010', 'gtin'),
+  ('bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0005-0000-0000-000000000002', '06221000000027', 'gtin'),
+  ('bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0005-0000-0000-000000000003', '4087',           'plu'),
+  ('bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0005-0000-0000-000000000004', '06221000000041', 'gtin');
+
+insert into app.branch_prices (tenant_id, branch_id, product_id, price) values
+  ('bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0002-0000-0000-000000000002', 'bbbbbbbb-0005-0000-0000-000000000002', 95.00);
