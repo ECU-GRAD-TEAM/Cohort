@@ -4,7 +4,8 @@
 --   cccccccc-…  global shoppers
 -- UUID layout: TTTTTTTT-EEEE-0000-0000-00000000000N, EEEE = entity type
 --   0000 tenant, 0001 region, 0002 branch, 0003 staff, 0004 device, 0005 product,
---   0006 batch, 0007 customer, 0008 supplier, 0009 category.
+--   0006 batch, 0007 customer, 0008 supplier, 0009 category, 000a promotion, 000b coupon.
+-- Tests create their own rows under 00f0/…-0000000000xN so they never collide with this seed.
 -- Loaded by `supabase db reset` and scripts/db-test.sh. Never load it into production.
 
 -- ---------------------------------------------------------------------------
@@ -146,3 +147,18 @@ select b.tenant_id, b.product_id, b.id,
                ('bbbbbbbb-0006-0000-0000-000000000004',       'bbbbbbbb-0002-0000-0000-000000000001',        30)
        ) as r (batch_id, branch_id, quantity)
   join app.stock_batches b on b.id = r.batch_id;
+
+-- ---------------------------------------------------------------------------
+-- Promotions and coupons
+-- ---------------------------------------------------------------------------
+insert into app.promotions (id, tenant_id, name_en, name_ar, mechanic, rule, starts_at, ends_at) values
+  ('bbbbbbbb-000a-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000000', '3 milk for 90', '٣ لبن بـ ٩٠',
+   'multibuy', '{"product_ids": ["bbbbbbbb-0005-0000-0000-000000000001"], "buy_quantity": 3, "bundle_price": 90.00}',
+   '2026-10-01 00:00+03', '2026-12-31 23:59+02'),
+  ('bbbbbbbb-000a-0000-0000-000000000002', 'bbbbbbbb-0000-0000-0000-000000000000', 'EGP 5 off EGP 40', 'خصم ٥ جنيه',
+   'coupon', '{"discount_amount": 5.00, "min_basket": 40.00}',
+   '2026-10-01 00:00+03', null);
+
+insert into app.coupons (id, tenant_id, promotion_id, code, customer_id, max_redemptions, per_customer_limit) values
+  ('bbbbbbbb-000b-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-000a-0000-0000-000000000002', 'SAVE5',      null,                                   null, 1),
+  ('bbbbbbbb-000b-0000-0000-000000000002', 'bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-000a-0000-0000-000000000002', 'MONA-REWARD', 'cccccccc-0007-0000-0000-000000000001', 1,    1);
