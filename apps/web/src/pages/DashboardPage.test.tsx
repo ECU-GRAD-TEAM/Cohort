@@ -40,6 +40,7 @@ const midterm: Grade = {
   id: "f1000000-0000-4000-8000-000000000001",
   offeringId: "a1000000-0000-4000-8000-000000000001",
   course: { code: "CS101", title: "Programming I" },
+  componentId: "b1000000-0000-4000-8000-000000000001",
   item: "Midterm",
   score: 75,
   maxScore: 100,
@@ -49,10 +50,22 @@ const courseGrade: Grade = {
   id: "f1000000-0000-4000-8000-000000000002",
   offeringId: "a1000000-0000-4000-8000-000000000002",
   course: { code: "MA201", title: "Linear Algebra" },
+  componentId: null,
   item: null,
   score: 88,
   maxScore: 100,
   publishedAt: "2026-10-02T10:00:00Z",
+};
+// Graded on a component the student cannot see yet, so the API knows its id but not its name.
+const hiddenComponentGrade: Grade = {
+  id: "f1000000-0000-4000-8000-000000000003",
+  offeringId: "a1000000-0000-4000-8000-000000000001",
+  course: { code: "CS101", title: "Programming I" },
+  componentId: "b1000000-0000-4000-8000-000000000002",
+  item: null,
+  score: 64,
+  maxScore: 100,
+  publishedAt: "2026-10-03T10:00:00Z",
 };
 
 const serverError = { error: { code: "internal", message: "Something went wrong. Please try again." } };
@@ -75,6 +88,17 @@ describe("DashboardPage", () => {
     expect(rows[0]).toHaveTextContent("CourseItemScore");
     expect(rows[1]).toHaveTextContent("CS101Midterm75 / 100");
     expect(rows[2]).toHaveTextContent("Course grade88 / 100");
+  });
+
+  it("calls a grade whose component is not visible yet a graded item, not the course grade", async () => {
+    server.use(
+      http.get(`${API}/me/grades`, () => HttpResponse.json({ grades: [midterm, hiddenComponentGrade, courseGrade] })),
+    );
+    renderDashboard();
+    const rows = within(await screen.findByRole("table")).getAllByRole("row");
+    expect(rows[1]).toHaveTextContent("CS101Midterm75 / 100");
+    expect(rows[2]).toHaveTextContent("CS101Graded item64 / 100");
+    expect(rows[3]).toHaveTextContent("MA201Course grade88 / 100");
   });
 
   it("lists enrolments in every status except dropped", async () => {

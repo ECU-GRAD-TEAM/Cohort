@@ -1,6 +1,6 @@
 import type { EnrollmentStatus } from "@cohort/contracts";
 import { describe, expect, it } from "vitest";
-import { formatCredits, formatEnrollmentStatus, formatMeeting, formatScore } from "./format.ts";
+import { formatCredits, formatEnrollmentStatus, formatGradeItem, formatMeeting, formatScore } from "./format.ts";
 
 describe("formatEnrollmentStatus", () => {
   it("shows the waiting-list position for a waitlisted enrolment", () => {
@@ -30,6 +30,20 @@ describe("formatScore", () => {
   it("writes the score over the maximum", () => {
     expect(formatScore(75, 100)).toBe("75 / 100");
     expect(formatScore(17.5, 20)).toBe("17.5 / 20");
+  });
+});
+
+describe("formatGradeItem", () => {
+  it("names the component", () => {
+    expect(formatGradeItem({ item: "Midterm", componentId: "b1000000-0000-4000-8000-000000000001" })).toBe("Midterm");
+  });
+
+  it("calls a grade with no component the course grade", () => {
+    expect(formatGradeItem({ item: null, componentId: null })).toBe("Course grade");
+  });
+
+  it("calls a grade whose component is not visible a graded item", () => {
+    expect(formatGradeItem({ item: null, componentId: "b1000000-0000-4000-8000-000000000001" })).toBe("Graded item");
   });
 });
 

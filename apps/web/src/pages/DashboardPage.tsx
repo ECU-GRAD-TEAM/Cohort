@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useApi } from "../lib/ApiContext.tsx";
-import { formatEnrollmentStatus, formatScore } from "../lib/format.ts";
+import { formatEnrollmentStatus, formatGradeItem, formatScore } from "../lib/format.ts";
 import { queryKeys } from "../lib/queryKeys.ts";
 
 function CoursesSection() {
@@ -62,7 +62,7 @@ function GradesSection() {
           {grades.data.grades.map((grade) => (
             <tr key={grade.id}>
               <td>{grade.course.code}</td>
-              <td>{grade.item ?? "Course grade"}</td>
+              <td>{formatGradeItem(grade)}</td>
               <td>{formatScore(grade.score, grade.maxScore)}</td>
             </tr>
           ))}

@@ -4,6 +4,7 @@ import { closeOwnerPool, ownerQuery, seedUniversity, type University } from "./s
 
 let t: Awaited<ReturnType<typeof createTestApp>>;
 let u: University;
+let midtermId: string;
 
 const enrol = async (v: University, sub: string, key: "cs101" | "ma101") =>
   (await ownerQuery<{ id: string }>(
@@ -12,11 +13,12 @@ const enrol = async (v: University, sub: string, key: "cs101" | "ma101") =>
     [v.tenantId, sub, v.sections[key], v.offerings[key]],
   ))[0]!.id;
 
-const component = async (v: University, key: "cs101" | "ma101", name: string, weight: number) =>
+/** A grading component; students can see it only once it is published. */
+const component = async (v: University, key: "cs101" | "ma101", name: string, weight: number, published = true) =>
   (await ownerQuery<{ id: string }>(
     `insert into public.grade_components (tenant_id, offering_id, name, category, weight, published_at)
-     values ($1, $2, $3, 'midterm', $4, now()) returning id`,
-    [v.tenantId, v.offerings[key], name, weight],
+     values ($1, $2, $3, 'midterm', $4, case when $5::boolean then now() end) returning id`,
+    [v.tenantId, v.offerings[key], name, weight, published],
   ))[0]!.id;
 
 /** A grade entry out of 100, as the owner. Publishing sets `published_at`, so a later insert is a later grade. */
@@ -35,8 +37,8 @@ const entry = async (
 beforeAll(async () => {
   [t, u] = await Promise.all([createTestApp(), seedUniversity()]);
   const enrollment = await enrol(u, u.users.student, "cs101");
-  const midterm = await component(u, "cs101", "Midterm", 30);
-  const grade = { enrollment, sub: u.users.student, key: "cs101", component: midterm } as const;
+  midtermId = await component(u, "cs101", "Midterm", 30);
+  const grade = { enrollment, sub: u.users.student, key: "cs101", component: midtermId } as const;
   await entry(u, { ...grade, score: 50, status: "draft" });
   const first = await entry(u, { ...grade, score: 70, status: "published" });
   await entry(u, { ...grade, score: 75, status: "published", supersedes: first });
@@ -58,7 +60,21 @@ it("shows the student their current published grades only", async () => {
   const r = await get("/me/grades", await t.tokenFor(u.users.student));
   expect(r.statusCode).toBe(200);
   expect(r.json().grades).toEqual([expect.objectContaining({ offeringId: u.offerings.cs101,
-    course: { code: "CS101", title: "Programming I" }, item: "Midterm", score: 75, maxScore: 100 })]);
+    course: { code: "CS101", title: "Programming I" }, componentId: midtermId, item: "Midterm", score: 75, maxScore: 100 })]);
+});
+
+it("names the component of a grade whose component the student cannot see yet", async () => {
+  // A teacher can publish a mark before publishing the grading component it belongs to. Row-level
+  // security then hides the component's name, but the grade still says it belongs to one.
+  const v = await seedUniversity();
+  const sub = v.users.student;
+  const enrollment = await enrol(v, sub, "cs101");
+  const hidden = await component(v, "cs101", "Final", 40, false);
+  await entry(v, { enrollment, sub, key: "cs101", component: hidden, score: 64, status: "published" });
+
+  const r = await get("/me/grades", await t.tokenFor(sub));
+  expect(r.statusCode).toBe(200);
+  expect(r.json().grades).toEqual([expect.objectContaining({ componentId: hidden, item: null, score: 64 })]);
 });
 
 it("shows a classmate nothing", async () => {
@@ -82,9 +98,13 @@ it("lists grades by course code then publication, with no item for an entry with
 
   const r = await get("/me/grades", await t.tokenFor(sub));
   expect(r.statusCode).toBe(200);
-  expect(r.json().grades.map((g: { course: { code: string }; item: string | null; score: number }) => [g.course.code, g.item, g.score])).toEqual([
-    ["CS101", "Quiz", 9],
-    ["CS101", null, 90],
-    ["MA101", null, 88],
+  expect(
+    r.json().grades.map((g: { course: { code: string }; item: string | null; componentId: string | null; score: number }) => [
+      g.course.code, g.item, g.componentId, g.score,
+    ]),
+  ).toEqual([
+    ["CS101", "Quiz", quiz, 9],
+    ["CS101", null, null, 90],
+    ["MA101", null, null, 88],
   ]);
 });

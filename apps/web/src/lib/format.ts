@@ -1,4 +1,4 @@
-import type { EnrollmentStatus, Meeting } from "@cohort/contracts";
+import type { EnrollmentStatus, Grade, Meeting } from "@cohort/contracts";
 
 const STATUS_LABELS: Record<Exclude<EnrollmentStatus, "waitlisted">, string> = {
   enrolled: "Enrolled",
@@ -20,6 +20,15 @@ export function formatEnrollmentStatus(status: EnrollmentStatus, waitlistPositio
 /** A grade as "75 / 100". */
 export function formatScore(score: number, maxScore: number): string {
   return `${score} / ${maxScore}`;
+}
+
+/**
+ * What a grade was for: the component's name when the student can see it, "Course grade" for a
+ * grade with no component, and "Graded item" for one whose component is not published yet.
+ */
+export function formatGradeItem(grade: Pick<Grade, "item" | "componentId">): string {
+  if (grade.item !== null) return grade.item;
+  return grade.componentId === null ? "Course grade" : "Graded item";
 }
 
 // ISO weekday numbers: 1 = Monday ... 7 = Sunday.
