@@ -35,7 +35,7 @@ The point of the slice is to prove the architecture the paper commits to (sectio
 | TypeScript 7.0.2, no ESLint | TS 7 is current; typescript-eslint 8.72 supports only TS < 6.1. Type-checking and tests are the gates |
 | Prisma 7.10.1, schema introspected with `prisma db pull`; never `prisma migrate` | The SQL files in `supabase/migrations` own the schema; Prisma is the typed query layer |
 | Prisma introspects `public` and `auth` | `public.users.id` references `auth.users`; Prisma refuses cross-schema references otherwise |
-| Prisma models: `users` is the app's user table, `auth_users` is Supabase's | Introspection names them `public_users` and `users`; renamed once, and `db pull` keeps the names |
+| Prisma models: `users` is the app's user table, `auth_users` is Supabase's | A fresh introspection (Prisma 7.10.1) names Supabase's table `auth_users` and the app's `public_users`; `public_users` is renamed once to `users`, and `db pull` keeps the names |
 | A migration adds composite unique keys that Prisma needs, and turns the one-active-prompt-version index into an exclusion constraint | Prisma 7 rejects the introspected schema otherwise (six one-to-one relations; one misread partial index) |
 | Login role `cohort_api`: `LOGIN NOINHERIT`, member of `authenticated` | Fails closed. Its password is set per environment, never committed |
 | Tokens verified with `jose` against Supabase's published key set (`/auth/v1/.well-known/jwks.json`), issuer `https://gejismdqvjuygtxibdhs.supabase.co/auth/v1`, audience `authenticated` | Supabase signs access tokens with asymmetric keys; no shared secret on the API |
@@ -97,10 +97,19 @@ Errors always have the body `{ "error": { "code", "message" } }`:
 | SQLSTATE `23514` (check violation) | 422 | `rule_violation` | The database's message |
 | SQLSTATE `23503` (foreign key violation) | 422 | `rule_violation` | `That refers to something that does not exist.` |
 | SQLSTATE `23505`, `23P01` (unique or exclusion violation) | 409 | `conflict` | The database's message |
+| Supabase's signing keys cannot be fetched or read (timeout, network error, malformed key set) | 500 | `internal` | `Something went wrong. Please try again.` |
 | Anything else | 500 | `internal` | `Something went wrong. Please try again.` |
 
 The database's messages come from the registration functions, which are written for users (for
 example `Prerequisites for CS201 are not met`).
+
+- Postgres's own constraint messages are never passed through. A `23505` or `23P01` message that
+  names a constraint becomes `That conflicts with something that already exists.` (409
+  `conflict`), and a `23514` one becomes `That value is not allowed.` (422 `rule_violation`).
+  Messages raised by the registration functions pass through.
+- If the key set cannot be fetched, the API answers 500 `internal`, not 401, and logs the cause.
+  A 401 makes the web app sign the user out, and an outage on Supabase's side is not a rejected
+  session. A token whose `kid` the key set does not list is still 401.
 
 ## Web pages and copy
 
@@ -112,12 +121,15 @@ example `Prerequisites for CS201 are not met`).
     button "Sign out".
   - An unlinked account sees "Your account is not linked to a university yet. Contact your
     administrator." instead of the page.
+  - An automatic sign-out after a 401 signs out this device only; the "Sign out" button keeps
+    Supabase's default and signs out every device.
 - **`/` Dashboard**
   - "My courses": one line per enrolment that is not dropped, e.g. "CS101 Programming I ·
     Section L1 · Enrolled" or "… · Waitlisted (position 2)". Empty state: "You are not
     registered in any courses yet."
-  - "Published grades": course code, item (the grade component's name, or "Course grade"),
-    "75 / 100". Empty state: "No published grades yet."
+  - "Published grades": course code, item, "75 / 100". The item is the grade component's name,
+    "Course grade" for a grade with no component, or "Graded item" when the component is not
+    visible yet. Empty state: "No published grades yet."
 - **`/register` Course registration**
   - A "Term" select. It defaults to the term whose registration window contains now, otherwise
     the first (newest) term. No terms: "No terms are available."
@@ -135,7 +147,7 @@ example `Prerequisites for CS201 are not met`).
 
 ## Constraints
 
-- Node 22.12 or later.
+- Node 22.22.2 or later.
 - Supabase project ref `gejismdqvjuygtxibdhs`.
 - The database's migration history is append-only. This slice adds two migrations. The team
   applies them to GradProj with `npx supabase db push`, together with the pending

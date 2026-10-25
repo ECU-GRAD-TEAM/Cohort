@@ -16,8 +16,22 @@ row-level security decides what each person can see and change.
 
 ## Running Cohort locally
 
-You need Node 22.12 or later and npm. The steps run in order; steps 2 and 8 are only for the
+You need Node 22.22.2 or later and npm. The steps run in order; steps 2 and 8 are only for the
 tests.
+
+### Before you start: check that GradProj signs tokens with asymmetric keys
+
+The API checks each access token against the project's public key set, so the project has to sign
+its tokens with an asymmetric key. Fetch the key set:
+
+```bash
+curl -s https://gejismdqvjuygtxibdhs.supabase.co/auth/v1/.well-known/jwks.json
+```
+
+The response must list at least one key with `"alg": "ES256"` or `"alg": "RS256"`. If the list is
+empty, the project still signs tokens with the legacy shared secret, and every API request gets 401
+until you enable asymmetric JWT signing keys in the project's JWT settings in the Supabase
+Dashboard.
 
 ### 1. Install
 
@@ -77,7 +91,7 @@ Use a long random password and keep it out of git.
 
 ### 5. Configure the API
 
-Copy `apps/api/.env.example` to `apps/api/.env` (git-ignored) and set:
+Copy `apps/api/.env.example` to `apps/api/.env` (git-ignored) and replace the placeholders:
 
 ```bash
 DATABASE_URL=postgresql://cohort_api.gejismdqvjuygtxibdhs:<cohort_api password>@<session pooler host>:5432/postgres
