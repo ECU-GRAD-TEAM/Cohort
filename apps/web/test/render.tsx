@@ -66,7 +66,7 @@ export function renderApp({ route, auth }: { route: string; auth: AuthClientLike
   const client = createApiClient({
     baseUrl: API,
     getAccessToken: async () => "test-token",
-    onUnauthorized: () => void auth.signOut(),
+    onUnauthorized: () => void auth.signOut({ scope: "local" }),
   });
   const view = render(
     <MemoryRouter initialEntries={[route]}>

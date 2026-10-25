@@ -36,7 +36,8 @@ describe("sign-in", () => {
     const auth = createFakeAuth({ session: fakeSession });
     renderApp({ route: "/", auth });
     await userEvent.click(await screen.findByRole("button", { name: "Sign out" }));
-    expect(auth.signOut).toHaveBeenCalled();
+    // The button ends the user's sessions on every device, which is Supabase's default.
+    expect(auth.signOut).toHaveBeenCalledWith();
     expect(await screen.findByRole("heading", { name: "Sign in to Cohort" })).toBeInTheDocument();
   });
 
@@ -52,6 +53,7 @@ describe("sign-in", () => {
     const auth = createFakeAuth({ session: fakeSession });
     renderApp({ route: "/", auth });
     expect(await screen.findByRole("heading", { name: "Sign in to Cohort" })).toBeInTheDocument();
-    expect(auth.signOut).toHaveBeenCalled();
+    // A 401 can come from a bad moment on the server's side, so it must not end sessions elsewhere.
+    expect(auth.signOut).toHaveBeenCalledWith({ scope: "local" });
   });
 });

@@ -24,7 +24,9 @@ async function getAccessToken(): Promise<string | null> {
 const apiClient = createApiClient({
   baseUrl: webConfig.apiUrl,
   getAccessToken,
-  onUnauthorized: () => void supabase.auth.signOut(),
+  // Only this device: the 401 may be the server's trouble rather than the session's, and the
+  // default scope would end the user's sessions on every device.
+  onUnauthorized: () => void supabase.auth.signOut({ scope: "local" }),
 });
 
 const queryClient = new QueryClient({

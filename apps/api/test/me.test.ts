@@ -1,6 +1,18 @@
+import { errors } from "jose";
 import { afterAll, beforeAll, expect, it } from "vitest";
+import { buildApp } from "../src/app.ts";
+import { createTokenVerifier } from "../src/auth.ts";
+import { createPrisma } from "../src/db.ts";
 import { createTestApp } from "./support/app.ts";
-import { closeOwnerPool, createAuthOnlyUser, ownerQuery, seedUniversity, type University } from "./support/db.ts";
+import {
+  apiDatabaseUrl,
+  closeOwnerPool,
+  createAuthOnlyUser,
+  ownerQuery,
+  seedUniversity,
+  type University,
+} from "./support/db.ts";
+import { TEST_ISSUER } from "./support/tokens.ts";
 
 let t: Awaited<ReturnType<typeof createTestApp>>;
 let u: University;
@@ -38,6 +50,31 @@ it("rejects credentials that are not a bearer token", async () => {
 
 it("rejects a token signed by another key", async () => {
   expect((await get("/me", await t.foreignTokenFor(u.users.student))).statusCode).toBe(401);
+});
+
+it("answers 500, not 401, when the signing keys cannot be fetched", async () => {
+  // A 401 makes the web app sign the user out, so an outage on Supabase's side must not look like one.
+  const prisma = createPrisma(apiDatabaseUrl);
+  const app = await buildApp({
+    prisma,
+    verifyToken: createTokenVerifier({
+      getKey: async () => {
+        throw new errors.JWKSTimeout();
+      },
+      issuer: TEST_ISSUER,
+      audience: "authenticated",
+    }),
+    corsOrigin: "http://localhost:5173",
+  });
+  try {
+    const token = await t.tokenFor(u.users.student);
+    const r = await app.inject({ method: "GET", url: "/me", headers: { authorization: `Bearer ${token}` } });
+    expect(r.statusCode).toBe(500);
+    expect(r.json()).toEqual({ error: { code: "internal", message: "Something went wrong. Please try again." } });
+  } finally {
+    await app.close();
+    await prisma.$disconnect();
+  }
 });
 
 it("describes the signed-in student", async () => {
