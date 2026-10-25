@@ -11,10 +11,11 @@ export type AuthClaims = {
 
 /**
  * A token that is missing, malformed, expired, forged or not for a signed-in user. The original
- * failure is kept as `cause` for logs; the message is generic and is never shown to clients.
+ * failure, when there is one, is kept as `cause` for logs; the message is generic and is never
+ * shown to clients.
  */
 export class UnauthorizedError extends Error {
-  constructor(cause: unknown) {
+  constructor(cause?: unknown) {
     super("Unauthorized", { cause });
     this.name = "UnauthorizedError";
   }
