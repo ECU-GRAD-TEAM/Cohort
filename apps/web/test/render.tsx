@@ -57,7 +57,10 @@ export function createFakeAuth(options: { session?: Session | null; signInError?
   };
 }
 
-/** Renders the whole app at `route`, wired as in main.tsx but with the fake auth client. */
+/**
+ * Renders the whole app at `route`, wired as in main.tsx but with the fake auth client. The result
+ * also carries the `queryClient`, so a test can refetch to see how the app reacts to a failure.
+ */
 export function renderApp({ route, auth }: { route: string; auth: AuthClientLike }) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const client = createApiClient({
@@ -65,7 +68,7 @@ export function renderApp({ route, auth }: { route: string; auth: AuthClientLike
     getAccessToken: async () => "test-token",
     onUnauthorized: () => void auth.signOut(),
   });
-  return render(
+  const view = render(
     <MemoryRouter initialEntries={[route]}>
       <QueryClientProvider client={queryClient}>
         <AuthProvider auth={auth}>
@@ -76,4 +79,5 @@ export function renderApp({ route, auth }: { route: string; auth: AuthClientLike
       </QueryClientProvider>
     </MemoryRouter>,
   );
+  return { ...view, queryClient };
 }

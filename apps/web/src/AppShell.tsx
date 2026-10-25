@@ -20,13 +20,16 @@ export function AppShell() {
     </button>
   );
 
-  if (me.isError) {
-    const error = me.error;
-    const notLinked = error instanceof ApiError && error.status === 403 && error.code === "forbidden";
+  // A 403 means the account has no university, now or since the page loaded, so it ends the page
+  // even when an earlier answer is still cached. Any other failure only matters when there is
+  // nothing to show: a refetch (on tab focus or reconnect) that fails keeps the loaded page.
+  const error = me.error;
+  const notLinked = error instanceof ApiError && error.status === 403 && error.code === "forbidden";
+  if (notLinked || me.data === undefined) {
     return (
       <>
         <header>{signOutButton}</header>
-        <main>{notLinked ? <p>{NOT_LINKED}</p> : <p role="alert">{error.message}</p>}</main>
+        <main>{notLinked ? <p>{NOT_LINKED}</p> : <p role="alert">{error?.message}</p>}</main>
       </>
     );
   }
