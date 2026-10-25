@@ -102,10 +102,22 @@ describe("pickDefaultTerm", () => {
     expect(pickDefaultTerm([endedBefore, fall], now)?.name).toBe("Fall 2026");
   });
 
-  it("never treats a term with no opening time, or no end, as open", () => {
+  it("never treats a term with no opening time as open", () => {
     const noOpen = term("No open", { registrationClosesAt: "2026-11-30T00:00:00Z" });
+    const neither = term("Neither");
+    expect(pickDefaultTerm([noOpen, neither, fall], now)?.name).toBe("Fall 2026");
+    expect(pickDefaultTerm([noOpen, neither], now)?.name).toBe("No open");
+  });
+
+  it("treats a term with no end as open from its opening, as the database does", () => {
     const noEnd = term("No end", { registrationOpensAt: "2026-09-01T00:00:00Z" });
-    expect(pickDefaultTerm([noOpen, noEnd, fall], now)?.name).toBe("Fall 2026");
-    expect(pickDefaultTerm([noOpen, noEnd], now)?.name).toBe("No open");
+    const noEndOpensNow = term("No end, opens now", { registrationOpensAt: "2026-10-25T12:00:00Z" });
+    expect(pickDefaultTerm([spring, noEnd, fall], now)?.name).toBe("No end");
+    expect(pickDefaultTerm([spring, noEndOpensNow, fall], now)?.name).toBe("No end, opens now");
+  });
+
+  it("does not open a term with no end before its opening", () => {
+    const noEndYet = term("No end, not yet", { registrationOpensAt: "2026-10-25T12:00:01Z" });
+    expect(pickDefaultTerm([noEndYet, fall], now)?.name).toBe("Fall 2026");
   });
 });
