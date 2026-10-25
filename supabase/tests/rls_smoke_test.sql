@@ -675,6 +675,25 @@ end;
 $$;
 reset role;
 
+insert into public.prompt_templates (id, tenant_id, key) values
+  ('50000000-0000-4000-8000-000000000021', '0a000000-0000-4000-8000-00000000000a', 'smoke.prompt');
+insert into public.prompt_template_versions (tenant_id, template_id, version, body, is_active) values
+  ('0a000000-0000-4000-8000-00000000000a', '50000000-0000-4000-8000-000000000021', 1, 'v1', true),
+  ('0a000000-0000-4000-8000-00000000000a', '50000000-0000-4000-8000-000000000021', 2, 'v2', false);
+do $$
+declare
+  failed boolean := false;
+begin
+  begin
+    update public.prompt_template_versions set is_active = true where version = 2
+      and template_id = '50000000-0000-4000-8000-000000000021';
+  exception when exclusion_violation then
+    failed := true;
+  end;
+  assert failed, 'only one version of a prompt template can be active';
+end;
+$$;
+
 -- ===========================================================================
 -- Retrieval is filtered by permission before search
 -- ===========================================================================

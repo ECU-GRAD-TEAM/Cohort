@@ -14,11 +14,16 @@ changes are written to an immutable audit log.
 | --- | --- |
 | `20261022134334_foundation` to `20261022140102_hardening` (11 files) | Applied |
 | `20261022150000_builtin_time_ranges` | **Pending**: apply with `supabase db push` (below) |
+| `20261025120000_prisma_compat` | **Pending**: apply with `supabase db push` (below) |
+| `20261025120100_api_role` | **Pending**: apply with `supabase db push` (below) |
 
-The pending migration replaces a custom `timerange` type with built-in ranges. On Supabase the
+`builtin_time_ranges` replaces a custom `timerange` type with built-in ranges. On Supabase the
 constructor functions of a custom range type are created as `supabase_admin`, so the earlier
 migrations could not take `EXECUTE` on them away from `anon`. It contains `DROP` statements, which
 the Supabase connector used to build this could not run without an interactive confirmation.
+`prisma_compat` also drops an index, to replace it with an equivalent exclusion constraint.
+`api_role` creates `cohort_api` without a password; set one in GradProj with
+`alter role cohort_api with password '...'`.
 
 ## Apply and test
 
@@ -50,6 +55,8 @@ It also runs with plain `psql -f` against any database built from these migratio
 | `ai_and_analytics` | Model registry, prompt templates, AI switches and budgets, documents and embeddings, hybrid search, AI logs, grading suggestions, risk scores |
 | `hardening` | Final privilege sweep; fails if any table lacks row-level security |
 | `builtin_time_ranges` | Room-clash rule on built-in ranges; drops the custom range type |
+| `prisma_compat` | Unique keys on `(foreign key, tenant_id)` and an exclusion constraint for one active prompt version, which the API's Prisma schema needs |
+| `api_role` | The `cohort_api` login role the backend API connects as; it has no privileges of its own and switches to `authenticated` for each request |
 
 ## Design rules
 
