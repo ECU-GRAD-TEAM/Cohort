@@ -10,6 +10,7 @@ import { UnauthorizedError, type AuthClaims, type TokenVerifier } from "./auth.t
 import { withUserContext, type Tx } from "./db.ts";
 import { ApiError, databaseErrorToApiError, INTERNAL_MESSAGE } from "./errors.ts";
 import type { PrismaClient } from "./generated/prisma/client.ts";
+import { catalogueRoutes } from "./routes/catalogue.ts";
 import { meRoutes } from "./routes/me.ts";
 
 declare module "fastify" {
@@ -85,6 +86,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
     });
 
     await scope.register(meRoutes);
+    await scope.register(catalogueRoutes);
   });
 
   return app;
