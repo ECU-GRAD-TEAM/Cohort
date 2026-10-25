@@ -24,13 +24,20 @@ const driverErrorMeta = z.object({
   }),
 });
 
+// How Postgres words its own constraint violations, for example `duplicate key value violates
+// unique constraint "name"` or `new row for relation "t" violates check constraint "name"`. The
+// registration functions never name a constraint.
+const NAMES_A_CONSTRAINT = /constraint "|violates .*constraint/;
+
 /**
  * Maps a failed query to the API error the client should see, by SQLSTATE (see the error table in
  * the design spec). Returns null for anything that is not a PostgreSQL error from Prisma.
  *
  * The database's own message is passed on only where the spec says so: the registration
- * functions write those messages for users. A permission failure or a foreign-key violation
- * names tables and constraints, so each gets a fixed message; so does every other failure.
+ * functions write those messages for users. Postgres's own messages name tables and constraints,
+ * and error responses must not. A permission failure or a foreign-key violation therefore gets a
+ * fixed message, and so does a unique, exclusion or check violation whose message names a
+ * constraint. Every other failure gets the fixed 500 message.
  */
 export function databaseErrorToApiError(error: unknown): ApiError | null {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return null;
@@ -44,12 +51,22 @@ export function databaseErrorToApiError(error: unknown): ApiError | null {
     case "P0002":
       return new ApiError(404, "not_found", originalMessage);
     case "23514":
-      return new ApiError(422, "rule_violation", originalMessage);
+      return new ApiError(
+        422,
+        "rule_violation",
+        NAMES_A_CONSTRAINT.test(originalMessage) ? "That value is not allowed." : originalMessage,
+      );
     case "23503":
       return new ApiError(422, "rule_violation", "That refers to something that does not exist.");
     case "23505":
     case "23P01":
-      return new ApiError(409, "conflict", originalMessage);
+      return new ApiError(
+        409,
+        "conflict",
+        NAMES_A_CONSTRAINT.test(originalMessage)
+          ? "That conflicts with something that already exists."
+          : originalMessage,
+      );
     default:
       return new ApiError(500, "internal", INTERNAL_MESSAGE);
   }
