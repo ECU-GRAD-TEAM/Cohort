@@ -11,3 +11,16 @@ it("derives the Supabase key set and issuer", () => {
 it("refuses to start without a database URL", () => {
   expect(() => loadConfig({ SUPABASE_URL: "https://x.supabase.co" })).toThrow();
 });
+
+it.each(["http://127.0.0.1:54321", "http://localhost:54321", "https://x.supabase.co/"])(
+  "accepts the Supabase URL %s",
+  (supabaseUrl) => {
+    const c = loadConfig({ DATABASE_URL: "postgresql://cohort_api@db/x", SUPABASE_URL: supabaseUrl });
+    expect(c.jwksUrl.pathname).toBe("/auth/v1/.well-known/jwks.json");
+    expect(c.issuer).toBe(`${new URL(supabaseUrl).origin}/auth/v1`);
+  },
+);
+
+it.each(["ftp://x.supabase.co", "javascript:alert(1)", "not a url"])("rejects the Supabase URL %s", (supabaseUrl) => {
+  expect(() => loadConfig({ DATABASE_URL: "postgresql://cohort_api@db/x", SUPABASE_URL: supabaseUrl })).toThrow();
+});

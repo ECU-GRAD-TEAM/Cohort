@@ -14,7 +14,7 @@ export type Config = {
 
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
-  SUPABASE_URL: z.httpUrl(),
+  SUPABASE_URL: z.url({ protocol: /^https?$/ }),
   CORS_ORIGIN: z.string().min(1).default("http://localhost:5173"),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   HOST: z.string().min(1).default("127.0.0.1"),
