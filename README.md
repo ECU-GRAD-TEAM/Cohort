@@ -192,3 +192,18 @@ connections. Each API request runs in a single transaction, so the per-request r
 safe through it.
 
 The `VITE_` values are built into the web app. If you change one, redeploy for it to take effect.
+
+## Student AI assistant (initial integration)
+
+The student assistant is a private Python service behind the authenticated Fastify API.
+
+1. Install and run the Python service from `services/student-ai` as described in its README.
+2. Configure `COHORT_AI_INTERNAL_KEY` and at least one model provider key in the Python service environment.
+3. Set matching `STUDENT_AI_SERVICE_URL` and `STUDENT_AI_INTERNAL_KEY` in `apps/api/.env`.
+4. Restart the API and web app, sign in as an enrolled student, and open **Student assistant**.
+
+The first slice provides conversational tutoring with Arabic/English language selection and a
+suggested-question interface. It does **not yet** retrieve student records or official university
+documents, persist conversations/memory, enforce AI budgets, or write AI usage/audit records. The
+assistant explicitly discloses that personal/official context was not retrieved. Those integrations
+must be completed before treating it as a university-record-aware production assistant.
