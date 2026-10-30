@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "vite build"
   },
   "dependencies": {
     "@cohort/contracts": "*",

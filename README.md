@@ -142,3 +142,53 @@ npm run typecheck
 ```
 
 The database's own tests are described in [supabase/README.md](supabase/README.md).
+
+## Deploying to Vercel
+
+One Vercel project, linked to this GitHub repository, serves both apps from the same address:
+
+- **Web app:** static files, built by Vite. Any path that is not a file, such as `/register`,
+  serves `index.html`.
+- **API:** a single Node.js function serving every request under `/api`. It runs in Dublin
+  (`dub1`), next to GradProj in `eu-west-1`.
+
+Every push to `main` deploys to production. Pushes to other branches get preview deployments;
+by default only members of the Vercel team can open those.
+
+### How the build works
+
+[`vercel.json`](vercel.json) tells Vercel to run `npm ci` and then `npm run build:vercel`. That
+runs [`scripts/vercel/build.mjs`](scripts/vercel/build.mjs), which writes the deployment in
+Vercel's [Build Output API](https://vercel.com/docs/build-output-api) format, in
+`.vercel/output`:
+
+1. It builds the web app.
+2. It generates the Prisma client.
+3. It bundles the API into one file with esbuild.
+
+The script bundles the API itself because Vercel's own TypeScript compilation does not support
+this repository's TypeScript 7 setup. You can run the same build locally with
+`npm run build:vercel`. It reads `apps/web/.env` for the web app's variables.
+
+### Environment variables
+
+Set these in the Vercel project for Production and Preview:
+
+| Variable | Value |
+| --- | --- |
+| `DATABASE_URL` | GradProj's **Transaction pooler** connection string, as `cohort_api` (see below). |
+| `SUPABASE_URL` | `https://gejismdqvjuygtxibdhs.supabase.co` |
+| `VITE_SUPABASE_URL` | `https://gejismdqvjuygtxibdhs.supabase.co` |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | The project's publishable key. |
+| `VITE_API_URL` | `/api` |
+
+`DATABASE_URL` takes the form
+`postgresql://cohort_api.gejismdqvjuygtxibdhs:<cohort_api password>@<transaction pooler host>:6543/postgres`.
+Copy the host from Dashboard > Connect > Transaction pooler.
+
+Vercel's functions cannot reach Supabase's direct host, which has only an IPv6 address. The
+transaction pooler also keeps many short-lived function instances from using up the database's
+connections. Each API request runs in a single transaction, so the per-request role switch is
+safe through it.
+
+The `VITE_` values are built into the web app. If you change one, redeploy for it to take effect.
