@@ -28,7 +28,7 @@ export function StudentAiPage() {
 
   function submit(event: FormEvent) { event.preventDefault(); void send(); }
 
-  return <main className="student-ai-page" aria-label="Student assistant">
+  return <div className="student-ai-page" aria-label="Student assistant">
     <header>
       <div><p>COHORT · STUDENT SUPPORT</p><h1>Student assistant</h1><p>Academic help and guidance for your university life.</p></div>
       <label>Language <select value={language} onChange={event => setLanguage(event.target.value as typeof language)}>
@@ -53,5 +53,5 @@ export function StudentAiPage() {
       <button type="submit" disabled={busy || !draft.trim()}>{busy ? "Sending…" : "Send"}</button>
     </form>
     <p>AI guidance may be incomplete. Verify important university decisions with the relevant department. The assistant cannot change official records.</p>
-  </main>;
+  </div>;
 }
