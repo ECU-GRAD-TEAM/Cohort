@@ -33,8 +33,8 @@ class ChatResponse(BaseModel):
     provider: str
     model: str
     latency_ms: int
-    sources: list[str] = []
-    limitations: list[str] = []
+    sources: list[str] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
 
 SYSTEM_PROMPT = """You are Cohort's student assistant. Be friendly, patient, professional,
 encouraging and academically responsible. Support students in Arabic and English; follow the
