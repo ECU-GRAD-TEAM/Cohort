@@ -1,1 +1,4 @@
 .venv/
+# Python packaging
+*.egg-info/
+__pycache__/
