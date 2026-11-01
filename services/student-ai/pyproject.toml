@@ -7,8 +7,8 @@ dependencies = [
     "fastapi==0.115.12",
     "uvicorn[standard]==0.34.2",
     "pydantic==2.11.4",
-    "openai>=1.68.0,<3.0.0",
-    "google-genai>=1.0.0,<2.0.0",
+    "openai>=2.0.0,<3.0.0",
+    "google-genai>=2.3.0,<3.0.0",
 ]
 
 [tool.pytest.ini_options]
