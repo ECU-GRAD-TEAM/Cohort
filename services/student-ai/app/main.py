@@ -61,7 +61,7 @@ async def health():
 def _provider() -> tuple[str, str]:
     # Deterministic routing; OpenAI is preferred when both providers are configured.
     if os.getenv("OPENAI_API_KEY"):
-        return "openai", os.getenv("OPENAI_MODEL", "gpt-6-astra")
+        return "openai", os.getenv("OPENAI_MODEL", "gpt-6-luna")
     if os.getenv("GEMINI_API_KEY"):
         return "google", os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
     raise HTTPException(503, "The student assistant is not configured yet.")
@@ -106,6 +106,11 @@ async def _call_openai(model: str, messages: list[dict]) -> str:
             model=model,
             instructions=system_instruction,
             input=_conversation_input(messages),
+            reasoning={
+                "effort": os.getenv("OPENAI_REASONING_EFFORT", "medium"),
+            },
+            text={"verbosity": "medium"},
+            # Cohort manages its own history; do not store another copy at the provider.
             store=False,
         )
 
@@ -129,7 +134,10 @@ async def _call_google(model: str, messages: list[dict]) -> str:
     if max_output_tokens:
         generation_config["max_output_tokens"] = int(max_output_tokens)
 
-    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    client = genai.Client(
+        api_key=os.environ["GEMINI_API_KEY"],
+        http_options={"api_version": "v1"},
+    )
     try:
         interaction = await client.aio.interactions.create(
             model=model,
