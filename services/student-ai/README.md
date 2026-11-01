@@ -1,6 +1,6 @@
 # Cohort Student AI service
 
-Python/FastAPI orchestration service using the current asynchronous provider APIs:
+Python/FastAPI orchestration service using the asynchronous provider APIs:
 
 - OpenAI: Responses API through the official `openai` SDK (`AsyncOpenAI`).
 - Gemini: Interactions API through Google's official `google-genai` SDK.
@@ -15,30 +15,55 @@ source .venv/bin/activate
 pip install -e .
 cp .env.example .env
 # Edit .env and set COHORT_AI_INTERNAL_KEY and at least one provider API key.
-uvicorn app.main:app --host 127.0.0.1 --port 8001
+python -m app.main
 ```
 
 On Windows Command Prompt, activate with `.venv\\Scripts\\activate.bat`; in Git Bash use
 `source .venv/Scripts/activate`.
 
-## Provider configuration
+The service loads its local `.env` automatically. Variables already injected by the deployment
+environment take precedence over values in `.env`.
 
-- `OPENAI_API_KEY`: OpenAI API key.
-- `OPENAI_MODEL`: defaults to `gpt-6-luna`.
-- `OPENAI_REASONING_EFFORT`: defaults to `medium`.
-- `GEMINI_API_KEY`: Google AI Studio API key.
-- `GEMINI_MODEL`: defaults to `gemini-3.8-flash`.
-- `GEMINI_THINKING_LEVEL`: defaults to `medium`.
-- `GEMINI_MAX_OUTPUT_TOKENS`: defaults to `8192`.
+## Environment configuration
 
-OpenAI is preferred when both keys are configured; Gemini is selected when only its key is
-configured. This is deterministic configuration-based selection, not automatic fallback if the
-selected provider fails. Set the unused provider key to an empty value when testing the other one.
+All runtime and provider tuning is read from environment variables. See `.env.example` for the
+complete template.
 
-The OpenAI Responses request uses `store=False`. The Gemini Interactions request also uses
-`store=False`. Cohort sends its own recent conversation history with each request rather than
-depending on provider-side conversation storage. This does not replace a review of each provider's
-data handling and retention terms.
+### Service
+
+- `COHORT_AI_INTERNAL_KEY`: required private service-to-service secret.
+- `STUDENT_AI_TITLE`, `STUDENT_AI_VERSION`: FastAPI metadata.
+- `STUDENT_AI_HOST`, `STUDENT_AI_PORT`: bind address and port.
+- `STUDENT_AI_RELOAD`: enable Uvicorn reload for local development only.
+- `STUDENT_AI_PROVIDER`: `auto`, `openai`, or `google`. In `auto`, OpenAI is preferred.
+- `STUDENT_AI_MAX_MESSAGE_CHARS`, `STUDENT_AI_MAX_HISTORY_MESSAGES`, `STUDENT_AI_MAX_CONTEXT_ITEMS`: request-size limits.
+
+### OpenAI
+
+- `OPENAI_API_KEY`, `OPENAI_MODEL`
+- `OPENAI_TIMEOUT_SECONDS`, `OPENAI_MAX_RETRIES`
+- `OPENAI_REASONING_EFFORT`, `OPENAI_TEXT_VERBOSITY`, `OPENAI_TEMPERATURE`
+
+### Gemini
+
+- `GEMINI_API_KEY`, `GEMINI_MODEL`
+- `GEMINI_API_VERSION`
+- `GEMINI_THINKING_LEVEL`, `GEMINI_TEMPERATURE`, `GEMINI_MAX_OUTPUT_TOKENS`
+
+Temperature and reasoning options are model-dependent. Confirm that the selected model supports
+the configured options; unsupported combinations are returned as a generic provider error. The
+model names in the example are placeholders and must be replaced with model IDs available to your
+provider account if they are not valid for that account.
+
+In `auto` mode, OpenAI is selected when its key is set; Gemini is selected when only its key is
+set. This is deterministic configuration-based selection, not automatic failover if a provider
+request fails. Set `STUDENT_AI_PROVIDER` explicitly to force a provider.
+
+## Data handling
+
+The OpenAI Responses and Gemini Interactions requests use `store=False`. Cohort sends its own
+recent conversation history with each request rather than depending on provider-side conversation
+storage. This does not replace a review of each provider's data handling and retention terms.
 
 ## Architecture and security
 
@@ -54,3 +79,14 @@ Current scope: conversational tutoring and orchestration only. Personal record r
 RAG citations, conversation persistence, selective memory, budgets, audit persistence, and provider
 privacy controls are subsequent integration work. Until retrieval is connected, the assistant must
 not claim it checked a student's university records or official documents.
+
+## Run with Uvicorn CLI
+
+You can alternatively start it with:
+
+```bash
+uvicorn app.main:app --host 127.0.0.1 --port 8001
+```
+
+When using the CLI, pass host and port explicitly (or use `python -m app.main` to apply
+`STUDENT_AI_HOST` and `STUDENT_AI_PORT` from the environment).
