@@ -12,11 +12,10 @@ from typing import Literal
 
 from fastapi import FastAPI, Header, HTTPException
 from google import genai
-from google.genai import types
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 
-app = FastAPI(title="Cohort Student AI", version="0.1.0")
+app = FastAPI(title="Cohort Student AI", version="0.2.0")
 
 
 class ChatMessage(BaseModel):
@@ -62,9 +61,9 @@ async def health():
 def _provider() -> tuple[str, str]:
     # Deterministic routing; OpenAI is preferred when both providers are configured.
     if os.getenv("OPENAI_API_KEY"):
-        return "openai", os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+        return "openai", os.getenv("OPENAI_MODEL", "gpt-6-astra")
     if os.getenv("GEMINI_API_KEY"):
-        return "google", os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+        return "google", os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
     raise HTTPException(503, "The student assistant is not configured yet.")
 
 
@@ -74,53 +73,76 @@ def _language(text: str, requested: str) -> str:
     return "ar" if re.search(r"[\u0600-\u06ff]", text) else "en"
 
 
+def _conversation_input(messages: list[dict]) -> list[dict[str, str]]:
+    """Convert Cohort's messages to the role/content format accepted by Responses API."""
+    return [
+        {"role": item["role"], "content": item["content"]}
+        for item in messages
+        if item["role"] in ("user", "assistant")
+    ]
+
+
+def _conversation_transcript(messages: list[dict]) -> str:
+    """Represent the same history as a readable transcript for Gemini Interactions."""
+    labels = {"user": "Student", "assistant": "Cohort assistant"}
+    return "\n\n".join(
+        f'{labels[item["role"]]}:\n{item["content"]}'
+        for item in messages
+        if item["role"] in labels
+    )
+
+
 async def _call_openai(model: str, messages: list[dict]) -> str:
-    """Call OpenAI using its official asynchronous Python SDK."""
+    """Generate a response with OpenAI's Responses API using the async SDK."""
+    system_instruction = next(
+        (item["content"] for item in messages if item["role"] == "system"),
+        "",
+    )
     async with AsyncOpenAI(
         api_key=os.environ["OPENAI_API_KEY"],
-        timeout=45.0,
+        timeout=60.0,
     ) as client:
-        response = await client.chat.completions.create(
+        response = await client.responses.create(
             model=model,
-            messages=messages,
-            temperature=0.3,
+            instructions=system_instruction,
+            input=_conversation_input(messages),
+            store=False,
         )
 
-    answer = response.choices[0].message.content
+    answer = response.output_text
     if not answer:
         raise ValueError("OpenAI returned an empty response.")
     return answer
 
 
 async def _call_google(model: str, messages: list[dict]) -> str:
-    """Call Gemini using Google's official Google Gen AI asynchronous SDK."""
+    """Generate a response with Google's Interactions API using the async SDK."""
     system_instruction = next(
         (item["content"] for item in messages if item["role"] == "system"),
-        None,
+        "",
     )
-    contents = [
-        {
-            "role": "model" if item["role"] == "assistant" else "user",
-            "parts": [{"text": item["content"]}],
-        }
-        for item in messages
-        if item["role"] != "system"
-    ]
+    transcript = _conversation_transcript(messages)
+    generation_config = {
+        "thinking_level": os.getenv("GEMINI_THINKING_LEVEL", "medium"),
+    }
+    max_output_tokens = os.getenv("GEMINI_MAX_OUTPUT_TOKENS")
+    if max_output_tokens:
+        generation_config["max_output_tokens"] = int(max_output_tokens)
 
     client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
     try:
-        response = await client.aio.models.generate_content(
+        interaction = await client.aio.interactions.create(
             model=model,
-            contents=contents,
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                temperature=0.3,
-            ),
+            input=transcript,
+            system_instruction=system_instruction,
+            generation_config=generation_config,
+            # Cohort manages its own history; avoid storing a second copy at the provider.
+            store=False,
         )
     finally:
         await client.aio.aclose()
 
-    answer = response.text
+    answer = interaction.output_text
     if not answer:
         raise ValueError("Gemini returned an empty response.")
     return answer
@@ -140,6 +162,9 @@ async def chat(payload: ChatRequest, x_cohort_internal_key: str | None = Header(
         if context
         else "\n\nNo authorized university records or official documents were supplied. "
              "Do not imply you checked them."
+    )
+    system += (
+        f"\n\nAnswer in {'Arabic' if lang == 'ar' else 'English'}."
     )
     messages = [{"role": "system", "content": system}]
     messages += [{"role": item.role, "content": item.content} for item in payload.history]
