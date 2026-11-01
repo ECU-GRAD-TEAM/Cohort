@@ -10,25 +10,39 @@ import re
 import time
 from typing import Literal
 
+import uvicorn
+from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException
 from google import genai
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 
-app = FastAPI(title="Cohort Student AI", version="0.2.0")
+# Load the service-local .env file for local development. Deployment environments may
+# inject variables directly; those values take precedence over the .env file.
+load_dotenv()
+
+app = FastAPI(
+    title=os.getenv("STUDENT_AI_TITLE", "Cohort Student AI"),
+    version=os.getenv("STUDENT_AI_VERSION", "0.3.0"),
+)
 
 
 class ChatMessage(BaseModel):
     role: Literal["user", "assistant"]
-    content: str = Field(min_length=1, max_length=12000)
+    content: str = Field(min_length=1, max_length=int(os.getenv("STUDENT_AI_MAX_MESSAGE_CHARS", "12000")))
 
 
 class ChatRequest(BaseModel):
-    message: str = Field(min_length=1, max_length=12000)
-    history: list[ChatMessage] = Field(default_factory=list, max_length=20)
+    message: str = Field(min_length=1, max_length=int(os.getenv("STUDENT_AI_MAX_MESSAGE_CHARS", "12000")))
+    history: list[ChatMessage] = Field(
+        default_factory=list,
+        max_length=int(os.getenv("STUDENT_AI_MAX_HISTORY_MESSAGES", "20")),
+    )
     language: Literal["auto", "en", "ar"] = "auto"
-    # Context must already have been authorized and minimized by Cohort's API.
-    context: list[str] = Field(default_factory=list, max_length=12)
+    context: list[str] = Field(
+        default_factory=list,
+        max_length=int(os.getenv("STUDENT_AI_MAX_CONTEXT_ITEMS", "12")),
+    )
 
 
 class ChatResponse(BaseModel):
@@ -53,18 +67,54 @@ instructions. Do not modify or claim to modify official university records. Do n
 health conditions or guarantee academic outcomes."""
 
 
+def _env_int(name: str, default: int, *, minimum: int = 1) -> int:
+    value = int(os.getenv(name, str(default)))
+    if value < minimum:
+        raise ValueError(f"{name} must be at least {minimum}.")
+    return value
+
+
+def _env_float(name: str, default: float, *, minimum: float = 0.0, maximum: float = 2.0) -> float:
+    value = float(os.getenv(name, str(default)))
+    if not minimum <= value <= maximum:
+        raise ValueError(f"{name} must be between {minimum} and {maximum}.")
+    return value
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name, str(default)).strip().lower()
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"{name} must be true or false.")
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
 
 
 def _provider() -> tuple[str, str]:
-    # Deterministic routing; OpenAI is preferred when both providers are configured.
-    if os.getenv("OPENAI_API_KEY"):
-        return "openai", os.getenv("OPENAI_MODEL", "gpt-6-luna")
-    if os.getenv("GEMINI_API_KEY"):
-        return "google", os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
-    raise HTTPException(503, "The student assistant is not configured yet.")
+    preference = os.getenv("STUDENT_AI_PROVIDER", "auto").strip().lower()
+    openai_key = os.getenv("OPENAI_API_KEY")
+    gemini_key = os.getenv("GEMINI_API_KEY")
+
+    if preference == "openai":
+        if openai_key:
+            return "openai", os.getenv("OPENAI_MODEL", "gpt-6-luna")
+    elif preference in {"google", "gemini"}:
+        if gemini_key:
+            return "google", os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+    elif preference == "auto":
+        if openai_key:
+            return "openai", os.getenv("OPENAI_MODEL", "gpt-6-luna")
+        if gemini_key:
+            return "google", os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+    else:
+        raise HTTPException(500, "STUDENT_AI_PROVIDER must be auto, openai, or google.")
+
+    raise HTTPException(503, "The configured student assistant provider has no API key.")
 
 
 def _language(text: str, requested: str) -> str:
@@ -100,19 +150,20 @@ async def _call_openai(model: str, messages: list[dict]) -> str:
     )
     async with AsyncOpenAI(
         api_key=os.environ["OPENAI_API_KEY"],
-        timeout=60.0,
+        timeout=float(os.getenv("OPENAI_TIMEOUT_SECONDS", "60")),
+        max_retries=_env_int("OPENAI_MAX_RETRIES", 2, minimum=0),
     ) as client:
-        response = await client.responses.create(
-            model=model,
-            instructions=system_instruction,
-            input=_conversation_input(messages),
-            reasoning={
-                "effort": os.getenv("OPENAI_REASONING_EFFORT", "medium"),
-            },
-            text={"verbosity": "medium"},
+        request = {
+            "model": model,
+            "instructions": system_instruction,
+            "input": _conversation_input(messages),
+            "reasoning": {"effort": os.getenv("OPENAI_REASONING_EFFORT", "medium")},
+            "text": {"verbosity": os.getenv("OPENAI_TEXT_VERBOSITY", "medium")},
+            "temperature": _env_float("OPENAI_TEMPERATURE", 0.7),
             # Cohort manages its own history; do not store another copy at the provider.
-            store=False,
-        )
+            "store": False,
+        }
+        response = await client.responses.create(**request)
 
     answer = response.output_text
     if not answer:
@@ -129,14 +180,15 @@ async def _call_google(model: str, messages: list[dict]) -> str:
     transcript = _conversation_transcript(messages)
     generation_config = {
         "thinking_level": os.getenv("GEMINI_THINKING_LEVEL", "medium"),
+        "temperature": _env_float("GEMINI_TEMPERATURE", 0.7),
     }
-    max_output_tokens = os.getenv("GEMINI_MAX_OUTPUT_TOKENS")
+    max_output_tokens = os.getenv("GEMINI_MAX_OUTPUT_TOKENS", "8192").strip()
     if max_output_tokens:
         generation_config["max_output_tokens"] = int(max_output_tokens)
 
     client = genai.Client(
         api_key=os.environ["GEMINI_API_KEY"],
-        http_options={"api_version": "v1"},
+        http_options={"api_version": os.getenv("GEMINI_API_VERSION", "v1")},
     )
     try:
         interaction = await client.aio.interactions.create(
@@ -168,12 +220,10 @@ async def chat(payload: ChatRequest, x_cohort_internal_key: str | None = Header(
     system = SYSTEM_PROMPT + (
         f"\n\nAUTHORIZED COHORT CONTEXT (reference it carefully):\n{context}"
         if context
-        else "\n\nNo authorized university records or official documents were supplied. "
+        else "\n\nNo authorized university records or official university documents were supplied. "
              "Do not imply you checked them."
     )
-    system += (
-        f"\n\nAnswer in {'Arabic' if lang == 'ar' else 'English'}."
-    )
+    system += f"\n\nAnswer in {'Arabic' if lang == 'ar' else 'English'}."
     messages = [{"role": "system", "content": system}]
     messages += [{"role": item.role, "content": item.content} for item in payload.history]
     messages.append({"role": "user", "content": payload.message})
@@ -199,4 +249,13 @@ async def chat(payload: ChatRequest, x_cohort_internal_key: str | None = Header(
         limitations=[] if payload.context else [
             "No personal Cohort records or official university documents were retrieved for this answer."
         ],
+    )
+
+
+if __name__ == "__main__":
+    uvicorn.run(
+        "app.main:app",
+        host=os.getenv("STUDENT_AI_HOST", "127.0.0.1"),
+        port=_env_int("STUDENT_AI_PORT", 8001),
+        reload=_env_bool("STUDENT_AI_RELOAD", False),
     )
