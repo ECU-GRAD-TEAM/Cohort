@@ -20,7 +20,7 @@ with st.sidebar:
     mode = st.radio("Mode", ["Single model", "Compare providers"])
     provider = st.selectbox("Provider", providers, disabled=mode == "Compare providers")
     openai_model = st.text_input("OpenAI model", setting("PLAYGROUND_OPENAI_MODEL", setting("OPENAI_MODEL", "gpt-6-luna")))
-    gemini_model = st.text_input("Gemini model", setting("PLAYGROUND_GEMINI_MODEL", setting("GEMINI_MODEL", "gemini-2.5-flash-lite")))
+    gemini_model = st.text_input("Gemini model", setting("PLAYGROUND_GEMINI_MODEL", setting("GEMINI_MODEL", "gemini-3.5-flash-lite")))
     st.divider()
     temperature = st.slider("Temperature", 0.0, 2.0, float(setting("PLAYGROUND_TEMPERATURE", "0.7")), 0.05)
     oe = ["none", "low", "medium", "high"]; ov = ["low", "medium", "high"]; gt = ["minimal", "low", "medium", "high"]
@@ -54,7 +54,7 @@ if prompt:
                 started = time.perf_counter()
                 try:
                     if target == "OpenAI":
-                        result = call_openai(model=openai_model, system_prompt=st.session_state.system_prompt, history=history, prompt=prompt, temperature=temperature, reasoning_effort=reasoning, verbosity=verbosity, timeout=float(timeout), max_retries=int(retries))
+                        result = call_openai(model=openai_model, system_prompt=st.session_state.system_prompt, history=history, prompt=prompt, reasoning_effort=reasoning, verbosity=verbosity, timeout=float(timeout), max_retries=int(retries))
                     else:
                         result = call_gemini(model=gemini_model, system_prompt=st.session_state.system_prompt, history=history, prompt=prompt, temperature=temperature, thinking_level=thinking, max_output_tokens=int(max_tokens), api_version=setting("GEMINI_API_VERSION", "v1"))
                     elapsed = time.perf_counter() - started

@@ -5,13 +5,13 @@ from google import genai
 from metrics import usage_summary
 
 
-def call_openai(*, model, system_prompt, history, prompt, temperature, reasoning_effort, verbosity, timeout, max_retries):
+def call_openai(*, model, system_prompt, history, prompt, reasoning_effort, verbosity, timeout, max_retries):
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], timeout=timeout, max_retries=max_retries)
     try:
         response = client.responses.create(
             model=model, instructions=system_prompt,
             input=[*history, {"role": "user", "content": prompt}],
-            temperature=temperature, reasoning={"effort": reasoning_effort},
+            reasoning={"effort": reasoning_effort},
             text={"verbosity": verbosity}, store=False,
         )
         return {"text": response.output_text or "", "usage": usage_summary(
