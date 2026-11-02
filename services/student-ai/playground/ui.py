@@ -28,21 +28,14 @@ with st.sidebar:
         "Gemini model",
         setting("PLAYGROUND_GEMINI_MODEL", setting("GEMINI_MODEL", "gemini-3.5-flash-lite")),
     )
-    temperature = st.slider(
-        "Temperature",
-        0.0,
-        2.0,
-        float(setting("PLAYGROUND_TEMPERATURE", "0.7")),
-        0.05,
-    )
     thinking_levels = ["minimal", "low", "medium", "high"]
-    configured_thinking = setting("GEMINI_THINKING_LEVEL", "medium")
+    configured_thinking = setting("GEMINI_THINKING_LEVEL", "minimal")
     thinking = st.selectbox(
         "Thinking level",
         thinking_levels,
         index=thinking_levels.index(configured_thinking)
         if configured_thinking in thinking_levels
-        else 2,
+        else 0,
     )
     max_tokens = st.number_input(
         "Maximum output tokens",
@@ -86,7 +79,6 @@ if prompt:
                 system_prompt=st.session_state.system_prompt,
                 history=history,
                 prompt=prompt,
-                temperature=temperature,
                 thinking_level=thinking,
                 max_output_tokens=int(max_tokens),
                 api_version=setting("GEMINI_API_VERSION", "v1"),
