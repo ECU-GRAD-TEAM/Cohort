@@ -15,18 +15,14 @@ Run from this directory:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-
 # Without LLM Playground
 pip install -e .
-
 cp .env.example .env
 # Edit .env and set the provider API key(s).
+
+# Run Python Service
 python -m app.main
 ```
-
-On Windows Command Prompt, activate with `.venv\\Scripts\\activate.bat`; in Git Bash use
-`source .venv/Scripts/activate`.
-
 The service loads its local `.env` automatically. Variables injected by the deployment environment
 take precedence over values in `.env`.
 
@@ -39,7 +35,9 @@ student-facing FastAPI endpoint and does not require the Fastify API or Supabase
 Install the optional dependency and start the UI from this directory:
 
 ```bash
+# Install Dependencies for the Playground
 pip install -e ".[playground]"
+# Run the Playground
 streamlit run playground/ui.py
 ```
 
