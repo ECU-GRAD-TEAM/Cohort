@@ -33,9 +33,8 @@ memory; students can review, correct, delete or opt out of memory. Memory is not
 academic record.
 
 ## Model and privacy
-Backend chooses provider deterministically; student does not choose provider. Initial provider policy
-is the user's temporary choice to send relevant student context to OpenAI/Gemini when needed. Still
-minimize context and never send credentials, tokens or unrelated records. Provider keys stay server-side.
+Only Gemini (gemini-3.5-flash-lite) is supported. 
+Still minimize context and never send credentials, tokens or unrelated records. Provider keys stay server-side.
 Revisit stronger anonymization, sensitive-data filtering, provider restrictions and residency before
 production use.
 
