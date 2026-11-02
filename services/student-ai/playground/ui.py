@@ -20,7 +20,7 @@ with st.sidebar:
     mode = st.radio("Mode", ["Single model", "Compare providers"])
     provider = st.selectbox("Provider", providers, disabled=mode == "Compare providers")
     openai_model = st.text_input("OpenAI model", setting("PLAYGROUND_OPENAI_MODEL", setting("OPENAI_MODEL", "gpt-6-luna")))
-    gemini_model = st.text_input("Gemini model", setting("PLAYGROUND_GEMINI_MODEL", setting("GEMINI_MODEL", "gemini-3.8-flash")))
+    gemini_model = st.text_input("Gemini model", setting("PLAYGROUND_GEMINI_MODEL", setting("GEMINI_MODEL", "gemini-2.5-flash-lite")))
     st.divider()
     temperature = st.slider("Temperature", 0.0, 2.0, float(setting("PLAYGROUND_TEMPERATURE", "0.7")), 0.05)
     oe = ["none", "low", "medium", "high"]; ov = ["low", "medium", "high"]; gt = ["minimal", "low", "medium", "high"]
