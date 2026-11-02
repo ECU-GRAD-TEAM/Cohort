@@ -7,12 +7,18 @@ Python/FastAPI orchestration service using the asynchronous provider APIs:
 
 ## Setup
 
+Move first to this directory:
+cd services/student-ai
+
 Run from this directory:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -e ".[playground]"
+
+# Without LLM Playground
+pip install -e .
+
 cp .env.example .env
 # Edit .env and set the provider API key(s).
 python -m app.main
