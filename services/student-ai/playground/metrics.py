@@ -1,4 +1,6 @@
-"""Best-effort token and cost extraction across provider SDK response objects."""
+"""Best-effort token and cost extraction from Gemini Interactions responses."""
+
+
 def get_value(obj, *names, default=None):
     for name in names:
         if isinstance(obj, dict) and name in obj:
@@ -8,16 +10,32 @@ def get_value(obj, *names, default=None):
             return value
     return default
 
-def usage_summary(response, provider: str, input_rate: float, output_rate: float) -> dict:
+
+def usage_summary(response, input_rate: float, output_rate: float) -> dict:
     usage = get_value(response, "usage", default=None)
     if usage is None:
-        return {"input_tokens": None, "output_tokens": None, "total_tokens": None, "estimated_cost": None}
-    if provider == "OpenAI":
-        input_tokens = get_value(usage, "input_tokens")
-        output_tokens = get_value(usage, "output_tokens")
-    else:
-        input_tokens = get_value(usage, "total_input_tokens", "prompt_token_count", "input_tokens")
-        output_tokens = get_value(usage, "total_output_tokens", "candidates_token_count", "output_tokens")
-    total = input_tokens + output_tokens if isinstance(input_tokens, int) and isinstance(output_tokens, int) else get_value(usage, "total_tokens")
-    cost = (input_tokens * input_rate + output_tokens * output_rate) / 1_000_000 if isinstance(input_tokens, int) and isinstance(output_tokens, int) else None
-    return {"input_tokens": input_tokens, "output_tokens": output_tokens, "total_tokens": total, "estimated_cost": cost}
+        return {
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+            "estimated_cost": None,
+        }
+
+    input_tokens = get_value(usage, "total_input_tokens", "prompt_token_count", "input_tokens")
+    output_tokens = get_value(usage, "total_output_tokens", "candidates_token_count", "output_tokens")
+    total = (
+        input_tokens + output_tokens
+        if isinstance(input_tokens, int) and isinstance(output_tokens, int)
+        else get_value(usage, "total_tokens")
+    )
+    cost = (
+        (input_tokens * input_rate + output_tokens * output_rate) / 1_000_000
+        if isinstance(input_tokens, int) and isinstance(output_tokens, int)
+        else None
+    )
+    return {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": total,
+        "estimated_cost": cost,
+    }
