@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 # inject variables directly; those values take precedence over the .env file.
 load_dotenv()
 
+DEFAULT_MODEL = "gemini-3.5-flash-lite"
 
 app = FastAPI(
     title=os.getenv("STUDENT_AI_TITLE", "Cohort Student AI"),
