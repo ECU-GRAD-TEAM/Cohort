@@ -1,7 +1,7 @@
 """Cohort student assistant orchestration service.
 
 This service deliberately has no database credentials. Cohort's authenticated Fastify API
-owns identity, authorization, and retrieval; this service only orchestrates model calls.
+owns identity, authorization, and retrieval; this service only orchestrates Gemini requests.
 """
 from __future__ import annotations
 
@@ -14,16 +14,17 @@ import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException
 from google import genai
-from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 
 # Load the service-local .env file for local development. Deployment environments may
 # inject variables directly; those values take precedence over the .env file.
 load_dotenv()
 
+DEFAULT_MODEL = "gemini-3.5-flash-lite"
+
 app = FastAPI(
     title=os.getenv("STUDENT_AI_TITLE", "Cohort Student AI"),
-    version=os.getenv("STUDENT_AI_VERSION", "0.3.0"),
+    version=os.getenv("STUDENT_AI_VERSION", "0.4.0"),
 )
 
 
@@ -57,8 +58,8 @@ class ChatResponse(BaseModel):
 
 SYSTEM_PROMPT = """You are Cohort's student assistant. Be friendly, patient, professional,
 encouraging and academically responsible. Support students in Arabic and English; follow the
-requested language, otherwise detect it. Explain concepts, guide assignments without writing a
-complete graded submission, generate practice questions and study guidance. Do not claim generated
+requested language, otherwise detect it. Explain concepts, guide assignments without writing
+a complete graded submission, generate practice questions and study guidance. Do not claim generated
 quizzes are official exams. Never invent university policies, deadlines, grades, attendance, course
 facts, people, contacts or support services. Use only supplied university context for institution-
 specific claims. If evidence is missing, say you cannot verify and recommend checking with the
@@ -71,13 +72,6 @@ def _env_int(name: str, default: int, *, minimum: int = 1) -> int:
     value = int(os.getenv(name, str(default)))
     if value < minimum:
         raise ValueError(f"{name} must be at least {minimum}.")
-    return value
-
-
-def _env_float(name: str, default: float, *, minimum: float = 0.0, maximum: float = 2.0) -> float:
-    value = float(os.getenv(name, str(default)))
-    if not minimum <= value <= maximum:
-        raise ValueError(f"{name} must be between {minimum} and {maximum}.")
     return value
 
 
@@ -95,26 +89,8 @@ async def health():
     return {"status": "ok"}
 
 
-def _provider() -> tuple[str, str]:
-    preference = os.getenv("STUDENT_AI_PROVIDER", "auto").strip().lower()
-    openai_key = os.getenv("OPENAI_API_KEY")
-    gemini_key = os.getenv("GEMINI_API_KEY")
-
-    if preference == "openai":
-        if openai_key:
-            return "openai", os.getenv("OPENAI_MODEL", "gpt-6-luna")
-    elif preference in {"google", "gemini"}:
-        if gemini_key:
-            return "google", os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
-    elif preference == "auto":
-        if openai_key:
-            return "openai", os.getenv("OPENAI_MODEL", "gpt-6-luna")
-        if gemini_key:
-            return "google", os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
-    else:
-        raise HTTPException(500, "STUDENT_AI_PROVIDER must be auto, openai, or google.")
-
-    raise HTTPException(503, "The configured student assistant provider has no API key.")
+def _model() -> str:
+    return os.getenv("GEMINI_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL
 
 
 def _language(text: str, requested: str) -> str:
@@ -123,17 +99,8 @@ def _language(text: str, requested: str) -> str:
     return "ar" if re.search(r"[\u0600-\u06ff]", text) else "en"
 
 
-def _conversation_input(messages: list[dict]) -> list[dict[str, str]]:
-    """Convert Cohort's messages to the role/content format accepted by Responses API."""
-    return [
-        {"role": item["role"], "content": item["content"]}
-        for item in messages
-        if item["role"] in ("user", "assistant")
-    ]
-
-
 def _conversation_transcript(messages: list[dict]) -> str:
-    """Represent the same history as a readable transcript for Gemini Interactions."""
+    """Represent history as a readable transcript for Gemini Interactions."""
     labels = {"user": "Student", "assistant": "Cohort assistant"}
     return "\n\n".join(
         f'{labels[item["role"]]}:\n{item["content"]}'
@@ -142,45 +109,16 @@ def _conversation_transcript(messages: list[dict]) -> str:
     )
 
 
-async def _call_openai(model: str, messages: list[dict]) -> str:
-    """Generate a response with OpenAI's Responses API using the async SDK."""
-    system_instruction = next(
-        (item["content"] for item in messages if item["role"] == "system"),
-        "",
-    )
-    async with AsyncOpenAI(
-        api_key=os.environ["OPENAI_API_KEY"],
-        timeout=float(os.getenv("OPENAI_TIMEOUT_SECONDS", "60")),
-        max_retries=_env_int("OPENAI_MAX_RETRIES", 2, minimum=0),
-    ) as client:
-        request = {
-            "model": model,
-            "instructions": system_instruction,
-            "input": _conversation_input(messages),
-            "reasoning": {"effort": os.getenv("OPENAI_REASONING_EFFORT", "medium")},
-            "text": {"verbosity": os.getenv("OPENAI_TEXT_VERBOSITY", "medium")},
-            "temperature": _env_float("OPENAI_TEMPERATURE", 0.7),
-            # Cohort manages its own history; do not store another copy at the provider.
-            "store": False,
-        }
-        response = await client.responses.create(**request)
-
-    answer = response.output_text
-    if not answer:
-        raise ValueError("OpenAI returned an empty response.")
-    return answer
-
-
-async def _call_google(model: str, messages: list[dict]) -> str:
-    """Generate a response with Google's Interactions API using the async SDK."""
+async def _call_gemini(model: str, messages: list[dict]) -> str:
+    """Generate a response with Google's asynchronous Gemini Interactions API."""
     system_instruction = next(
         (item["content"] for item in messages if item["role"] == "system"),
         "",
     )
     transcript = _conversation_transcript(messages)
     generation_config = {
-        "thinking_level": os.getenv("GEMINI_THINKING_LEVEL", "medium"),
-        "temperature": _env_float("GEMINI_TEMPERATURE", 0.7),
+        # Flash-Lite defaults to minimal thinking; this can be raised via .env.
+        "thinking_level": os.getenv("GEMINI_THINKING_LEVEL", "minimal"),
     }
     max_output_tokens = os.getenv("GEMINI_MAX_OUTPUT_TOKENS", "8192").strip()
     if max_output_tokens:
@@ -214,7 +152,10 @@ async def chat(payload: ChatRequest, x_cohort_internal_key: str | None = Header(
     if not expected or x_cohort_internal_key != expected:
         raise HTTPException(401, "Unauthorized")
 
-    provider, model = _provider()
+    if not os.getenv("GEMINI_API_KEY"):
+        raise HTTPException(503, "The Gemini API key is not configured.")
+
+    model = _model()
     lang = _language(payload.message, payload.language)
     context = "\n\n".join(payload.context)
     system = SYSTEM_PROMPT + (
@@ -230,20 +171,17 @@ async def chat(payload: ChatRequest, x_cohort_internal_key: str | None = Header(
 
     started = time.perf_counter()
     try:
-        if provider == "openai":
-            answer = await _call_openai(model, messages)
-        else:
-            answer = await _call_google(model, messages)
+        answer = await _call_gemini(model, messages)
     except Exception as exc:
-        # Provider SDK exceptions vary; keep credentials and provider internals out of API errors.
+        # Keep credentials and provider internals out of API errors.
         raise HTTPException(
-            502, "The AI provider could not complete the request."
+            502, "The Gemini provider could not complete the request."
         ) from exc
 
     return ChatResponse(
         answer=answer,
         language=lang,
-        provider=provider,
+        provider="gemini",
         model=model,
         latency_ms=int((time.perf_counter() - started) * 1000),
         limitations=[] if payload.context else [
