@@ -17,5 +17,9 @@ playground = [
     "streamlit>=1.42.0,<2.0.0",
 ]
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*", "playground*"]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
