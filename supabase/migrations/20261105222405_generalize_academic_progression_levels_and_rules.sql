@@ -80,8 +80,9 @@ update public.student_programme_selections s
 set selection_level_id = l.id
 from public.student_academic_progressions p
 join public.academic_levels l on l.tenant_id = p.tenant_id
-  and l.faculty_id = p.faculty_id and l.sequence_number = s.selection_semester
-where p.tenant_id = s.tenant_id and p.student_id = s.student_id;
+  and l.faculty_id = p.faculty_id
+where p.tenant_id = s.tenant_id and p.student_id = s.student_id
+  and l.sequence_number = s.selection_semester;
 
 alter table public.faculty_academic_pathways
   add constraint faculty_pathways_department_selection_level_fkey
