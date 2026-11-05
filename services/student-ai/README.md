@@ -11,7 +11,9 @@ cd services/student-ai
 
 # Create a virtual environment and install the service dependencies:
 python -m venv .venv
-source .venv/bin/activate
+.venv/Scripts/activate  # Windows
+or
+source .venv/bin/activate  # macOS/Linux and on github codespaces
 pip install -e .
 # Copy the example environment file to `.env`:
 cp .env.example .env
