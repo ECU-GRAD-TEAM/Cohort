@@ -933,6 +933,7 @@ model faculties {
   created_at  DateTime      @default(now()) @db.Timestamptz(6)
   departments departments[]
   student_academic_progressions student_academic_progressions[]
+  academic_pathways faculty_academic_pathways[]
   student_department_assignments student_department_assignments[]
   tenants     tenants       @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
@@ -3014,6 +3015,24 @@ enum workflow_run_status {
 }
 
 
+
+
+/// Faculty-specific rules for when department and programme choices become available.
+model faculty_academic_pathways {
+  id                              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                       String   @db.Uuid
+  faculty_id                      String   @db.Uuid
+  department_selection_semester   Int      @default(2) @db.SmallInt
+  department_effective_semester   Int      @default(3) @db.SmallInt
+  programme_selection_semester    Int      @default(8) @db.SmallInt
+  created_at                      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at                      DateTime @default(now()) @db.Timestamptz(6)
+  faculties                       faculties @relation(fields: [faculty_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([faculty_id, tenant_id])
+  @@index([tenant_id, faculty_id])
+  @@schema("public")
+}
 
 /// Current faculty affiliation and semester for a student. Department and programme
 /// are deliberately not stored here: they are represented by dated assignment history.
