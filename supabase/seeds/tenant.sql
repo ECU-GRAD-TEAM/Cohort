@@ -101,12 +101,24 @@ SELECT
     WHEN n <= 7 THEN 'departmental'
     ELSE 'programme'
   END,
-  n = 8
+  n = 10
 FROM public.tenants AS t
 JOIN public.faculties AS f ON f.tenant_id = t.id AND f.code = 'ENG'
-CROSS JOIN generate_series(1, 8) AS n
+CROSS JOIN generate_series(1, 10) AS n
 WHERE t.slug = 'ecu'
 ON CONFLICT (tenant_id, faculty_id, code) DO NOTHING;
+
+-- Semester 10 is the completion endpoint; semester 8 is the programme-selection point.
+UPDATE public.academic_levels AS level
+SET is_terminal = (level.sequence_number = 10),
+    stage_key = CASE WHEN level.sequence_number <= 2 THEN 'preparatory'
+                     WHEN level.sequence_number <= 7 THEN 'departmental'
+                     ELSE 'programme' END,
+    is_active = true
+FROM public.tenants AS t, public.faculties AS f
+WHERE level.tenant_id = t.id AND t.slug = 'ecu'
+  AND level.faculty_id = f.id AND f.tenant_id = t.id AND f.code = 'ENG'
+  AND level.sequence_number BETWEEN 8 AND 10;
 
 UPDATE public.faculty_academic_pathways AS p
 SET department_selection_level_id = sel.id,
@@ -121,6 +133,13 @@ WHERE sel.tenant_id = p.tenant_id AND sel.faculty_id = p.faculty_id
   AND eff.sequence_number = p.department_effective_semester
   AND prog.tenant_id = p.tenant_id AND prog.faculty_id = p.faculty_id
   AND prog.sequence_number = p.programme_selection_semester;
+
+UPDATE public.faculty_academic_pathways AS p
+SET expected_completion_level_id = completion.id
+FROM public.academic_levels AS completion
+WHERE completion.tenant_id = p.tenant_id
+  AND completion.faculty_id = p.faculty_id
+  AND completion.sequence_number = 10;
 
 INSERT INTO public.academic_progression_rules (
   tenant_id, faculty_id, action_key, selection_level_id, effective_level_id,
