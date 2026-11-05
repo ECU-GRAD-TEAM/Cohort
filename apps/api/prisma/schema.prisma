@@ -3163,3 +3163,60 @@ model academic_progression_rules {
   @@index([effective_level_id, tenant_id])
   @@schema("public")
 }
+
+/// Course-level requirements attached to a programme curriculum.
+model program_curriculum_courses {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String   @db.Uuid
+  program_id           String   @db.Uuid
+  course_id            String   @db.Uuid
+  academic_level_id    String?  @db.Uuid
+  requirement_type     String   @default("required")
+  minimum_grade_points Decimal? @db.Decimal(4, 2)
+  is_active            Boolean  @default(true)
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([program_id, course_id])
+  @@index([course_id, tenant_id])
+  @@index([academic_level_id, tenant_id])
+  @@schema("public")
+}
+
+/// Configurable graduation and semester credit rules for each programme.
+model program_academic_policies {
+  id                              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                       String   @db.Uuid
+  program_id                      String   @unique @db.Uuid
+  minimum_total_credits           Decimal? @db.Decimal(7, 2)
+  minimum_cgpa                    Decimal? @db.Decimal(4, 2)
+  minimum_semester_credits        Decimal? @db.Decimal(6, 2)
+  maximum_semester_credits        Decimal? @db.Decimal(6, 2)
+  minimum_attendance_percentage   Decimal? @db.Decimal(5, 2)
+  require_all_core_courses        Boolean  @default(true)
+  block_unresolved_incomplete_grades Boolean @default(true)
+  effective_from                  DateTime? @db.Date
+  effective_until                 DateTime? @db.Date
+  is_active                       Boolean  @default(true)
+  created_at                      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at                      DateTime @default(now()) @db.Timestamptz(6)
+  @@schema("public")
+}
+
+/// Immutable evidence snapshot for a graduation eligibility review.
+model graduation_audits {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String   @db.Uuid
+  student_id          String   @db.Uuid
+  program_id          String   @db.Uuid
+  policy_id           String?  @db.Uuid
+  audit_status        String   @default("pending")
+  credits_earned      Decimal? @db.Decimal(8, 2)
+  cgpa                Decimal? @db.Decimal(4, 2)
+  unmet_requirements Json     @default("[]")
+  evidence_snapshot   Json     @default("{}")
+  audited_by          String?  @db.Uuid
+  audited_at          DateTime @default(now()) @db.Timestamptz(6)
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+  @@index([tenant_id, student_id, audited_at(sort: Desc)])
+  @@index([tenant_id, program_id, audit_status])
+  @@schema("public")
+}
