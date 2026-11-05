@@ -3028,6 +3028,7 @@ model faculty_academic_pathways {
   department_selection_level_id   String?  @db.Uuid
   department_effective_level_id   String?  @db.Uuid
   programme_selection_level_id    String?  @db.Uuid
+  expected_completion_level_id    String?  @db.Uuid
   created_at                      DateTime @default(now()) @db.Timestamptz(6)
   updated_at                      DateTime @default(now()) @db.Timestamptz(6)
   faculties                       faculties @relation(fields: [faculty_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
