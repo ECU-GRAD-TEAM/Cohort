@@ -14,3 +14,19 @@ VALUES (
   'egypt'
 )
 ON CONFLICT (slug) DO NOTHING;
+
+-- Seed ECU's Engineering and Technology faculty.
+-- Resolve tenant_id by slug so this works with locally generated tenant UUIDs.
+-- Idempotent through the tenant-scoped faculty code unique constraint.
+INSERT INTO public.faculties (
+  tenant_id,
+  code,
+  name
+)
+SELECT
+  id,
+  'ENG',
+  'Engineering and Technology'
+FROM public.tenants
+WHERE slug = 'ecu'
+ON CONFLICT (tenant_id, code) DO NOTHING;
