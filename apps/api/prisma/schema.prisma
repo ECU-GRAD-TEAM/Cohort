@@ -3022,9 +3022,9 @@ model faculty_academic_pathways {
   id                              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id                       String   @db.Uuid
   faculty_id                      String   @db.Uuid
-  department_selection_semester   Int      @default(2) @db.SmallInt
-  department_effective_semester   Int      @default(3) @db.SmallInt
-  programme_selection_semester    Int      @default(8) @db.SmallInt
+  department_selection_semester   Int      @default(2)
+  department_effective_semester   Int      @default(3)
+  programme_selection_semester    Int      @default(8)
   department_selection_level_id   String?  @db.Uuid
   department_effective_level_id   String?  @db.Uuid
   programme_selection_level_id    String?  @db.Uuid
@@ -3044,7 +3044,7 @@ model student_academic_progressions {
   tenant_id        String   @db.Uuid
   student_id       String   @db.Uuid
   faculty_id       String   @db.Uuid
-  current_semester          Int       @default(1) @db.SmallInt
+  current_semester          Int       @default(1)
   current_academic_level_id String?   @db.Uuid
   credits_earned            Decimal   @default(0) @db.Decimal(8, 2)
   created_at                DateTime  @default(now()) @db.Timestamptz(6)
@@ -3064,8 +3064,8 @@ model student_department_assignments {
   student_id         String    @db.Uuid
   faculty_id         String    @db.Uuid
   department_id      String    @db.Uuid
-  selection_semester  Int       @default(2) @db.SmallInt
-  effective_semester  Int       @default(3) @db.SmallInt
+  selection_semester  Int       @default(2)
+  effective_semester  Int       @default(3)
   selection_level_id  String?   @db.Uuid
   effective_level_id  String?   @db.Uuid
   status             String    @default("pending") @db.Text
@@ -3096,7 +3096,7 @@ model student_programme_selections {
   student_id         String    @db.Uuid
   department_id      String    @db.Uuid
   program_id         String    @db.Uuid
-  selection_semester Int       @default(8) @db.SmallInt
+  selection_semester Int       @default(8)
   selection_level_id String?   @db.Uuid
   status             String    @default("pending") @db.Text
   requested_at       DateTime  @default(now()) @db.Timestamptz(6)
