@@ -648,6 +648,7 @@ model course_prerequisites {
   prerequisite_course_id                                                 String            @db.Uuid
   tenant_id                                                              String            @db.Uuid
   kind                                                                   prerequisite_kind @default(prerequisite)
+  minimum_grade_points                                                   Decimal?          @db.Decimal(4, 2)
   courses_course_prerequisites_course_id_tenant_idTocourses              courses           @relation("course_prerequisites_course_id_tenant_idTocourses", fields: [course_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
   courses_course_prerequisites_prerequisite_course_id_tenant_idTocourses courses           @relation("course_prerequisites_prerequisite_course_id_tenant_idTocourses", fields: [prerequisite_course_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
 
