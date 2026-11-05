@@ -716,6 +716,8 @@ model departments {
   documents       documents[]
   person_profiles person_profiles[]
   programs        programs[]
+  student_department_assignments student_department_assignments[]
+  student_programme_selections student_programme_selections[]
   tickets         tickets[]
 
   @@unique([id, tenant_id])
@@ -930,6 +932,8 @@ model faculties {
   name        String
   created_at  DateTime      @default(now()) @db.Timestamptz(6)
   departments departments[]
+  student_academic_progressions student_academic_progressions[]
+  student_department_assignments student_department_assignments[]
   tenants     tenants       @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([id, tenant_id])
@@ -1502,6 +1506,7 @@ model programs {
   departments      departments        @relation(fields: [department_id, tenant_id], references: [id, tenant_id], onDelete: NoAction, onUpdate: NoAction)
   tenants          tenants            @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   student_programs student_programs[]
+  student_programme_selections student_programme_selections[]
 
   @@unique([id, tenant_id])
   @@unique([tenant_id, code])
@@ -2266,6 +2271,11 @@ model users {
   seat_assignments                                                           seat_assignments[]
   section_instructors                                                        section_instructors[]
   student_programs                                                           student_programs[]
+  student_academic_progressions                                              student_academic_progressions?
+  student_department_assignments_student                                    student_department_assignments[] @relation("student_department_assignments_student")
+  student_department_assignments_reviewer                                   student_department_assignments[] @relation("student_department_assignments_reviewer")
+  student_programme_selections_student                                      student_programme_selections[] @relation("student_programme_selections_student")
+  student_programme_selections_reviewer                                     student_programme_selections[] @relation("student_programme_selections_reviewer")
   submissions                                                                submissions[]
   survey_participation                                                       survey_participation[]
   survey_responses                                                           survey_responses[]
@@ -3004,6 +3014,7 @@ enum workflow_run_status {
 }
 
 
+
 /// Current faculty affiliation and semester for a student. Department and programme
 /// are deliberately not stored here: they are represented by dated assignment history.
 model student_academic_progressions {
@@ -3014,8 +3025,11 @@ model student_academic_progressions {
   current_semester Int      @default(1) @db.SmallInt
   created_at       DateTime @default(now()) @db.Timestamptz(6)
   updated_at       DateTime @default(now()) @db.Timestamptz(6)
+  users            users    @relation(fields: [student_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  faculties        faculties @relation(fields: [faculty_id, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
 
   @@unique([student_id, tenant_id])
+  @@index([faculty_id, tenant_id])
   @@schema("public")
 }
 
@@ -3035,12 +3049,20 @@ model student_department_assignments {
   decision_note      String?
   starts_on          DateTime? @db.Date
   ends_on            DateTime? @db.Date
+  users              users     @relation("student_department_assignments_student", fields: [student_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  reviewers          users?    @relation("student_department_assignments_reviewer", fields: [reviewed_by, tenant_id], references: [id, tenant_id], onDelete: NoAction, onUpdate: NoAction)
+  faculties          faculties @relation(fields: [faculty_id, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
+  departments        departments @relation(fields: [department_id, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
 
   @@index([tenant_id, student_id, requested_at(sort: Desc)])
+  @@index([faculty_id, tenant_id])
+  @@index([department_id, tenant_id])
+  @@index([reviewed_by, tenant_id])
   @@schema("public")
 }
 
 /// Separate semester-8 programme selection history, scoped to the approved department.
+/// Approval synchronizes the current membership into student_programs.
 model student_programme_selections {
   id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id          String    @db.Uuid
@@ -3055,7 +3077,14 @@ model student_programme_selections {
   decision_note      String?
   starts_on          DateTime? @db.Date
   ends_on            DateTime? @db.Date
+  users              users     @relation("student_programme_selections_student", fields: [student_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  reviewers          users?    @relation("student_programme_selections_reviewer", fields: [reviewed_by, tenant_id], references: [id, tenant_id], onDelete: NoAction, onUpdate: NoAction)
+  departments        departments @relation(fields: [department_id, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
+  programs           programs  @relation(fields: [program_id, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
 
   @@index([tenant_id, student_id, requested_at(sort: Desc)])
+  @@index([department_id, tenant_id])
+  @@index([program_id, tenant_id])
+  @@index([reviewed_by, tenant_id])
   @@schema("public")
 }
