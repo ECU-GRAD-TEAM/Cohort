@@ -71,3 +71,11 @@ DROP POLICY IF EXISTS "academic managers write the catalogue" ON public.sections
 CREATE POLICY "academic managers write the catalogue" ON public.sections FOR ALL TO authenticated
 USING (tenant_id=(SELECT private.tenant_id()) AND private.has_permission_for_offering('academic.manage',offering_id))
 WITH CHECK (tenant_id=(SELECT private.tenant_id()) AND private.has_permission_for_offering('academic.manage',offering_id));
+
+-- Preserve grade-scale management as a university-wide capability because
+-- grade scales do not carry a faculty or department foreign key.
+DROP POLICY IF EXISTS "grade managers write grade scales" ON public.grade_scales;
+CREATE POLICY "grade managers write grade scales" ON public.grade_scales
+FOR ALL TO authenticated
+USING (tenant_id=(SELECT private.tenant_id()) AND private.has_permission('grades.manage'))
+WITH CHECK (tenant_id=(SELECT private.tenant_id()) AND private.has_permission('grades.manage'));
