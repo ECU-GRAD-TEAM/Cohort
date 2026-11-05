@@ -23,10 +23,12 @@ insert into public.faculty_academic_pathways (
   tenant_id, faculty_id, department_selection_semester,
   department_effective_semester, programme_selection_semester
 )
-select tenant_id, id, 2, 3, 8
-from public.faculties
-where tenant_id = '97325228-75cb-4a36-b103-9da28968c660'
-  and id = 'b3964b2a-bdbe-478e-9bbb-d858966a9d93'
+select t.id, f.id, 2, 3, 8
+from public.tenants as t
+join public.faculties as f
+  on f.tenant_id = t.id
+ and f.code = 'ENG'
+where t.slug = 'ecu'
 on conflict (faculty_id, tenant_id) do update
 set department_selection_semester = excluded.department_selection_semester,
     department_effective_semester = excluded.department_effective_semester,
