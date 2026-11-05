@@ -3074,6 +3074,7 @@ model student_department_assignments {
   departments        departments @relation(fields: [department_id, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
 
   @@index([tenant_id, student_id, requested_at(sort: Desc)])
+  @@index([student_id, tenant_id])
   @@index([faculty_id, tenant_id])
   @@index([department_id, tenant_id])
   @@index([reviewed_by, tenant_id])
@@ -3102,6 +3103,7 @@ model student_programme_selections {
   programs           programs  @relation(fields: [program_id, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
 
   @@index([tenant_id, student_id, requested_at(sort: Desc)])
+  @@index([student_id, tenant_id])
   @@index([department_id, tenant_id])
   @@index([program_id, tenant_id])
   @@index([reviewed_by, tenant_id])
