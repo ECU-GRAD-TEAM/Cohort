@@ -56,3 +56,29 @@ CROSS JOIN (
 ) AS department(code, name)
 WHERE t.slug = 'ecu'
 ON CONFLICT (tenant_id, code) DO NOTHING;
+
+
+-- ECU Engineering and Technology academic progression:
+-- shared preparatory semesters 1-2, department from semester 3, programme from semester 8.
+INSERT INTO public.faculty_academic_pathways (
+  tenant_id,
+  faculty_id,
+  department_selection_semester,
+  department_effective_semester,
+  programme_selection_semester
+)
+SELECT
+  t.id,
+  f.id,
+  2,
+  3,
+  8
+FROM public.tenants AS t
+JOIN public.faculties AS f
+  ON f.tenant_id = t.id
+ AND f.code = 'ENG'
+WHERE t.slug = 'ecu'
+ON CONFLICT (faculty_id, tenant_id) DO UPDATE
+SET department_selection_semester = EXCLUDED.department_selection_semester,
+    department_effective_semester = EXCLUDED.department_effective_semester,
+    programme_selection_semester = EXCLUDED.programme_selection_semester;
