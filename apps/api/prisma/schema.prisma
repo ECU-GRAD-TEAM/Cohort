@@ -936,6 +936,7 @@ model faculties {
   student_academic_progressions student_academic_progressions[]
   academic_pathways faculty_academic_pathways?
   student_department_assignments student_department_assignments[]
+  academic_calendars academic_calendars[]
   tenants     tenants       @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([id, tenant_id])
@@ -2045,6 +2046,8 @@ model tenants {
   created_at               DateTime                   @default(now()) @db.Timestamptz(6)
   updated_at               DateTime                   @default(now()) @db.Timestamptz(6)
   academic_calendar_events academic_calendar_events[]
+  academic_calendars academic_calendars[]
+  academic_years academic_years[]
   ai_budgets               ai_budgets[]
   ai_feature_settings      ai_feature_settings[]
   announcements            announcements[]
@@ -2080,6 +2083,51 @@ model tenants {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// Tenant-wide or faculty-specific academic calendar definitions.
+model academic_calendars {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String           @db.Uuid
+  faculty_id     String?          @db.Uuid
+  code           String
+  name           String
+  timezone       String
+  is_default     Boolean          @default(false)
+  is_active      Boolean          @default(true)
+  created_at     DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime         @default(now()) @db.Timestamptz(6)
+  tenants        tenants          @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  faculties      faculties?       @relation(fields: [faculty_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  academic_years academic_years[]
+
+  @@unique([id, tenant_id])
+  @@unique([tenant_id, code])
+  @@index([faculty_id, tenant_id])
+  @@schema("public")
+}
+
+/// Date-bounded academic years within a calendar.
+model academic_years {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String              @db.Uuid
+  calendar_id       String              @db.Uuid
+  code              String
+  name              String
+  starts_on         DateTime            @db.Date
+  ends_on           DateTime            @db.Date
+  status            academic_year_status @default(planned)
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime            @default(now()) @db.Timestamptz(6)
+  academic_calendars academic_calendars @relation(fields: [calendar_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  tenants           tenants             @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  terms             terms[]
+
+  @@unique([id, tenant_id])
+  @@unique([calendar_id, code])
+  @@index([tenant_id, starts_on, ends_on])
+  @@index([calendar_id, tenant_id])
+  @@schema("public")
+}
+
 model terms {
   id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id                String                     @db.Uuid
@@ -2091,6 +2139,12 @@ model terms {
   registration_closes_at   DateTime?                  @db.Timestamptz(6)
   add_drop_ends_at         DateTime?                  @db.Timestamptz(6)
   status                   term_status                @default(planned)
+  academic_year_id          String?                    @db.Uuid
+  term_kind                 academic_term_kind         @default(regular)
+  sequence_number           Int?
+  instructional_starts_on   DateTime?                  @db.Date
+  instructional_ends_on     DateTime?                  @db.Date
+  academic_years            academic_years?            @relation(fields: [academic_year_id, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
   academic_calendar_events academic_calendar_events[]
   academic_standings       academic_standings[]
   course_offerings         course_offerings[]
@@ -2466,6 +2520,13 @@ enum calendar_event_kind {
   holiday
   deadline
   other
+  orientation
+  midterm_exam
+  final_exam
+  result_publication
+  graduation
+  admissions
+  financial_deadline
 
   @@schema("public")
 }
@@ -2942,6 +3003,26 @@ enum tenant_status {
   active
   suspended
   offboarded
+
+  @@schema("public")
+}
+
+enum academic_year_status {
+  planned
+  active
+  completed
+  archived
+
+  @@schema("public")
+}
+
+enum academic_term_kind {
+  regular
+  summer
+  intensive
+  short
+  block
+  other
 
   @@schema("public")
 }
