@@ -3050,7 +3050,7 @@ model student_department_assignments {
   starts_on          DateTime? @db.Date
   ends_on            DateTime? @db.Date
   users              users     @relation("student_department_assignments_student", fields: [student_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
-  reviewers          users?    @relation("student_department_assignments_reviewer", fields: [reviewed_by, tenant_id], references: [id, tenant_id], onDelete: NoAction, onUpdate: NoAction)
+  reviewers          users?    @relation("student_department_assignments_reviewer", fields: [reviewed_by, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
   faculties          faculties @relation(fields: [faculty_id, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
   departments        departments @relation(fields: [department_id, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
 
@@ -3078,7 +3078,7 @@ model student_programme_selections {
   starts_on          DateTime? @db.Date
   ends_on            DateTime? @db.Date
   users              users     @relation("student_programme_selections_student", fields: [student_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
-  reviewers          users?    @relation("student_programme_selections_reviewer", fields: [reviewed_by, tenant_id], references: [id, tenant_id], onDelete: NoAction, onUpdate: NoAction)
+  reviewers          users?    @relation("student_programme_selections_reviewer", fields: [reviewed_by, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
   departments        departments @relation(fields: [department_id, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
   programs           programs  @relation(fields: [program_id, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
 
