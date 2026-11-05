@@ -82,3 +82,66 @@ ON CONFLICT (faculty_id, tenant_id) DO UPDATE
 SET department_selection_semester = EXCLUDED.department_selection_semester,
     department_effective_semester = EXCLUDED.department_effective_semester,
     programme_selection_semester = EXCLUDED.programme_selection_semester;
+
+
+-- Seed ECU's existing semester pathway into the generalized academic-level model.
+-- The legacy semester columns remain populated for compatibility with older clients.
+INSERT INTO public.academic_levels (
+  tenant_id, faculty_id, code, name, sequence_number, period_unit, stage_key, is_terminal
+)
+SELECT
+  t.id,
+  f.id,
+  'SEMESTER_' || n,
+  'Semester ' || n,
+  n,
+  'semester',
+  CASE
+    WHEN n <= 2 THEN 'preparatory'
+    WHEN n <= 7 THEN 'departmental'
+    ELSE 'programme'
+  END,
+  n = 8
+FROM public.tenants AS t
+JOIN public.faculties AS f ON f.tenant_id = t.id AND f.code = 'ENG'
+CROSS JOIN generate_series(1, 8) AS n
+WHERE t.slug = 'ecu'
+ON CONFLICT (tenant_id, faculty_id, code) DO NOTHING;
+
+UPDATE public.faculty_academic_pathways AS p
+SET department_selection_level_id = sel.id,
+    department_effective_level_id = eff.id,
+    programme_selection_level_id = prog.id
+FROM public.academic_levels AS sel,
+     public.academic_levels AS eff,
+     public.academic_levels AS prog
+WHERE sel.tenant_id = p.tenant_id AND sel.faculty_id = p.faculty_id
+  AND sel.sequence_number = p.department_selection_semester
+  AND eff.tenant_id = p.tenant_id AND eff.faculty_id = p.faculty_id
+  AND eff.sequence_number = p.department_effective_semester
+  AND prog.tenant_id = p.tenant_id AND prog.faculty_id = p.faculty_id
+  AND prog.sequence_number = p.programme_selection_semester;
+
+INSERT INTO public.academic_progression_rules (
+  tenant_id, faculty_id, action_key, selection_level_id, effective_level_id,
+  minimum_credits, requires_department_assignment
+)
+SELECT p.tenant_id, p.faculty_id, 'department_selection',
+       p.department_selection_level_id, p.department_effective_level_id, 0, false
+FROM public.faculty_academic_pathways AS p
+WHERE p.department_selection_level_id IS NOT NULL
+ON CONFLICT (tenant_id, faculty_id, action_key) DO UPDATE
+SET selection_level_id = EXCLUDED.selection_level_id,
+    effective_level_id = EXCLUDED.effective_level_id;
+
+INSERT INTO public.academic_progression_rules (
+  tenant_id, faculty_id, action_key, selection_level_id, effective_level_id,
+  minimum_credits, requires_department_assignment
+)
+SELECT p.tenant_id, p.faculty_id, 'programme_selection',
+       p.programme_selection_level_id, p.programme_selection_level_id, 0, true
+FROM public.faculty_academic_pathways AS p
+WHERE p.programme_selection_level_id IS NOT NULL
+ON CONFLICT (tenant_id, faculty_id, action_key) DO UPDATE
+SET selection_level_id = EXCLUDED.selection_level_id,
+    effective_level_id = EXCLUDED.effective_level_id;
