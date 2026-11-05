@@ -933,7 +933,7 @@ model faculties {
   created_at  DateTime      @default(now()) @db.Timestamptz(6)
   departments departments[]
   student_academic_progressions student_academic_progressions[]
-  academic_pathways faculty_academic_pathways[]
+  academic_pathways faculty_academic_pathways?
   student_department_assignments student_department_assignments[]
   tenants     tenants       @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
