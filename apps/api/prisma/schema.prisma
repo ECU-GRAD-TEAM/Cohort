@@ -2156,6 +2156,7 @@ model terms {
 
   @@unique([id, tenant_id])
   @@unique([tenant_id, code])
+  @@index([academic_year_id, tenant_id])
   @@schema("public")
 }
 
