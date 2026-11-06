@@ -667,3 +667,68 @@ SET faculty_id=EXCLUDED.faculty_id, department_id=EXCLUDED.department_id,
     title=EXCLUDED.title, credit_hours=EXCLUDED.credit_hours, level=EXCLUDED.level,
     lecture_hours=EXCLUDED.lecture_hours, tutorial_hours=EXCLUDED.tutorial_hours,
     lab_hours=EXCLUDED.lab_hours, is_active=EXCLUDED.is_active;
+
+
+-- Seed confirmed ECU programme course prerequisites.
+-- Only prerequisites explicitly listed in the supplied curriculum are included.
+-- Course references resolve by tenant-scoped course codes for portable local seeds.
+INSERT INTO public.course_prerequisites (
+  tenant_id,
+  course_id,
+  prerequisite_course_id,
+  kind
+)
+SELECT
+  t.id,
+  course.id,
+  prerequisite.id,
+  'prerequisite'::public.prerequisite_kind
+FROM public.tenants AS t
+CROSS JOIN (
+  VALUES
+    ('PHM 013', 'PHM 012'),
+    ('PHM 033', 'PHM 032'),
+    ('PHM 113', 'PHM 013'),
+    ('PHM 115', 'PHM 013'),
+    ('MCE 132', 'PHM 042'),
+    ('PHM 114', 'PHM 013'),
+    ('SET 121', 'SET 111'),
+    ('SET 122', 'SET 112'),
+    ('SET 123', 'SET 112'),
+    ('SET 124', 'SET 112'),
+    ('MCE 112', 'PHM 012'),
+    ('SET 211', 'SET 122'),
+    ('SET 212', 'SET 124'),
+    ('SET 213', 'SET 121'),
+    ('SET 214', 'PHM 114'),
+    ('SET 221', 'SET 121'),
+    ('SET 222', 'SET 123'),
+    ('SET 223', 'SET 212'),
+    ('SET 224', 'SET 213'),
+    ('SET 225', 'SET 123'),
+    ('SET 226', 'SET 214'),
+    ('SET 311', 'SET 121'),
+    ('SET 312', 'SET 212'),
+    ('SET 314', 'SET 214'),
+    ('SET 321', 'SET 124'),
+    ('SET 322', 'SET 212'),
+    ('SET 322', 'SET 313'),
+    ('SET 323', 'SET 213'),
+    ('SET 323', 'SET 311'),
+    ('SET 412', 'SET 212'),
+    ('SET 413', 'SET 213'),
+    ('SET 413', 'SET 313'),
+    ('SET 421', 'SET 223'),
+    ('SET 422', 'SET 212'),
+    ('SET 423', 'SET 322')
+) AS prerequisite_pair(course_code, prerequisite_code)
+JOIN public.courses AS course
+  ON course.tenant_id = t.id
+ AND course.code = prerequisite_pair.course_code
+JOIN public.courses AS prerequisite
+  ON prerequisite.tenant_id = t.id
+ AND prerequisite.code = prerequisite_pair.prerequisite_code
+WHERE t.slug = 'ecu'
+ON CONFLICT (course_id, prerequisite_course_id) DO UPDATE
+SET tenant_id = EXCLUDED.tenant_id,
+    kind = EXCLUDED.kind;
