@@ -848,3 +848,57 @@ WHERE t.slug = 'ecu'
 ON CONFLICT (course_id,prerequisite_course_id) DO UPDATE
 SET tenant_id = EXCLUDED.tenant_id,
     kind = EXCLUDED.kind;
+
+
+-- Seed ECU programme curriculum requirement groups for uncoded elective slots
+-- and graduation-project components. No placeholder course records are created.
+-- Graduation-project credits remain NULL until the official allocation is confirmed.
+INSERT INTO public.curriculum_requirement_groups (
+  tenant_id, program_id, academic_level_id, code, title, category,
+  required_course_count, minimum_credit_hours, maximum_credit_hours,
+  is_required, sort_order, notes, is_active
+)
+SELECT
+  t.id, p.id, al.id,
+  requirement.code, requirement.title, requirement.category,
+  1, requirement.minimum_credit_hours, NULL,
+  true, requirement.sort_order, requirement.notes, true
+FROM public.tenants AS t
+JOIN public.programs AS p
+  ON p.tenant_id = t.id AND p.code = 'SET'
+JOIN public.departments AS d
+  ON d.id = p.department_id AND d.tenant_id = p.tenant_id
+CROSS JOIN (
+  VALUES
+    ('HUM_ELECTIVE_1','Humanities Elective (1)','humanities_elective',1,3::numeric,1,NULL::text),
+    ('HUM_ELECTIVE_2','Humanities Elective (2)','humanities_elective',2,3::numeric,2,NULL::text),
+    ('HUM_ELECTIVE_3','Humanities Elective (3)','humanities_elective',4,3::numeric,3,NULL::text),
+    ('HUM_ELECTIVE_4','Humanities Elective (4)','humanities_elective',5,3::numeric,4,NULL::text),
+    ('HUM_ELECTIVE_5','Humanities Elective (5)','humanities_elective',7,3::numeric,5,NULL::text),
+    ('HUM_ELECTIVE_6','Humanities Elective (6)','humanities_elective',8,3::numeric,6,NULL::text),
+    ('TECHNICAL_ELECTIVE_1','Technical Elective (1)','technical_elective',7,3::numeric,7,NULL::text),
+    ('TECHNICAL_ELECTIVE_2','Technical Elective (2)','technical_elective',8,3::numeric,8,NULL::text),
+    ('TECHNICAL_ELECTIVE_3','Technical Elective (3)','technical_elective',8,3::numeric,9,NULL::text),
+    ('TECHNICAL_ELECTIVE_4','Technical Elective (4)','technical_elective',9,3::numeric,10,NULL::text),
+    ('TECHNICAL_ELECTIVE_5','Technical Elective (5)','technical_elective',9,3::numeric,11,NULL::text),
+    ('TECHNICAL_ELECTIVE_6','Technical Elective (6)','technical_elective',10,3::numeric,12,NULL::text),
+    ('TECHNICAL_ELECTIVE_7','Technical Elective (7)','technical_elective',10,3::numeric,13,NULL::text),
+    ('GRADUATION_PROJECT_1','Graduation Project (1)','graduation_project',9,NULL::numeric,14,'Credit allocation is not confirmed; populate after official verification.'),
+    ('GRADUATION_PROJECT_2','Graduation Project (2)','graduation_project',10,NULL::numeric,15,'Credit allocation is not confirmed; populate after official verification.')
+) AS requirement(code,title,category,semester_number,minimum_credit_hours,sort_order,notes)
+JOIN public.academic_levels AS al
+  ON al.tenant_id = t.id
+ AND al.faculty_id = d.faculty_id
+ AND al.sequence_number = requirement.semester_number
+WHERE t.slug = 'ecu'
+ON CONFLICT (program_id, code) DO UPDATE
+SET academic_level_id = EXCLUDED.academic_level_id,
+    title = EXCLUDED.title,
+    category = EXCLUDED.category,
+    required_course_count = EXCLUDED.required_course_count,
+    minimum_credit_hours = EXCLUDED.minimum_credit_hours,
+    maximum_credit_hours = EXCLUDED.maximum_credit_hours,
+    is_required = EXCLUDED.is_required,
+    sort_order = EXCLUDED.sort_order,
+    notes = EXCLUDED.notes,
+    is_active = true;
