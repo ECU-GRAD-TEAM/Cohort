@@ -3344,6 +3344,8 @@ model specialization_courses {
   courses           courses @relation(fields: [course_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
   @@id([specialization_id, course_id])
   @@index([tenant_id, course_id])
+  @@index([course_id, tenant_id])
+  @@index([specialization_id, program_id, tenant_id])
   @@schema("public")
 }
 
@@ -3366,6 +3368,10 @@ model student_specialization_selections {
   programs           programs @relation(fields: [program_id, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
   specializations    specializations @relation(fields: [specialization_id, program_id, tenant_id], references: [id, program_id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
   @@index([tenant_id, student_id, requested_at(sort: Desc)])
+  @@index([student_id, tenant_id])
+  @@index([program_id, tenant_id])
+  @@index([reviewed_by, tenant_id])
+  @@index([specialization_id, program_id, tenant_id])
   @@index([tenant_id, program_id, status])
   @@index([tenant_id, specialization_id])
   @@schema("public")
