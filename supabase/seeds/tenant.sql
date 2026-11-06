@@ -59,7 +59,9 @@ ON CONFLICT (tenant_id, code) DO NOTHING;
 
 
 -- ECU Engineering and Technology academic progression:
--- shared preparatory semesters 1-2, department from semester 3, programme from semester 8.
+-- PDF stages: General (1-2), First (3-4), Second (5-6), Third (7-8), Fourth (9-10).
+-- Department choice follows semester 2 and takes effect in semester 3.
+-- Programme selection timing is intentionally unconfigured because the PDF does not specify it.
 INSERT INTO public.faculty_academic_pathways (
   tenant_id,
   faculty_id,
@@ -72,7 +74,7 @@ SELECT
   f.id,
   2,
   3,
-  8
+  NULL
 FROM public.tenants AS t
 JOIN public.faculties AS f
   ON f.tenant_id = t.id
@@ -142,16 +144,13 @@ WHERE level.tenant_id = t.id AND t.slug = 'ecu'
 UPDATE public.faculty_academic_pathways AS p
 SET department_selection_level_id = sel.id,
     department_effective_level_id = eff.id,
-    programme_selection_level_id = prog.id
+    programme_selection_level_id = NULL
 FROM public.academic_levels AS sel,
-     public.academic_levels AS eff,
-     public.academic_levels AS prog
+     public.academic_levels AS eff
 WHERE sel.tenant_id = p.tenant_id AND sel.faculty_id = p.faculty_id
   AND sel.sequence_number = p.department_selection_semester
   AND eff.tenant_id = p.tenant_id AND eff.faculty_id = p.faculty_id
-  AND eff.sequence_number = p.department_effective_semester
-  AND prog.tenant_id = p.tenant_id AND prog.faculty_id = p.faculty_id
-  AND prog.sequence_number = p.programme_selection_semester;
+  AND eff.sequence_number = p.department_effective_semester;
 
 UPDATE public.faculty_academic_pathways AS p
 SET expected_completion_level_id = completion.id
