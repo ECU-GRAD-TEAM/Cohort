@@ -940,3 +940,51 @@ WHERE t.slug = 'ecu'
 ON CONFLICT (course_id, prerequisite_course_id) DO UPDATE
 SET tenant_id = EXCLUDED.tenant_id,
     kind = EXCLUDED.kind;
+
+
+-- Map the confirmed SET programme core curriculum to its ten academic semesters.
+-- Shared faculty-level Semester 1-2 courses remain faculty-owned in the course catalogue.
+-- Humanities placeholders are omitted until official course codes are confirmed.
+-- Technical electives remain represented by curriculum_requirement_groups and
+-- specialization eligibility; they are not duplicated as required core mappings.
+INSERT INTO public.program_curriculum_courses (
+  tenant_id, program_id, course_id, academic_level_id, requirement_type, is_active
+)
+SELECT
+  t.id,
+  p.id,
+  c.id,
+  al.id,
+  'required',
+  true
+FROM public.tenants AS t
+JOIN public.programs AS p
+  ON p.tenant_id = t.id AND p.code = 'SET'
+JOIN public.departments AS d
+  ON d.id = p.department_id AND d.tenant_id = p.tenant_id
+JOIN public.faculties AS f
+  ON f.id = d.faculty_id AND f.tenant_id = d.tenant_id
+CROSS JOIN (
+  VALUES
+    ('PHM 012',1),('PHM 032',1),('PHM 042',1),('SET 012',1),('MCE 061',1),
+    ('PHM 013',2),('PHM 014',2),('PHM 022',2),('PHM 033',2),('MCE 024',2),
+    ('PHM 113',3),('PHM 115',3),('SET 111',3),('SET 112',3),('MCE 132',3),('SET 113',3),
+    ('PHM 114',4),('SET 121',4),('SET 122',4),('SET 123',4),('SET 124',4),
+    ('MCE 112',5),('SET 211',5),('SET 212',5),('SET 213',5),('SET 214',5),
+    ('SET 221',6),('SET 222',6),('SET 223',6),('SET 224',6),('SET 225',6),('SET 226',6),
+    ('SET 311',7),('SET 312',7),('SET 313',7),('SET 314',7),
+    ('SET 321',8),('SET 322',8),('SET 323',8),
+    ('SET 411',9),('SET 412',9),('SET 413',9),('SET 497',9),
+    ('SET 421',10),('SET 422',10),('SET 423',10),('SET 498',10)
+) AS curriculum(course_code, semester_number)
+JOIN public.courses AS c
+  ON c.tenant_id = t.id AND c.code = curriculum.course_code
+JOIN public.academic_levels AS al
+  ON al.tenant_id = t.id
+ AND al.faculty_id = f.id
+ AND al.sequence_number = curriculum.semester_number
+WHERE t.slug = 'ecu'
+ON CONFLICT (program_id, course_id) DO UPDATE
+SET academic_level_id = EXCLUDED.academic_level_id,
+    requirement_type = EXCLUDED.requirement_type,
+    is_active = true;
