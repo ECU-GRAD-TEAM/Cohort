@@ -293,3 +293,68 @@ SET faculty_id = EXCLUDED.faculty_id,
     tutorial_hours = EXCLUDED.tutorial_hours,
     lab_hours = EXCLUDED.lab_hours,
     is_active = EXCLUDED.is_active;
+
+
+-- Seed the approved second-semester ECU course catalogue records.
+-- PHM courses are faculty-owned; MCE 024 is owned by Mechatronics Engineering.
+INSERT INTO public.courses (
+  tenant_id,
+  faculty_id,
+  department_id,
+  code,
+  title,
+  credit_hours,
+  level,
+  lecture_hours,
+  tutorial_hours,
+  lab_hours,
+  is_active
+)
+SELECT
+  t.id,
+  owner.faculty_id,
+  owner.department_id,
+  course.code,
+  course.title,
+  course.credit_hours,
+  2,
+  course.lecture_hours,
+  course.tutorial_hours,
+  course.lab_hours,
+  true
+FROM public.tenants AS t
+CROSS JOIN (
+  VALUES
+    ('PHM 013', 'Calculus for Engineering (2)', 3::numeric, 2::numeric, 2::numeric, 0::numeric, 'faculty'::text, 'ENG'::text),
+    ('PHM 014', 'Linear Algebra and Analytical Geometry', 3::numeric, 2::numeric, 2::numeric, 0::numeric, 'faculty'::text, 'ENG'::text),
+    ('PHM 022', 'Waves, Electricity, and Magnetic Fields', 3::numeric, 2::numeric, 0::numeric, 3::numeric, 'faculty'::text, 'ENG'::text),
+    ('PHM 033', 'Engineering Mechanics (2) - Dynamics', 3::numeric, 2::numeric, 2::numeric, 0::numeric, 'faculty'::text, 'ENG'::text),
+    ('MCE 024', 'Production Engineering', 3::numeric, 2::numeric, 0::numeric, 3::numeric, 'department'::text, 'MCE'::text)
+) AS course(code, title, credit_hours, lecture_hours, tutorial_hours, lab_hours, owner_type, owner_code)
+JOIN LATERAL (
+  SELECT
+    CASE WHEN course.owner_type = 'faculty' THEN f.id END AS faculty_id,
+    CASE WHEN course.owner_type = 'department' THEN d.id END AS department_id
+  FROM public.faculties AS f
+  LEFT JOIN public.departments AS d
+    ON d.tenant_id = f.tenant_id
+   AND d.faculty_id = f.id
+   AND d.code = course.owner_code
+  WHERE f.tenant_id = t.id
+    AND (
+      (course.owner_type = 'faculty' AND f.code = course.owner_code)
+      OR
+      (course.owner_type = 'department' AND f.code = 'ENG' AND d.id IS NOT NULL)
+    )
+) AS owner ON true
+WHERE t.slug = 'ecu'
+ON CONFLICT (tenant_id, code) DO UPDATE
+SET faculty_id = EXCLUDED.faculty_id,
+    department_id = EXCLUDED.department_id,
+    title = EXCLUDED.title,
+    credit_hours = EXCLUDED.credit_hours,
+    level = EXCLUDED.level,
+    lecture_hours = EXCLUDED.lecture_hours,
+    tutorial_hours = EXCLUDED.tutorial_hours,
+    lab_hours = EXCLUDED.lab_hours,
+    is_active = EXCLUDED.is_active;
