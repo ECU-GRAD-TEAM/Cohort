@@ -86,6 +86,43 @@ SET department_selection_semester = EXCLUDED.department_selection_semester,
     programme_selection_semester = EXCLUDED.programme_selection_semester;
 
 
+-- Seed ECU's five annual academic progression levels separately from its ten curriculum semesters.
+-- Credit thresholds are intentionally NULL until ECU provides the official cumulative requirements.
+INSERT INTO public.academic_year_levels (
+  tenant_id, faculty_id, code, name, sequence_number,
+  curriculum_semester_start, curriculum_semester_end
+)
+SELECT t.id, f.id, 'LEVEL_' || n, 'Level ' || n, n, (n * 2) - 1, n * 2
+FROM public.tenants AS t
+JOIN public.faculties AS f ON f.tenant_id = t.id AND f.code = 'ENG'
+CROSS JOIN generate_series(1, 5) AS n
+WHERE t.slug = 'ecu'
+ON CONFLICT (tenant_id, faculty_id, code) DO UPDATE
+SET name = EXCLUDED.name,
+    sequence_number = EXCLUDED.sequence_number,
+    curriculum_semester_start = EXCLUDED.curriculum_semester_start,
+    curriculum_semester_end = EXCLUDED.curriculum_semester_end;
+
+UPDATE public.faculty_academic_pathways AS p
+SET department_selection_year_level_id = level_1.id,
+    department_effective_year_level_id = level_2.id,
+    expected_completion_year_level_id = level_5.id
+FROM public.academic_year_levels AS level_1,
+     public.academic_year_levels AS level_2,
+     public.academic_year_levels AS level_5
+WHERE level_1.tenant_id = p.tenant_id AND level_1.faculty_id = p.faculty_id AND level_1.sequence_number = 1
+  AND level_2.tenant_id = p.tenant_id AND level_2.faculty_id = p.faculty_id AND level_2.sequence_number = 2
+  AND level_5.tenant_id = p.tenant_id AND level_5.faculty_id = p.faculty_id AND level_5.sequence_number = 5;
+
+UPDATE public.academic_progression_rules AS r
+SET selection_year_level_id = level_1.id,
+    effective_year_level_id = level_2.id
+FROM public.academic_year_levels AS level_1,
+     public.academic_year_levels AS level_2
+WHERE level_1.tenant_id = r.tenant_id AND level_1.faculty_id = r.faculty_id AND level_1.sequence_number = 1
+  AND level_2.tenant_id = r.tenant_id AND level_2.faculty_id = r.faculty_id AND level_2.sequence_number = 2
+  AND r.action_key = 'department_selection';
+
 -- Seed ECU's existing semester pathway into the generalized academic-level model.
 -- The legacy semester columns remain populated for compatibility with older clients.
 INSERT INTO public.academic_levels (
