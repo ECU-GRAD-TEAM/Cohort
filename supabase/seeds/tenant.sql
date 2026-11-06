@@ -904,6 +904,27 @@ SET academic_level_id = EXCLUDED.academic_level_id,
     is_active = true;
 
 
+-- Seed the transcript-listed English Language course.
+-- It carries zero credit hours, so it is catalogued as a faculty course
+-- but is not mapped to one of the six credit-bearing Humanities elective slots.
+INSERT INTO public.courses (
+  tenant_id, faculty_id, department_id, code, title, credit_hours, level, is_active
+)
+SELECT
+  t.id, f.id, NULL, 'HUM 011', 'English Language', 0, NULL, true
+FROM public.tenants AS t
+JOIN public.faculties AS f
+  ON f.tenant_id = t.id AND f.code = 'ENG'
+WHERE t.slug = 'ecu'
+ON CONFLICT (tenant_id, code) DO UPDATE
+SET faculty_id = EXCLUDED.faculty_id,
+    department_id = NULL,
+    title = EXCLUDED.title,
+    credit_hours = EXCLUDED.credit_hours,
+    level = EXCLUDED.level,
+    is_active = true;
+
+
 -- Seed the six transcript-confirmed ECU Humanities elective courses.
 -- These are faculty-owned courses (not department-owned) and map one-to-one
 -- to the six Humanities elective requirement groups in the SET programme.
