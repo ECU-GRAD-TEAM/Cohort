@@ -904,6 +904,61 @@ SET academic_level_id = EXCLUDED.academic_level_id,
     is_active = true;
 
 
+-- Seed the six transcript-confirmed ECU Humanities elective courses.
+-- These are faculty-owned courses (not department-owned) and map one-to-one
+-- to the six Humanities elective requirement groups in the SET programme.
+INSERT INTO public.courses (
+  tenant_id, faculty_id, department_id, code, title, credit_hours, level, is_active
+)
+SELECT
+  t.id, f.id, NULL, humanities.code, humanities.title,
+  3, humanities.semester_number, true
+FROM public.tenants AS t
+JOIN public.faculties AS f
+  ON f.tenant_id = t.id AND f.code = 'ENG'
+CROSS JOIN (
+  VALUES
+    ('HUM 012', 'Chinese Language', 1::smallint),
+    ('HUM 014', 'Engineering Profession, Practice, and Responsibilities', 2::smallint),
+    ('HUM 212', 'Introduction to Marketing', 4::smallint),
+    ('HUM 312', 'Human Resource Management', 5::smallint),
+    ('HUM 113', 'Security and Safety in Profession', 7::smallint),
+    ('HUM 112', 'Health and Wellness', 8::smallint)
+) AS humanities(code, title, semester_number)
+WHERE t.slug = 'ecu'
+ON CONFLICT (tenant_id, code) DO UPDATE
+SET faculty_id = EXCLUDED.faculty_id,
+    department_id = NULL,
+    title = EXCLUDED.title,
+    credit_hours = EXCLUDED.credit_hours,
+    level = EXCLUDED.level,
+    is_active = true;
+
+-- Map each confirmed Humanities course to its corresponding elective slot.
+INSERT INTO public.curriculum_requirement_group_courses (
+  tenant_id, requirement_group_id, course_id, is_active
+)
+SELECT
+  t.id, requirement_group.id, course.id, true
+FROM public.tenants AS t
+JOIN public.courses AS course
+  ON course.tenant_id = t.id
+JOIN public.curriculum_requirement_groups AS requirement_group
+  ON requirement_group.tenant_id = t.id
+ AND requirement_group.code = CASE course.code
+   WHEN 'HUM 012' THEN 'HUM_ELECTIVE_1'
+   WHEN 'HUM 014' THEN 'HUM_ELECTIVE_2'
+   WHEN 'HUM 212' THEN 'HUM_ELECTIVE_3'
+   WHEN 'HUM 312' THEN 'HUM_ELECTIVE_4'
+   WHEN 'HUM 113' THEN 'HUM_ELECTIVE_5'
+   WHEN 'HUM 112' THEN 'HUM_ELECTIVE_6'
+ END
+WHERE t.slug = 'ecu'
+  AND course.code IN ('HUM 012', 'HUM 014', 'HUM 212', 'HUM 312', 'HUM 113', 'HUM 112')
+ON CONFLICT (requirement_group_id, course_id)
+DO UPDATE SET is_active = true;
+
+
 -- Seed the confirmed ECU graduation project courses and their progression prerequisite.
 -- User-confirmed curriculum correction supersedes the inconsistent project codes in the older PDF.
 INSERT INTO public.courses (
