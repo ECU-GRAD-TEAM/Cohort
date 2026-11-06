@@ -988,3 +988,48 @@ ON CONFLICT (program_id, course_id) DO UPDATE
 SET academic_level_id = EXCLUDED.academic_level_id,
     requirement_type = EXCLUDED.requirement_type,
     is_active = true;
+
+
+-- Technical elective eligibility: every specialization course is eligible for every S7-S10 elective slot.
+-- Student selection validation still restricts each student to courses from
+-- their own active, approved specialization and enforces prerequisites.
+-- All seven slots accept the full 36-course specialization catalogue.
+INSERT INTO public.curriculum_requirement_group_courses (
+  tenant_id,
+  requirement_group_id,
+  course_id,
+  is_active
+)
+SELECT
+  tenant.id,
+  requirement_group.id,
+  specialization_course.course_id,
+  true
+FROM public.tenants AS tenant
+JOIN public.curriculum_requirement_groups AS requirement_group
+  ON requirement_group.tenant_id = tenant.id
+JOIN public.academic_levels AS academic_level
+  ON academic_level.id = requirement_group.academic_level_id
+ AND academic_level.tenant_id = tenant.id
+JOIN public.specializations AS specialization
+  ON specialization.tenant_id = tenant.id
+ AND specialization.program_id = requirement_group.program_id
+JOIN public.specialization_courses AS specialization_course
+  ON specialization_course.specialization_id = specialization.id
+JOIN public.courses AS course
+  ON course.id = specialization_course.course_id
+ AND course.tenant_id = tenant.id
+WHERE tenant.slug = 'ecu'
+  AND requirement_group.program_id = (
+    SELECT program.id
+    FROM public.programs AS program
+    WHERE program.tenant_id = tenant.id
+      AND program.code = 'SET'
+    LIMIT 1
+  )
+  AND requirement_group.category = 'technical_elective'
+  AND requirement_group.is_active = true
+  AND academic_level.sequence_number BETWEEN 7 AND 10
+  AND course.credit_hours >= 3
+ON CONFLICT (requirement_group_id, course_id)
+DO UPDATE SET is_active = true;
