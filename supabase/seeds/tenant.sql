@@ -852,7 +852,7 @@ SET tenant_id = EXCLUDED.tenant_id,
 
 -- Seed ECU programme curriculum requirement groups for uncoded elective slots
 -- and graduation-project components. No placeholder course records are created.
--- Graduation-project credits remain NULL until the official allocation is confirmed.
+-- Graduation-project courses and credits are confirmed: SET 497 and SET 498, 3 credits each.
 INSERT INTO public.curriculum_requirement_groups (
   tenant_id, program_id, academic_level_id, code, title, category,
   required_course_count, minimum_credit_hours, maximum_credit_hours,
@@ -883,8 +883,8 @@ CROSS JOIN (
     ('TECHNICAL_ELECTIVE_5','Technical Elective (5)','technical_elective',9,3::numeric,11,NULL::text),
     ('TECHNICAL_ELECTIVE_6','Technical Elective (6)','technical_elective',10,3::numeric,12,NULL::text),
     ('TECHNICAL_ELECTIVE_7','Technical Elective (7)','technical_elective',10,3::numeric,13,NULL::text),
-    ('GRADUATION_PROJECT_1','Graduation Project (1)','graduation_project',9,NULL::numeric,14,'Credit allocation is not confirmed; populate after official verification.'),
-    ('GRADUATION_PROJECT_2','Graduation Project (2)','graduation_project',10,NULL::numeric,15,'Credit allocation is not confirmed; populate after official verification.')
+    ('GRADUATION_PROJECT_1','Graduation Project (1)','graduation_project',9,3::numeric,14,'SET 497; 3 credits; Semester 9.'),
+    ('GRADUATION_PROJECT_2','Graduation Project (2)','graduation_project',10,3::numeric,15,'SET 498; 3 credits; Semester 10; prerequisite SET 497.')
 ) AS requirement(code,title,category,semester_number,minimum_credit_hours,sort_order,notes)
 JOIN public.academic_levels AS al
   ON al.tenant_id = t.id
@@ -902,3 +902,41 @@ SET academic_level_id = EXCLUDED.academic_level_id,
     sort_order = EXCLUDED.sort_order,
     notes = EXCLUDED.notes,
     is_active = true;
+
+
+-- Seed the confirmed ECU graduation project courses and their progression prerequisite.
+-- User-confirmed curriculum correction supersedes the inconsistent project codes in the older PDF.
+INSERT INTO public.courses (
+  tenant_id, department_id, code, title, credit_hours, level, is_active
+)
+SELECT t.id, d.id, project.code, project.title, 3, project.level, true
+FROM public.tenants AS t
+JOIN public.departments AS d
+  ON d.tenant_id = t.id AND d.code = 'SET'
+CROSS JOIN (
+  VALUES
+    ('SET 497', 'Graduation Project (1)', 9::smallint),
+    ('SET 498', 'Graduation Project (2)', 10::smallint)
+) AS project(code, title, level)
+WHERE t.slug = 'ecu'
+ON CONFLICT (tenant_id, code) DO UPDATE
+SET department_id = EXCLUDED.department_id,
+    title = EXCLUDED.title,
+    credit_hours = EXCLUDED.credit_hours,
+    level = EXCLUDED.level,
+    is_active = true;
+
+INSERT INTO public.course_prerequisites (
+  tenant_id, course_id, prerequisite_course_id, kind
+)
+SELECT t.id, project_two.id, project_one.id,
+       'prerequisite'::public.prerequisite_kind
+FROM public.tenants AS t
+JOIN public.courses AS project_one
+  ON project_one.tenant_id = t.id AND project_one.code = 'SET 497'
+JOIN public.courses AS project_two
+  ON project_two.tenant_id = t.id AND project_two.code = 'SET 498'
+WHERE t.slug = 'ecu'
+ON CONFLICT (course_id, prerequisite_course_id) DO UPDATE
+SET tenant_id = EXCLUDED.tenant_id,
+    kind = EXCLUDED.kind;
