@@ -50,7 +50,7 @@ JOIN public.faculties AS f
 CROSS JOIN (
   VALUES
     ('SET', 'Software Engineering & Information Technology'),
-    ('MCT', 'Mechatronics Engineering'),
+    ('MCE', 'Mechatronics Engineering'),
     ('ERG', 'Energy and Renewable Energy Engineering'),
     ('CBE', 'Construction and Building Engineering')
 ) AS department(code, name)
