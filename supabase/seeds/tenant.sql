@@ -425,3 +425,245 @@ SET faculty_id = EXCLUDED.faculty_id,
     tutorial_hours = EXCLUDED.tutorial_hours,
     lab_hours = EXCLUDED.lab_hours,
     is_active = EXCLUDED.is_active;
+
+
+-- Seed the confirmed Semester 4-10 course catalogue records. Unspecified weekly hours remain NULL.
+
+-- Semester 4
+INSERT INTO public.courses (
+  tenant_id, faculty_id, department_id, code, title, credit_hours, level,
+  lecture_hours, tutorial_hours, lab_hours, is_active
+)
+SELECT t.id, owner.faculty_id, owner.department_id,
+       course.code, course.title, course.credit_hours, 4,
+       course.lecture_hours, course.tutorial_hours, course.lab_hours, true
+FROM public.tenants AS t
+CROSS JOIN (
+  VALUES
+    ('PHM 114','Statistics and Probability for Engineering',3::numeric,2::numeric,2::numeric,0::numeric,'faculty'::text,'ENG'::text),
+    ('SET 121','Computer Architecture',3::numeric,2::numeric,1::numeric,1.5::numeric,'department'::text,'SET'::text),
+    ('SET 122','Computer Programming (2)',3::numeric,2::numeric,0::numeric,3::numeric,'department'::text,'SET'::text),
+    ('SET 123','Data Structures and Algorithms',3::numeric,2::numeric,1::numeric,1.5::numeric,'department'::text,'SET'::text),
+    ('SET 124','Software Engineering (1)',3::numeric,2::numeric,2::numeric,0::numeric,'department'::text,'SET'::text)
+) AS course(code,title,credit_hours,lecture_hours,tutorial_hours,lab_hours,owner_type,owner_code)
+JOIN LATERAL (
+  SELECT
+    CASE WHEN course.owner_type='faculty' THEN f.id END AS faculty_id,
+    CASE WHEN course.owner_type='department' THEN d.id END AS department_id
+  FROM public.faculties AS f
+  LEFT JOIN public.departments AS d
+    ON d.tenant_id=f.tenant_id AND d.faculty_id=f.id AND d.code=course.owner_code
+  WHERE f.tenant_id=t.id
+    AND ((course.owner_type='faculty' AND f.code=course.owner_code)
+      OR (course.owner_type='department' AND f.code='ENG' AND d.id IS NOT NULL))
+) AS owner ON true
+WHERE t.slug='ecu'
+ON CONFLICT (tenant_id,code) DO UPDATE
+SET faculty_id=EXCLUDED.faculty_id, department_id=EXCLUDED.department_id,
+    title=EXCLUDED.title, credit_hours=EXCLUDED.credit_hours, level=EXCLUDED.level,
+    lecture_hours=EXCLUDED.lecture_hours, tutorial_hours=EXCLUDED.tutorial_hours,
+    lab_hours=EXCLUDED.lab_hours, is_active=EXCLUDED.is_active;
+
+-- Semester 5
+INSERT INTO public.courses (
+  tenant_id, faculty_id, department_id, code, title, credit_hours, level,
+  lecture_hours, tutorial_hours, lab_hours, is_active
+)
+SELECT t.id, owner.faculty_id, owner.department_id,
+       course.code, course.title, course.credit_hours, 5,
+       course.lecture_hours, course.tutorial_hours, course.lab_hours, true
+FROM public.tenants AS t
+CROSS JOIN (
+  VALUES
+    ('MCE 112','Thermodynamics',3::numeric,2::numeric,1::numeric,1.5::numeric,'department'::text,'MCE'::text),
+    ('SET 211','Object-Oriented Analysis and Design',3::numeric,NULL::numeric,NULL::numeric,NULL::numeric,'department'::text,'SET'::text),
+    ('SET 212','Software Engineering (2)',3::numeric,2::numeric,2::numeric,0::numeric,'department'::text,'SET'::text),
+    ('SET 213','Operating Systems',3::numeric,NULL::numeric,NULL::numeric,NULL::numeric,'department'::text,'SET'::text),
+    ('SET 214','Signals and Systems',3::numeric,2::numeric,1::numeric,1.5::numeric,'department'::text,'SET'::text)
+) AS course(code,title,credit_hours,lecture_hours,tutorial_hours,lab_hours,owner_type,owner_code)
+JOIN LATERAL (
+  SELECT
+    CASE WHEN course.owner_type='faculty' THEN f.id END AS faculty_id,
+    CASE WHEN course.owner_type='department' THEN d.id END AS department_id
+  FROM public.faculties AS f
+  LEFT JOIN public.departments AS d
+    ON d.tenant_id=f.tenant_id AND d.faculty_id=f.id AND d.code=course.owner_code
+  WHERE f.tenant_id=t.id
+    AND ((course.owner_type='faculty' AND f.code=course.owner_code)
+      OR (course.owner_type='department' AND f.code='ENG' AND d.id IS NOT NULL))
+) AS owner ON true
+WHERE t.slug='ecu'
+ON CONFLICT (tenant_id,code) DO UPDATE
+SET faculty_id=EXCLUDED.faculty_id, department_id=EXCLUDED.department_id,
+    title=EXCLUDED.title, credit_hours=EXCLUDED.credit_hours, level=EXCLUDED.level,
+    lecture_hours=EXCLUDED.lecture_hours, tutorial_hours=EXCLUDED.tutorial_hours,
+    lab_hours=EXCLUDED.lab_hours, is_active=EXCLUDED.is_active;
+
+-- Semester 6
+INSERT INTO public.courses (
+  tenant_id, faculty_id, department_id, code, title, credit_hours, level,
+  lecture_hours, tutorial_hours, lab_hours, is_active
+)
+SELECT t.id, owner.faculty_id, owner.department_id,
+       course.code, course.title, course.credit_hours, 6,
+       course.lecture_hours, course.tutorial_hours, course.lab_hours, true
+FROM public.tenants AS t
+CROSS JOIN (
+  VALUES
+    ('SET 221','Electronic Design Automation',3::numeric,2::numeric,1::numeric,1.5::numeric,'department'::text,'SET'::text),
+    ('SET 222','Design and Analysis of Algorithms',3::numeric,2::numeric,2::numeric,0::numeric,'department'::text,'SET'::text),
+    ('SET 223','Software Testing, Validation, and Verification',3::numeric,2::numeric,1::numeric,1.5::numeric,'department'::text,'SET'::text),
+    ('SET 224','Design of Compilers',3::numeric,2::numeric,1::numeric,1.5::numeric,'department'::text,'SET'::text),
+    ('SET 225','Database Systems (1)',3::numeric,2::numeric,1::numeric,1.5::numeric,'department'::text,'SET'::text),
+    ('SET 226','Control Engineering',3::numeric,2::numeric,1::numeric,1.5::numeric,'department'::text,'SET'::text)
+) AS course(code,title,credit_hours,lecture_hours,tutorial_hours,lab_hours,owner_type,owner_code)
+JOIN LATERAL (
+  SELECT
+    CASE WHEN course.owner_type='faculty' THEN f.id END AS faculty_id,
+    CASE WHEN course.owner_type='department' THEN d.id END AS department_id
+  FROM public.faculties AS f
+  LEFT JOIN public.departments AS d
+    ON d.tenant_id=f.tenant_id AND d.faculty_id=f.id AND d.code=course.owner_code
+  WHERE f.tenant_id=t.id
+    AND ((course.owner_type='faculty' AND f.code=course.owner_code)
+      OR (course.owner_type='department' AND f.code='ENG' AND d.id IS NOT NULL))
+) AS owner ON true
+WHERE t.slug='ecu'
+ON CONFLICT (tenant_id,code) DO UPDATE
+SET faculty_id=EXCLUDED.faculty_id, department_id=EXCLUDED.department_id,
+    title=EXCLUDED.title, credit_hours=EXCLUDED.credit_hours, level=EXCLUDED.level,
+    lecture_hours=EXCLUDED.lecture_hours, tutorial_hours=EXCLUDED.tutorial_hours,
+    lab_hours=EXCLUDED.lab_hours, is_active=EXCLUDED.is_active;
+
+-- Semester 7
+INSERT INTO public.courses (
+  tenant_id, faculty_id, department_id, code, title, credit_hours, level,
+  lecture_hours, tutorial_hours, lab_hours, is_active
+)
+SELECT t.id, owner.faculty_id, owner.department_id,
+       course.code, course.title, course.credit_hours, 7,
+       course.lecture_hours, course.tutorial_hours, course.lab_hours, true
+FROM public.tenants AS t
+CROSS JOIN (
+  VALUES
+    ('SET 311','Microcontrollers and Interfacing',3::numeric,2::numeric,0::numeric,3::numeric,'department'::text,'SET'::text),
+    ('SET 312','Agile Software Engineering',3::numeric,2::numeric,2::numeric,0::numeric,'department'::text,'SET'::text),
+    ('SET 313','Computer Networks',3::numeric,2::numeric,1::numeric,1.5::numeric,'department'::text,'SET'::text),
+    ('SET 314','Computer Vision',3::numeric,2::numeric,1::numeric,1.5::numeric,'department'::text,'SET'::text)
+) AS course(code,title,credit_hours,lecture_hours,tutorial_hours,lab_hours,owner_type,owner_code)
+JOIN LATERAL (
+  SELECT
+    CASE WHEN course.owner_type='faculty' THEN f.id END AS faculty_id,
+    CASE WHEN course.owner_type='department' THEN d.id END AS department_id
+  FROM public.faculties AS f
+  LEFT JOIN public.departments AS d
+    ON d.tenant_id=f.tenant_id AND d.faculty_id=f.id AND d.code=course.owner_code
+  WHERE f.tenant_id=t.id
+    AND ((course.owner_type='faculty' AND f.code=course.owner_code)
+      OR (course.owner_type='department' AND f.code='ENG' AND d.id IS NOT NULL))
+) AS owner ON true
+WHERE t.slug='ecu'
+ON CONFLICT (tenant_id,code) DO UPDATE
+SET faculty_id=EXCLUDED.faculty_id, department_id=EXCLUDED.department_id,
+    title=EXCLUDED.title, credit_hours=EXCLUDED.credit_hours, level=EXCLUDED.level,
+    lecture_hours=EXCLUDED.lecture_hours, tutorial_hours=EXCLUDED.tutorial_hours,
+    lab_hours=EXCLUDED.lab_hours, is_active=EXCLUDED.is_active;
+
+-- Semester 8
+INSERT INTO public.courses (
+  tenant_id, faculty_id, department_id, code, title, credit_hours, level,
+  lecture_hours, tutorial_hours, lab_hours, is_active
+)
+SELECT t.id, owner.faculty_id, owner.department_id,
+       course.code, course.title, course.credit_hours, 8,
+       course.lecture_hours, course.tutorial_hours, course.lab_hours, true
+FROM public.tenants AS t
+CROSS JOIN (
+  VALUES
+    ('SET 321','Software Formal Specifications',3::numeric,2::numeric,2::numeric,0::numeric,'department'::text,'SET'::text),
+    ('SET 322','Distributed Computing',3::numeric,2::numeric,1::numeric,1.5::numeric,'department'::text,'SET'::text),
+    ('SET 323','Real-Time and Embedded Systems Design',3::numeric,2::numeric,1::numeric,1.5::numeric,'department'::text,'SET'::text)
+) AS course(code,title,credit_hours,lecture_hours,tutorial_hours,lab_hours,owner_type,owner_code)
+JOIN LATERAL (
+  SELECT
+    CASE WHEN course.owner_type='faculty' THEN f.id END AS faculty_id,
+    CASE WHEN course.owner_type='department' THEN d.id END AS department_id
+  FROM public.faculties AS f
+  LEFT JOIN public.departments AS d
+    ON d.tenant_id=f.tenant_id AND d.faculty_id=f.id AND d.code=course.owner_code
+  WHERE f.tenant_id=t.id
+    AND ((course.owner_type='faculty' AND f.code=course.owner_code)
+      OR (course.owner_type='department' AND f.code='ENG' AND d.id IS NOT NULL))
+) AS owner ON true
+WHERE t.slug='ecu'
+ON CONFLICT (tenant_id,code) DO UPDATE
+SET faculty_id=EXCLUDED.faculty_id, department_id=EXCLUDED.department_id,
+    title=EXCLUDED.title, credit_hours=EXCLUDED.credit_hours, level=EXCLUDED.level,
+    lecture_hours=EXCLUDED.lecture_hours, tutorial_hours=EXCLUDED.tutorial_hours,
+    lab_hours=EXCLUDED.lab_hours, is_active=EXCLUDED.is_active;
+
+-- Semester 9
+INSERT INTO public.courses (
+  tenant_id, faculty_id, department_id, code, title, credit_hours, level,
+  lecture_hours, tutorial_hours, lab_hours, is_active
+)
+SELECT t.id, owner.faculty_id, owner.department_id,
+       course.code, course.title, course.credit_hours, 9,
+       course.lecture_hours, course.tutorial_hours, course.lab_hours, true
+FROM public.tenants AS t
+CROSS JOIN (
+  VALUES
+    ('SET 411','High-Performance Computing',3::numeric,2::numeric,1::numeric,1.5::numeric,'department'::text,'SET'::text),
+    ('SET 412','Software Design Patterns',3::numeric,2::numeric,1::numeric,1.5::numeric,'department'::text,'SET'::text),
+    ('SET 413','Computer and Network Security',3::numeric,2::numeric,1::numeric,1.5::numeric,'department'::text,'SET'::text)
+) AS course(code,title,credit_hours,lecture_hours,tutorial_hours,lab_hours,owner_type,owner_code)
+JOIN LATERAL (
+  SELECT
+    CASE WHEN course.owner_type='faculty' THEN f.id END AS faculty_id,
+    CASE WHEN course.owner_type='department' THEN d.id END AS department_id
+  FROM public.faculties AS f
+  LEFT JOIN public.departments AS d
+    ON d.tenant_id=f.tenant_id AND d.faculty_id=f.id AND d.code=course.owner_code
+  WHERE f.tenant_id=t.id
+    AND ((course.owner_type='faculty' AND f.code=course.owner_code)
+      OR (course.owner_type='department' AND f.code='ENG' AND d.id IS NOT NULL))
+) AS owner ON true
+WHERE t.slug='ecu'
+ON CONFLICT (tenant_id,code) DO UPDATE
+SET faculty_id=EXCLUDED.faculty_id, department_id=EXCLUDED.department_id,
+    title=EXCLUDED.title, credit_hours=EXCLUDED.credit_hours, level=EXCLUDED.level,
+    lecture_hours=EXCLUDED.lecture_hours, tutorial_hours=EXCLUDED.tutorial_hours,
+    lab_hours=EXCLUDED.lab_hours, is_active=EXCLUDED.is_active;
+
+-- Semester 10
+INSERT INTO public.courses (
+  tenant_id, faculty_id, department_id, code, title, credit_hours, level,
+  lecture_hours, tutorial_hours, lab_hours, is_active
+)
+SELECT t.id, owner.faculty_id, owner.department_id,
+       course.code, course.title, course.credit_hours, 10,
+       course.lecture_hours, course.tutorial_hours, course.lab_hours, true
+FROM public.tenants AS t
+CROSS JOIN (
+  VALUES
+    ('SET 421','Software Maintenance and Evolution',3::numeric,2::numeric,2::numeric,0::numeric,'department'::text,'SET'::text),
+    ('SET 422','Software Project Management',2::numeric,1::numeric,2::numeric,0::numeric,'department'::text,'SET'::text),
+    ('SET 423','Mobile Computing',3::numeric,2::numeric,1::numeric,1.5::numeric,'department'::text,'SET'::text)
+) AS course(code,title,credit_hours,lecture_hours,tutorial_hours,lab_hours,owner_type,owner_code)
+JOIN LATERAL (
+  SELECT
+    CASE WHEN course.owner_type='faculty' THEN f.id END AS faculty_id,
+    CASE WHEN course.owner_type='department' THEN d.id END AS department_id
+  FROM public.faculties AS f
+  LEFT JOIN public.departments AS d
+    ON d.tenant_id=f.tenant_id AND d.faculty_id=f.id AND d.code=course.owner_code
+  WHERE f.tenant_id=t.id
+    AND ((course.owner_type='faculty' AND f.code=course.owner_code)
+      OR (course.owner_type='department' AND f.code='ENG' AND d.id IS NOT NULL))
+) AS owner ON true
+WHERE t.slug='ecu'
+ON CONFLICT (tenant_id,code) DO UPDATE
+SET faculty_id=EXCLUDED.faculty_id, department_id=EXCLUDED.department_id,
+    title=EXCLUDED.title, credit_hours=EXCLUDED.credit_hours, level=EXCLUDED.level,
+    lecture_hours=EXCLUDED.lecture_hours, tutorial_hours=EXCLUDED.tutorial_hours,
+    lab_hours=EXCLUDED.lab_hours, is_active=EXCLUDED.is_active;
