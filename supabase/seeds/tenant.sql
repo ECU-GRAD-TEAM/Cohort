@@ -732,3 +732,119 @@ WHERE t.slug = 'ecu'
 ON CONFLICT (course_id, prerequisite_course_id) DO UPDATE
 SET tenant_id = EXCLUDED.tenant_id,
     kind = EXCLUDED.kind;
+
+
+-- Seed the four confirmed ECU specialization course catalogues.
+-- All specialization courses carry 3 credit hours as confirmed.
+-- Semester/level placement and weekly workload hours are left unset because they were not specified.
+INSERT INTO public.courses (
+  tenant_id, department_id, code, title, credit_hours, level, is_active
+)
+SELECT t.id, d.id, v.code, v.title, 3, NULL, true
+FROM public.tenants AS t
+JOIN public.departments AS d
+  ON d.tenant_id = t.id AND d.code = 'SET'
+CROSS JOIN (
+  VALUES
+    ('SET 361','Pattern Recognition'),
+    ('SET 362','Digital Image Processing'),
+    ('SET 363','Computer Graphics'),
+    ('SET 364','Human-Computer Interaction'),
+    ('SET 461','Visualization'),
+    ('SET 462','Multimedia Engineering'),
+    ('SET 463','Computer Animation'),
+    ('SET 464','Selected Topics in Multimedia and Computer Graphics'),
+    ('SET 465','Game Design and Development'),
+    ('SET 371','Parallel and Cluster Computing'),
+    ('SET 372','Internet Programming'),
+    ('SET 373','Parallel and Distributed Algorithms'),
+    ('SET 374','Network Operation and Management'),
+    ('SET 471','Selected Topics in Distributed and Mobile Computing'),
+    ('SET 472','Cloud Computing'),
+    ('SET 473','Wireless Networks'),
+    ('SET 474','Computer and Network Forensics'),
+    ('SET 475','Pervasive Computing'),
+    ('SET 381','Program Analysis'),
+    ('SET 382','Software Engineering Process Management'),
+    ('SET 383','Dependability and Reliability of Software Systems'),
+    ('SET 384','Business Process Modeling'),
+    ('SET 481','Selected Topics in Software Product Lines'),
+    ('SET 482','Software Performance Evaluation'),
+    ('SET 483','Aspect- and Service-Oriented Software Systems'),
+    ('SET 484','Secure Code Development'),
+    ('SET 485','Software Quality Assurance'),
+    ('SET 391','Database Systems (2)'),
+    ('SET 392','Simulation of Engineering Systems'),
+    ('SET 393','Data Mining and Business Intelligence'),
+    ('SET 394','Artificial Intelligence'),
+    ('SET 491','Selected Topics in Software Applications'),
+    ('SET 492','Embedded Operating Systems'),
+    ('SET 493','Bioinformatics'),
+    ('SET 494','Ontologies and the Semantic Web'),
+    ('SET 495','E-learning Systems')
+) AS v(code,title)
+WHERE t.slug = 'ecu'
+ON CONFLICT (tenant_id,code) DO UPDATE
+SET department_id = EXCLUDED.department_id,
+    title = EXCLUDED.title,
+    credit_hours = EXCLUDED.credit_hours,
+    is_active = true;
+
+-- Associate each specialization course with its ECU specialization.
+-- is_required is omitted and therefore retains its schema default (false).
+INSERT INTO public.specialization_courses (
+  tenant_id, program_id, specialization_id, course_id
+)
+SELECT t.id, s.program_id, s.id, c.id
+FROM public.tenants AS t
+JOIN public.specializations AS s ON s.tenant_id = t.id
+CROSS JOIN (
+  VALUES
+    ('MCG','SET 361'),('MCG','SET 362'),('MCG','SET 363'),('MCG','SET 364'),
+    ('MCG','SET 461'),('MCG','SET 462'),('MCG','SET 463'),('MCG','SET 464'),('MCG','SET 465'),
+    ('DMC','SET 371'),('DMC','SET 372'),('DMC','SET 373'),('DMC','SET 374'),
+    ('DMC','SET 471'),('DMC','SET 472'),('DMC','SET 473'),('DMC','SET 474'),('DMC','SET 475'),
+    ('SPL','SET 381'),('SPL','SET 382'),('SPL','SET 383'),('SPL','SET 384'),
+    ('SPL','SET 481'),('SPL','SET 482'),('SPL','SET 483'),('SPL','SET 484'),('SPL','SET 485'),
+    ('SA','SET 391'),('SA','SET 392'),('SA','SET 393'),('SA','SET 394'),
+    ('SA','SET 491'),('SA','SET 492'),('SA','SET 493'),('SA','SET 494'),('SA','SET 495')
+) AS mapping(specialization_code,course_code)
+JOIN public.courses AS c
+  ON c.tenant_id = t.id AND c.code = mapping.course_code
+WHERE t.slug = 'ecu' AND s.code = mapping.specialization_code
+ON CONFLICT (specialization_id,course_id) DO NOTHING;
+
+-- Seed only specialization prerequisites explicitly stated in the ECU curriculum.
+-- SET 484 also lists SET 414 in the source, but SET 414 is not in the confirmed
+-- course catalogue; that unresolved reference is intentionally not fabricated.
+INSERT INTO public.course_prerequisites (
+  tenant_id, course_id, prerequisite_course_id, kind
+)
+SELECT t.id, c.id, p.id, 'prerequisite'::public.prerequisite_kind
+FROM public.tenants AS t
+CROSS JOIN (
+  VALUES
+    ('SET 361','SET 214'),('SET 362','SET 214'),
+    ('SET 363','PHM 113'),('SET 363','SET 122'),
+    ('SET 364','SET 212'),('SET 461','SET 363'),('SET 462','SET 362'),
+    ('SET 463','SET 363'),('SET 465','SET 363'),
+    ('SET 371','SET 121'),('SET 372','SET 122'),('SET 373','SET 222'),
+    ('SET 374','SET 313'),('SET 472','SET 322'),('SET 473','SET 313'),
+    ('SET 474','SET 413'),('SET 475','SET 322'),
+    ('SET 381','SET 122'),('SET 382','SET 212'),('SET 383','SET 212'),
+    ('SET 384','SET 212'),('SET 482','SET 212'),('SET 483','SET 212'),
+    ('SET 484','SET 122'),('SET 485','SET 212'),
+    ('SET 391','SET 225'),('SET 392','PHM 114'),
+    ('SET 393','PHM 114'),('SET 393','SET 225'),
+    ('SET 394','PHM 114'),('SET 394','SET 112'),
+    ('SET 492','SET 323'),('SET 493','SET 225'),
+    ('SET 494','SET 394'),('SET 495','SET 394')
+) AS pair(course_code,prerequisite_code)
+JOIN public.courses AS c
+  ON c.tenant_id = t.id AND c.code = pair.course_code
+JOIN public.courses AS p
+  ON p.tenant_id = t.id AND p.code = pair.prerequisite_code
+WHERE t.slug = 'ecu'
+ON CONFLICT (course_id,prerequisite_course_id) DO UPDATE
+SET tenant_id = EXCLUDED.tenant_id,
+    kind = EXCLUDED.kind;
