@@ -164,3 +164,58 @@ WHERE p.programme_selection_level_id IS NOT NULL
 ON CONFLICT (tenant_id, faculty_id, action_key) DO UPDATE
 SET selection_level_id = EXCLUDED.selection_level_id,
     effective_level_id = EXCLUDED.effective_level_id;
+
+-- Seed ECU's Software Engineering and Information Technology bachelor's programme.
+-- Resolve tenant and department IDs through stable natural keys.
+INSERT INTO public.programs (
+  tenant_id,
+  department_id,
+  code,
+  name,
+  degree_level
+)
+SELECT
+  t.id,
+  d.id,
+  'SET',
+  'Software Engineering and Information Technology',
+  'bachelor'::public.degree_level
+FROM public.tenants AS t
+JOIN public.departments AS d
+  ON d.tenant_id = t.id
+ AND d.code = 'SET'
+WHERE t.slug = 'ecu'
+ON CONFLICT (tenant_id, code) DO UPDATE
+SET department_id = EXCLUDED.department_id,
+    name = EXCLUDED.name,
+    degree_level = EXCLUDED.degree_level;
+
+-- Seed the four ECU-approved specializations under the SET programme.
+-- Specialization selection timing remains configurable; no student selections are seeded.
+INSERT INTO public.specializations (
+  tenant_id,
+  program_id,
+  code,
+  name
+)
+SELECT
+  t.id,
+  p.id,
+  specialization.code,
+  specialization.name
+FROM public.tenants AS t
+JOIN public.programs AS p
+  ON p.tenant_id = t.id
+ AND p.code = 'SET'
+CROSS JOIN (
+  VALUES
+    ('MCG', 'Multimedia and Computer Graphics'),
+    ('DMC', 'Distributed and Mobile Computing'),
+    ('SPL', 'Software Product Lines'),
+    ('SA',  'Software Applications')
+) AS specialization(code, name)
+WHERE t.slug = 'ecu'
+ON CONFLICT (program_id, tenant_id, code) DO UPDATE
+SET name = EXCLUDED.name,
+    is_active = true;
+
