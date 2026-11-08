@@ -31,6 +31,10 @@ model academic_calendar_events {
   title     String
   starts_on DateTime            @db.Date
   ends_on   DateTime            @db.Date
+  description String?
+  location String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
   tenants   tenants             @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   terms     terms?              @relation(fields: [term_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
 
@@ -648,6 +652,7 @@ model course_prerequisites {
   prerequisite_course_id                                                 String            @db.Uuid
   tenant_id                                                              String            @db.Uuid
   kind                                                                   prerequisite_kind @default(prerequisite)
+  minimum_grade_points                                                   Decimal?          @db.Decimal(4, 2)
   courses_course_prerequisites_course_id_tenant_idTocourses              courses           @relation("course_prerequisites_course_id_tenant_idTocourses", fields: [course_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
   courses_course_prerequisites_prerequisite_course_id_tenant_idTocourses courses           @relation("course_prerequisites_prerequisite_course_id_tenant_idTocourses", fields: [prerequisite_course_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
 
@@ -669,6 +674,7 @@ model courses {
   level                                                                               Int?                   @db.SmallInt
   is_active                                                                           Boolean                @default(true)
   course_offerings                                                                    course_offerings[]
+  specialization_courses specialization_courses[]
   course_prerequisites_course_prerequisites_course_id_tenant_idTocourses              course_prerequisites[] @relation("course_prerequisites_course_id_tenant_idTocourses")
   course_prerequisites_course_prerequisites_prerequisite_course_id_tenant_idTocourses course_prerequisites[] @relation("course_prerequisites_prerequisite_course_id_tenant_idTocourses")
   departments                                                                         departments            @relation(fields: [department_id, tenant_id], references: [id, tenant_id], onDelete: NoAction, onUpdate: NoAction)
@@ -708,22 +714,21 @@ model departments {
   faculty_id      String            @db.Uuid
   code            String
   name            String
-  head_id         String?           @db.Uuid
   created_at      DateTime          @default(now()) @db.Timestamptz(6)
   announcements   announcements[]
   courses         courses[]
   faculties       faculties         @relation(fields: [faculty_id, tenant_id], references: [id, tenant_id], onDelete: NoAction, onUpdate: NoAction)
-  users           users?            @relation(fields: [head_id, tenant_id], references: [id, tenant_id], onDelete: SetNull, onUpdate: NoAction)
   tenants         tenants           @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   documents       documents[]
   person_profiles person_profiles[]
   programs        programs[]
+  student_department_assignments student_department_assignments[]
+  student_programme_selections student_programme_selections[]
   tickets         tickets[]
 
   @@unique([id, tenant_id])
   @@unique([tenant_id, code])
   @@index([faculty_id, tenant_id])
-  @@index([head_id, tenant_id])
   @@schema("public")
 }
 
@@ -931,15 +936,16 @@ model faculties {
   tenant_id   String        @db.Uuid
   code        String
   name        String
-  dean_id     String?       @db.Uuid
   created_at  DateTime      @default(now()) @db.Timestamptz(6)
   departments departments[]
-  users       users?        @relation(fields: [dean_id, tenant_id], references: [id, tenant_id], onDelete: SetNull, onUpdate: NoAction)
+  student_academic_progressions student_academic_progressions[]
+  academic_pathways faculty_academic_pathways?
+  student_department_assignments student_department_assignments[]
+  academic_calendars academic_calendars[]
   tenants     tenants       @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([id, tenant_id])
   @@unique([tenant_id, code])
-  @@index([dean_id, tenant_id])
   @@schema("public")
 }
 
@@ -1464,7 +1470,6 @@ model person_profiles {
   title           String?
   avatar_path     String?
   bio             String?
-  phone           String?
   personal_email  String?
   date_of_birth   DateTime?    @db.Date
   office_location String?
@@ -1472,11 +1477,30 @@ model person_profiles {
   theme           String       @default("system")
   updated_at      DateTime     @default(now()) @db.Timestamptz(6)
   department_id   String?      @db.Uuid
-  departments     departments? @relation(fields: [department_id, tenant_id], references: [id, tenant_id], onDelete: SetNull, onUpdate: NoAction)
+  departments          departments?          @relation(fields: [department_id, tenant_id], references: [id, tenant_id], onDelete: SetNull, onUpdate: NoAction)
+  person_profile_phones person_profile_phones[]
   users           users        @relation(fields: [user_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([user_id, tenant_id])
   @@index([department_id, tenant_id])
+  @@schema("public")
+}
+
+model person_profile_phones {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String          @db.Uuid
+  user_id         String          @db.Uuid
+  phone_number    String
+  label           String          @default("mobile")
+  is_primary      Boolean         @default(false)
+  is_verified     Boolean         @default(false)
+  created_at      DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime        @default(now()) @db.Timestamptz(6)
+  person_profiles person_profiles @relation(fields: [user_id, tenant_id], references: [user_id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, phone_number])
+  @@index([tenant_id, user_id])
+  @@index([user_id, tenant_id])
   @@schema("public")
 }
 
@@ -1508,6 +1532,9 @@ model programs {
   departments      departments        @relation(fields: [department_id, tenant_id], references: [id, tenant_id], onDelete: NoAction, onUpdate: NoAction)
   tenants          tenants            @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   student_programs student_programs[]
+  student_programme_selections student_programme_selections[]
+  specializations specializations[]
+  student_specialization_selections student_specialization_selections[]
 
   @@unique([id, tenant_id])
   @@unique([tenant_id, code])
@@ -2044,6 +2071,7 @@ model tenants {
   created_at               DateTime                   @default(now()) @db.Timestamptz(6)
   updated_at               DateTime                   @default(now()) @db.Timestamptz(6)
   academic_calendar_events academic_calendar_events[]
+  academic_calendars academic_calendars[]
   ai_budgets               ai_budgets[]
   ai_feature_settings      ai_feature_settings[]
   announcements            announcements[]
@@ -2079,6 +2107,50 @@ model tenants {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// Tenant-wide or faculty-specific academic calendar definitions.
+model academic_calendars {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String           @db.Uuid
+  faculty_id     String?          @db.Uuid
+  code           String
+  name           String
+  timezone       String
+  is_default     Boolean          @default(false)
+  is_active      Boolean          @default(true)
+  created_at     DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime         @default(now()) @db.Timestamptz(6)
+  tenants        tenants          @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  faculties      faculties?       @relation(fields: [faculty_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  academic_years academic_years[]
+
+  @@unique([id, tenant_id])
+  @@unique([tenant_id, code])
+  @@index([faculty_id, tenant_id])
+  @@schema("public")
+}
+
+/// Date-bounded academic years within a calendar.
+model academic_years {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String              @db.Uuid
+  calendar_id       String              @db.Uuid
+  code              String
+  name              String
+  starts_on         DateTime            @db.Date
+  ends_on           DateTime            @db.Date
+  status            academic_year_status @default(planned)
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime            @default(now()) @db.Timestamptz(6)
+  academic_calendars academic_calendars @relation(fields: [calendar_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  terms             terms[]
+
+  @@unique([id, tenant_id])
+  @@unique([calendar_id, code])
+  @@index([tenant_id, starts_on, ends_on])
+  @@index([calendar_id, tenant_id])
+  @@schema("public")
+}
+
 model terms {
   id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id                String                     @db.Uuid
@@ -2090,6 +2162,12 @@ model terms {
   registration_closes_at   DateTime?                  @db.Timestamptz(6)
   add_drop_ends_at         DateTime?                  @db.Timestamptz(6)
   status                   term_status                @default(planned)
+  academic_year_id          String?                    @db.Uuid
+  term_kind                 academic_term_kind         @default(regular)
+  sequence_number           Int?
+  instructional_starts_on   DateTime?                  @db.Date
+  instructional_ends_on     DateTime?                  @db.Date
+  academic_years            academic_years?            @relation(fields: [academic_year_id, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
   academic_calendar_events academic_calendar_events[]
   academic_standings       academic_standings[]
   course_offerings         course_offerings[]
@@ -2099,6 +2177,7 @@ model terms {
 
   @@unique([id, tenant_id])
   @@unique([tenant_id, code])
+  @@index([academic_year_id, tenant_id])
   @@schema("public")
 }
 
@@ -2272,6 +2351,13 @@ model users {
   seat_assignments                                                           seat_assignments[]
   section_instructors                                                        section_instructors[]
   student_programs                                                           student_programs[]
+  student_academic_progressions                                              student_academic_progressions?
+  student_department_assignments_student                                    student_department_assignments[] @relation("student_department_assignments_student")
+  student_department_assignments_reviewer                                   student_department_assignments[] @relation("student_department_assignments_reviewer")
+  student_programme_selections_student                                      student_programme_selections[] @relation("student_programme_selections_student")
+  student_programme_selections_reviewer                                     student_programme_selections[] @relation("student_programme_selections_reviewer")
+  student_specialization_selections_student student_specialization_selections[] @relation("student_specialization_selections_student")
+  student_specialization_selections_reviewer student_specialization_selections[] @relation("student_specialization_selections_reviewer")
   submissions                                                                submissions[]
   survey_participation                                                       survey_participation[]
   survey_responses                                                           survey_responses[]
@@ -2460,6 +2546,13 @@ enum calendar_event_kind {
   holiday
   deadline
   other
+  orientation
+  midterm_exam
+  final_exam
+  result_publication
+  graduation
+  admissions
+  financial_deadline
 
   @@schema("public")
 }
@@ -2940,6 +3033,26 @@ enum tenant_status {
   @@schema("public")
 }
 
+enum academic_year_status {
+  planned
+  active
+  completed
+  archived
+
+  @@schema("public")
+}
+
+enum academic_term_kind {
+  regular
+  summer
+  intensive
+  short
+  block
+  other
+
+  @@schema("public")
+}
+
 enum term_status {
   planned
   registration
@@ -3006,5 +3119,278 @@ enum workflow_run_status {
   completed
   failed
 
+  @@schema("public")
+}
+
+
+
+
+/// Faculty-specific rules for when department and programme choices become available.
+model faculty_academic_pathways {
+  id                              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                       String   @db.Uuid
+  faculty_id                      String   @db.Uuid
+  department_selection_semester   Int      @default(2)
+  department_effective_semester   Int      @default(3)
+  programme_selection_semester    Int      @default(8)
+  department_selection_level_id   String?  @db.Uuid
+  department_effective_level_id   String?  @db.Uuid
+  programme_selection_level_id    String?  @db.Uuid
+  expected_completion_level_id    String?  @db.Uuid
+  created_at                      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at                      DateTime @default(now()) @db.Timestamptz(6)
+  faculties                       faculties @relation(fields: [faculty_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([faculty_id, tenant_id])
+  @@index([tenant_id, faculty_id])
+  @@schema("public")
+}
+
+/// Current faculty affiliation and semester for a student. Department and programme
+/// are deliberately not stored here: they are represented by dated assignment history.
+model student_academic_progressions {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String   @db.Uuid
+  student_id       String   @db.Uuid
+  faculty_id       String   @db.Uuid
+  current_semester          Int       @default(1)
+  current_academic_level_id String?   @db.Uuid
+  credits_earned            Decimal   @default(0) @db.Decimal(8, 2)
+  created_at                DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime @default(now()) @db.Timestamptz(6)
+  users            users    @relation(fields: [student_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  faculties        faculties @relation(fields: [faculty_id, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([student_id, tenant_id])
+  @@index([faculty_id, tenant_id])
+  @@schema("public")
+}
+
+/// Auditable department choice after semester 2, effective from semester 3.
+model student_department_assignments {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String    @db.Uuid
+  student_id         String    @db.Uuid
+  faculty_id         String    @db.Uuid
+  department_id      String    @db.Uuid
+  selection_semester  Int       @default(2)
+  effective_semester  Int       @default(3)
+  selection_level_id  String?   @db.Uuid
+  effective_level_id  String?   @db.Uuid
+  status             String    @default("pending") @db.Text
+  requested_at       DateTime  @default(now()) @db.Timestamptz(6)
+  reviewed_by        String?   @db.Uuid
+  reviewed_at        DateTime? @db.Timestamptz(6)
+  decision_note      String?
+  starts_on          DateTime? @db.Date
+  ends_on            DateTime? @db.Date
+  users              users     @relation("student_department_assignments_student", fields: [student_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  reviewers          users?    @relation("student_department_assignments_reviewer", fields: [reviewed_by, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
+  faculties          faculties @relation(fields: [faculty_id, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
+  departments        departments @relation(fields: [department_id, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([tenant_id, student_id, requested_at(sort: Desc)])
+  @@index([student_id, tenant_id])
+  @@index([faculty_id, tenant_id])
+  @@index([department_id, tenant_id])
+  @@index([reviewed_by, tenant_id])
+  @@schema("public")
+}
+
+/// Separate semester-8 programme selection history, scoped to the approved department.
+/// Approval synchronizes the current membership into student_programs.
+model student_programme_selections {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String    @db.Uuid
+  student_id         String    @db.Uuid
+  department_id      String    @db.Uuid
+  program_id         String    @db.Uuid
+  selection_semester Int       @default(8)
+  selection_level_id String?   @db.Uuid
+  status             String    @default("pending") @db.Text
+  requested_at       DateTime  @default(now()) @db.Timestamptz(6)
+  reviewed_by        String?   @db.Uuid
+  reviewed_at        DateTime? @db.Timestamptz(6)
+  decision_note      String?
+  starts_on          DateTime? @db.Date
+  ends_on            DateTime? @db.Date
+  users              users     @relation("student_programme_selections_student", fields: [student_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  reviewers          users?    @relation("student_programme_selections_reviewer", fields: [reviewed_by, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
+  departments        departments @relation(fields: [department_id, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
+  programs           programs  @relation(fields: [program_id, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([tenant_id, student_id, requested_at(sort: Desc)])
+  @@index([student_id, tenant_id])
+  @@index([department_id, tenant_id])
+  @@index([program_id, tenant_id])
+  @@index([reviewed_by, tenant_id])
+  @@schema("public")
+}
+
+
+/// Ordered, faculty-scoped academic progression units. A level can represent a
+/// semester, trimester, quarter, academic year, block, module, or custom stage.
+model academic_levels {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String   @db.Uuid
+  faculty_id      String   @db.Uuid
+  code            String
+  name            String
+  sequence_number Int
+  period_unit     String   @default("custom")
+  stage_key       String?
+  is_terminal     Boolean  @default(false)
+  is_active       Boolean  @default(true)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([tenant_id, faculty_id, code])
+  @@unique([tenant_id, faculty_id, sequence_number])
+  @@unique([id, tenant_id])
+  @@index([faculty_id, tenant_id, sequence_number])
+  @@schema("public")
+}
+
+/// Configurable entry/transition requirements for each faculty progression action.
+model academic_progression_rules {
+  id                              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                       String   @db.Uuid
+  faculty_id                      String   @db.Uuid
+  action_key                      String
+  selection_level_id              String   @db.Uuid
+  effective_level_id              String?  @db.Uuid
+  minimum_credits                 Decimal  @default(0) @db.Decimal(8, 2)
+  requires_department_assignment  Boolean  @default(false)
+  allows_direct_entry             Boolean  @default(false)
+  is_enabled                      Boolean  @default(true)
+  created_at                      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at                      DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([tenant_id, faculty_id, action_key])
+  @@index([faculty_id, tenant_id, is_enabled])
+  @@index([selection_level_id, tenant_id])
+  @@index([effective_level_id, tenant_id])
+  @@schema("public")
+}
+
+/// Course-level requirements attached to a programme curriculum.
+model program_curriculum_courses {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String   @db.Uuid
+  program_id           String   @db.Uuid
+  course_id            String   @db.Uuid
+  academic_level_id    String?  @db.Uuid
+  requirement_type     String   @default("required")
+  minimum_grade_points Decimal? @db.Decimal(4, 2)
+  is_active            Boolean  @default(true)
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([program_id, course_id])
+  @@index([course_id, tenant_id])
+  @@index([academic_level_id, tenant_id])
+  @@schema("public")
+}
+
+/// Configurable graduation and semester credit rules for each programme.
+model program_academic_policies {
+  id                              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                       String   @db.Uuid
+  program_id                      String   @unique @db.Uuid
+  minimum_total_credits           Decimal? @db.Decimal(7, 2)
+  minimum_cgpa                    Decimal? @db.Decimal(4, 2)
+  minimum_semester_credits        Decimal? @db.Decimal(6, 2)
+  maximum_semester_credits        Decimal? @db.Decimal(6, 2)
+  minimum_attendance_percentage   Decimal? @db.Decimal(5, 2)
+  require_all_core_courses        Boolean  @default(true)
+  block_unresolved_incomplete_grades Boolean @default(true)
+  effective_from                  DateTime? @db.Date
+  effective_until                 DateTime? @db.Date
+  is_active                       Boolean  @default(true)
+  created_at                      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at                      DateTime @default(now()) @db.Timestamptz(6)
+  @@schema("public")
+}
+
+/// Immutable evidence snapshot for a graduation eligibility review.
+model graduation_audits {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String   @db.Uuid
+  student_id          String   @db.Uuid
+  program_id          String   @db.Uuid
+  policy_id           String?  @db.Uuid
+  audit_status        String   @default("pending")
+  credits_earned      Decimal? @db.Decimal(8, 2)
+  cgpa                Decimal? @db.Decimal(4, 2)
+  unmet_requirements Json     @default("[]")
+  evidence_snapshot   Json     @default("{}")
+  audited_by          String?  @db.Uuid
+  audited_at          DateTime @default(now()) @db.Timestamptz(6)
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+  @@index([tenant_id, student_id, audited_at(sort: Desc)])
+  @@index([tenant_id, program_id, audit_status])
+  @@schema("public")
+}
+
+
+/// A named specialization track offered within a programme.
+model specializations {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String   @db.Uuid
+  program_id  String   @db.Uuid
+  code        String
+  name        String
+  description String?
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  programs    programs @relation(fields: [program_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  courses     specialization_courses[]
+  selections  student_specialization_selections[]
+  @@unique([id, tenant_id])
+  @@unique([id, program_id, tenant_id])
+  @@unique([program_id, tenant_id, code])
+  @@index([tenant_id, program_id, is_active])
+  @@schema("public")
+}
+
+/// Courses available as part of a programme specialization.
+model specialization_courses {
+  tenant_id         String   @db.Uuid
+  program_id        String   @db.Uuid
+  specialization_id String   @db.Uuid
+  course_id         String   @db.Uuid
+  is_required       Boolean  @default(false)
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  specializations   specializations @relation(fields: [specialization_id, program_id, tenant_id], references: [id, program_id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  courses           courses @relation(fields: [course_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  @@id([specialization_id, course_id])
+  @@index([tenant_id, course_id])
+  @@index([course_id, tenant_id])
+  @@index([specialization_id, program_id, tenant_id])
+  @@schema("public")
+}
+
+/// Auditable student specialization requests and decisions; selection timing is policy-driven.
+model student_specialization_selections {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String   @db.Uuid
+  student_id         String   @db.Uuid
+  program_id         String   @db.Uuid
+  specialization_id  String   @db.Uuid
+  status             String   @default("pending")
+  requested_at       DateTime @default(now()) @db.Timestamptz(6)
+  reviewed_by        String?  @db.Uuid
+  reviewed_at        DateTime? @db.Timestamptz(6)
+  decision_note      String?
+  starts_on          DateTime? @db.Date
+  ends_on            DateTime? @db.Date
+  users              users @relation("student_specialization_selections_student", fields: [student_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  reviewers          users? @relation("student_specialization_selections_reviewer", fields: [reviewed_by, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
+  programs           programs @relation(fields: [program_id, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
+  specializations    specializations @relation(fields: [specialization_id, program_id, tenant_id], references: [id, program_id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
+  @@index([tenant_id, student_id, requested_at(sort: Desc)])
+  @@index([student_id, tenant_id])
+  @@index([program_id, tenant_id])
+  @@index([reviewed_by, tenant_id])
+  @@index([specialization_id, program_id, tenant_id])
+  @@index([tenant_id, program_id, status])
+  @@index([tenant_id, specialization_id])
   @@schema("public")
 }

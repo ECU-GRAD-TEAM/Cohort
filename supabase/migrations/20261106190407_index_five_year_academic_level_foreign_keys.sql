@@ -1,0 +1,8 @@
+create index if not exists academic_year_levels_faculty_tenant_fk_idx on public.academic_year_levels (faculty_id, tenant_id);
+create index if not exists student_progressions_current_year_level_fk_idx on public.student_academic_progressions (current_year_level_id, tenant_id);
+create index if not exists faculty_pathways_department_selection_year_fk_idx on public.faculty_academic_pathways (department_selection_year_level_id, tenant_id);
+create index if not exists faculty_pathways_department_effective_year_fk_idx on public.faculty_academic_pathways (department_effective_year_level_id, tenant_id);
+create index if not exists faculty_pathways_programme_selection_year_fk_idx on public.faculty_academic_pathways (programme_selection_year_level_id, tenant_id);
+create index if not exists faculty_pathways_expected_completion_year_fk_idx on public.faculty_academic_pathways (expected_completion_year_level_id, tenant_id);
+create index if not exists academic_progression_rules_selection_year_fk_idx on public.academic_progression_rules (selection_year_level_id, tenant_id);
+create index if not exists academic_progression_rules_effective_year_fk_idx on public.academic_progression_rules (effective_year_level_id, tenant_id);

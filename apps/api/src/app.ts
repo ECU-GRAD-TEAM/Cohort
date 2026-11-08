@@ -14,6 +14,7 @@ import { catalogueRoutes } from "./routes/catalogue.ts";
 import { enrollmentRoutes } from "./routes/enrollments.ts";
 import { gradeRoutes } from "./routes/grades.ts";
 import { meRoutes } from "./routes/me.ts";
+import { studentAiRoutes } from "./routes/student-ai.ts";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -91,6 +92,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
     await scope.register(catalogueRoutes);
     await scope.register(enrollmentRoutes);
     await scope.register(gradeRoutes);
+    await scope.register(studentAiRoutes);
   });
 
   return app;

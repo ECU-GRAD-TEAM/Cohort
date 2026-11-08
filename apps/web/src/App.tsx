@@ -4,6 +4,7 @@ import { RequireAuth } from "./auth/RequireAuth.tsx";
 import { DashboardPage } from "./pages/DashboardPage.tsx";
 import { LoginPage } from "./pages/LoginPage.tsx";
 import { RegistrationPage } from "./pages/RegistrationPage.tsx";
+import { StudentAiPage } from "./pages/StudentAiPage.tsx";
 import { SignUpPage } from "./pages/SignUpPage.tsx";
 import { AssignmentsPreview } from "./previews/AssignmentsPreview.tsx";
 import { AssistantPreview } from "./previews/AssistantPreview.tsx";
@@ -27,6 +28,7 @@ export function App() {
       >
         <Route index element={<DashboardPage />} />
         <Route path="register" element={<RegistrationPage />} />
+        <Route path="student-assistant" element={<StudentAiPage />} />
         <Route path="courses" element={<CoursesPreview />} />
         <Route path="schedule" element={<SchedulePreview />} />
         <Route path="assignments" element={<AssignmentsPreview />} />

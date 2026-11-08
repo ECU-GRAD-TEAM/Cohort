@@ -9,6 +9,14 @@ import {
   type ApiErrorCode,
 } from "@cohort/contracts";
 
+type StudentAiChatResponse = { answer: string; language: string; provider: string; model: string; latency_ms: number; sources: string[]; limitations: string[] };
+const StudentAiResponse: Schema<StudentAiChatResponse> = { safeParse(value) {
+  if (typeof value !== "object" || value === null) return { success: false };
+  const v = value as Record<string, unknown>;
+  if (typeof v.answer !== "string" || typeof v.language !== "string" || typeof v.provider !== "string" || typeof v.model !== "string" || typeof v.latency_ms !== "number" || !Array.isArray(v.sources) || !Array.isArray(v.limitations)) return { success: false };
+  return { success: true, data: value as StudentAiChatResponse };
+} };
+
 const GENERIC_MESSAGE = "Something went wrong. Please try again.";
 const UNEXPECTED_MESSAGE = "Unexpected response from the server.";
 
@@ -31,6 +39,7 @@ export type ApiClient = {
   enroll(sectionId: string): Promise<EnrollmentChange>;
   drop(sectionId: string): Promise<EnrollmentChange>;
   getMyGrades(): Promise<GradesResponse>;
+  chatWithStudentAssistant(input: { message: string; history: { role: "user" | "assistant"; content: string }[]; language: "auto" | "en" | "ar" }): Promise<StudentAiChatResponse>;
 };
 
 export type ApiClientOptions = {
@@ -96,5 +105,6 @@ export function createApiClient({ baseUrl, getAccessToken, onUnauthorized }: Api
     enroll: (sectionId) => request("POST", "/enrollments", EnrollmentChange, { sectionId }),
     drop: (sectionId) => request("DELETE", `/enrollments/${encodeURIComponent(sectionId)}`, EnrollmentChange),
     getMyGrades: () => request("GET", "/me/grades", GradesResponse),
+    chatWithStudentAssistant: (input) => request("POST", "/student-ai/chat", StudentAiResponse, input),
   };
 }
