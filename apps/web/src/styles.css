@@ -238,6 +238,11 @@ label {
 .foot-link {
   font-weight: 600;
   color: var(--brand);
+  text-decoration: none;
+}
+
+.foot-link:hover {
+  text-decoration: underline;
 }
 
 .preview-tag {
@@ -400,6 +405,149 @@ label {
 }
 
 /* Phone layout: the sidebar becomes an off-canvas panel and the page gets a bottom bar. */
+/* Preview pages */
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.preview-card {
+  padding: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.preview-card h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+}
+
+.preview-muted {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.preview-card progress {
+  width: 100%;
+  height: 0.6rem;
+  accent-color: var(--brand);
+}
+
+.preview-list {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.preview-list > li {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.preview-list > li:first-child {
+  border-top: 0;
+}
+
+.preview-list.preview-cards {
+  display: grid;
+  gap: 1rem;
+}
+
+.preview-list.preview-cards > li {
+  border: 1px solid var(--border);
+}
+
+.preview-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.status-pill {
+  justify-self: start;
+  padding: 0.05rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.preview-timetable {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.timetable-day {
+  min-height: 8rem;
+  padding: 0.6rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.timetable-day h2 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+}
+
+.timetable-slot {
+  margin-bottom: 0.5rem;
+  padding: 0.4rem;
+  font-size: 0.85rem;
+  background: var(--brand-soft);
+  border-radius: 8px;
+}
+
+.chat-bubble {
+  display: grid;
+  max-width: 34rem;
+  margin: 0.5rem 0;
+  padding: 0.6rem 0.8rem;
+  background: var(--surface-alt);
+  border-radius: var(--radius);
+}
+
+.chat-bubble.mine {
+  margin-left: auto;
+  background: var(--brand-soft);
+}
+
+.preview-form {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.preview-form textarea,
+.preview-form input {
+  font: inherit;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.preview-form button {
+  justify-self: start;
+}
+
+.map-placeholder {
+  display: grid;
+  place-items: center;
+  min-height: 16rem;
+  color: var(--text-muted);
+  background: repeating-linear-gradient(45deg, var(--surface-alt), var(--surface-alt) 12px, var(--surface) 12px, var(--surface) 24px);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
 @media (max-width: 899px) {
   .shell {
     grid-template-columns: minmax(0, 1fr);
@@ -484,6 +632,18 @@ label {
     color: var(--text);
     background: var(--surface-alt);
     border-color: transparent;
+  }
+
+  .preview-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .preview-timetable {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .timetable-day {
+    min-height: 0;
   }
 }
 

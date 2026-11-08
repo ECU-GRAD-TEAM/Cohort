@@ -82,7 +82,9 @@ export function AppShell() {
         <div className="sidebar-foot">
           <b>A little more connected.</b>
           <p>A whole world of possibilities.</p>
-          <span className="foot-link">Explore your campus ↗</span>
+          <NavLink to="/campus" className="foot-link" onClick={closeMenu}>
+            Explore your campus ↗
+          </NavLink>
         </div>
       </aside>
       {menuOpen && <div className="scrim" onClick={closeMenu} aria-hidden="true" />}
