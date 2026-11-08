@@ -1184,7 +1184,11 @@ BEGIN
     RAISE EXCEPTION 'A role scheduled for removal is already assigned; clean up assignments explicitly before running this seed';
   END IF;
 
-  DELETE FROM public.role_permissions;
+  DELETE FROM public.role_permissions rp
+  USING public.roles role_definition
+  WHERE rp.role_id = role_definition.id
+    AND rp.tenant_id = v_tenant_id
+    AND role_definition.tenant_id = v_tenant_id;
 
   ALTER TABLE public.roles DISABLE TRIGGER roles_guard_identity_fields;
 
