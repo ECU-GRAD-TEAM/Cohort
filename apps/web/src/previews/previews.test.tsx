@@ -8,6 +8,15 @@ import { navItems } from "../navigation.ts";
 const previews = navItems.filter((item) => item.preview);
 
 describe("preview tabs", () => {
+  it("lists Student assistant right after Registration", () => {
+    expect(navItems.map((item) => item.label).slice(0, 4)).toEqual([
+      "Dashboard",
+      "Registration",
+      "Student assistant",
+      "Courses",
+    ]);
+  });
+
   it("has the seven preview items in order", () => {
     expect(previews.map((item) => item.to)).toEqual([
       "/courses",

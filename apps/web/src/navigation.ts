@@ -4,6 +4,7 @@ export type NavItem = { to: string; label: string; preview: boolean };
 export const navItems: NavItem[] = [
   { to: "/", label: "Dashboard", preview: false },
   { to: "/register", label: "Registration", preview: false },
+  { to: "/student-assistant", label: "Student assistant", preview: false },
   { to: "/courses", label: "Courses", preview: true },
   { to: "/schedule", label: "Schedule", preview: true },
   { to: "/assignments", label: "Assignments", preview: true },
