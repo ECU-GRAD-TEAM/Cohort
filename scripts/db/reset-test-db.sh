@@ -28,8 +28,21 @@ SQL
 
 psql -X -q "$test_url" -v ON_ERROR_STOP=1 -1 -f "$repo_root/scripts/db/supabase-stub.sql"
 
+# GradProj has a little state that no migration creates. A file in scripts/db/pre-migration with
+# a migration's name runs just before that migration, to recreate it.
 for migration in "$repo_root"/supabase/migrations/*.sql; do
-  psql -X -q "$test_url" -v ON_ERROR_STOP=1 -1 -f "$migration"
+  pre="$repo_root/scripts/db/pre-migration/$(basename "$migration")"
+  if [[ -f "$pre" ]]; then
+    psql -X -q "$test_url" -v ON_ERROR_STOP=1 -1 -f "$pre"
+  fi
+  if [[ "$(basename "$migration")" == 20261107203635_* ]]; then
+    # Two lines of this migration lack the closing quote of the tenant id, so it cannot be parsed
+    # as recorded. Close the quote in memory; the migration file itself stays untouched.
+    sed "s/^\(from tmp_fall26_meetings.*c\.tenant_id='97325228-75cb-4a36-b103-9da28968c660\)\$/\1'/" "$migration" |
+      psql -X -q "$test_url" -v ON_ERROR_STOP=1 -1 -f -
+  else
+    psql -X -q "$test_url" -v ON_ERROR_STOP=1 -1 -f "$migration"
+  fi
 done
 
 echo "$db_name ready"

@@ -5,7 +5,7 @@ import { useAuth } from "./auth/AuthProvider.tsx";
 import { BrandMark } from "./components/BrandMark.tsx";
 import { ApiError } from "./lib/api.ts";
 import { useApi } from "./lib/ApiContext.tsx";
-import { formatUserType, initials } from "./lib/format.ts";
+import { formatRole, initials } from "./lib/format.ts";
 import { queryKeys } from "./lib/queryKeys.ts";
 import { mobileNavPaths, navItems } from "./navigation.ts";
 
@@ -69,7 +69,7 @@ export function AppShell() {
         </div>
         <div className="workspace">
           <span className="workspace-label">WORKSPACE</span>
-          <span className="workspace-role">{formatUserType(user.userType)}</span>
+          <span className="workspace-role">{formatRole(user)}</span>
         </div>
         <nav aria-label="Main" className="side-nav">
           {navItems.map((item) => (

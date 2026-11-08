@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const UserType = z.enum(["student", "teaching_staff", "administrator", "it_staff"]);
+export const UserType = z.enum(["staff", "non_staff"]);
 export type UserType = z.infer<typeof UserType>;
 
 export const MeResponse = z.object({

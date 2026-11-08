@@ -7,7 +7,7 @@ export const API = "http://api.test";
 export const defaultMe: MeResponse = {
   id: "5b2d6f0e-8f3a-4c1e-9d7b-2a1c3e4f5a6b",
   email: "sara@a.test",
-  userType: "student",
+  userType: "non_staff",
   displayName: "Sara Student",
   tenant: { id: "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d", name: "Smoke University A" },
   roles: ["student"],

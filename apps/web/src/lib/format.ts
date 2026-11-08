@@ -1,4 +1,4 @@
-import type { EnrollmentStatus, Grade, Meeting, UserType } from "@cohort/contracts";
+import type { EnrollmentStatus, Grade, Meeting, MeResponse } from "@cohort/contracts";
 
 const STATUS_LABELS: Record<Exclude<EnrollmentStatus, "waitlisted">, string> = {
   enrolled: "Enrolled",
@@ -45,16 +45,10 @@ export function formatCredits(creditHours: number): string {
   return creditHours === 1 ? "1 credit" : `${creditHours} credits`;
 }
 
-const USER_TYPE_LABELS: Record<UserType, string> = {
-  student: "Student",
-  teaching_staff: "Teaching staff",
-  administrator: "Administrator",
-  it_staff: "IT staff",
-};
-
-/** The label for a user type, as the sidebar shows it. */
-export function formatUserType(type: UserType): string {
-  return USER_TYPE_LABELS[type];
+/** The sidebar's label for the caller: "Student" with the student role, else "Staff" or "Non-staff". */
+export function formatRole(me: Pick<MeResponse, "userType" | "roles">): string {
+  if (me.roles.includes("student")) return "Student";
+  return me.userType === "staff" ? "Staff" : "Non-staff";
 }
 
 /** The first letters of the first and last words of a name, upper-cased; "?" for an empty name. */
