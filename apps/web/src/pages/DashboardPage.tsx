@@ -19,7 +19,7 @@ function CoursesSection() {
       current.length === 0 ? (
         <p>You are not registered in any courses yet.</p>
       ) : (
-        <ul>
+        <ul className="card-list">
           {current.map((enrollment) => (
             <li key={enrollment.id}>
               {`${enrollment.course.code} ${enrollment.course.title} · Section ${enrollment.sectionCode} · ${formatEnrollmentStatus(enrollment.status, enrollment.waitlistPosition)}`}
