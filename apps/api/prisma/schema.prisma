@@ -2029,6 +2029,7 @@ model surveys {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
 model tenants {
   id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   slug                     String                     @unique
@@ -2043,6 +2044,7 @@ model tenants {
   status                   tenant_status              @default(active)
   created_at               DateTime                   @default(now()) @db.Timestamptz(6)
   updated_at               DateTime                   @default(now()) @db.Timestamptz(6)
+  open_signup              Boolean                    @default(false)
   academic_calendar_events academic_calendar_events[]
   ai_budgets               ai_budgets[]
   ai_feature_settings      ai_feature_settings[]

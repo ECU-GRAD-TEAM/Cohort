@@ -16,6 +16,7 @@ changes are written to an immutable audit log.
 | `20261022150000_builtin_time_ranges` | **Pending**: apply with `supabase db push` (below) |
 | `20261025120000_prisma_compat` | **Pending**: apply with `supabase db push` (below) |
 | `20261025120100_api_role` | **Pending**: apply with `supabase db push` (below) |
+| `20261108120000_open_signup` | **Pending**: apply with `supabase db push` (below) |
 
 `builtin_time_ranges` replaces a custom `timerange` type with built-in ranges. On Supabase the
 constructor functions of a custom range type are created as `supabase_admin`, so the earlier
@@ -57,6 +58,7 @@ It also runs with plain `psql -f` against any database built from these migratio
 | `builtin_time_ranges` | Room-clash rule on built-in ranges; drops the custom range type |
 | `prisma_compat` | Unique keys on `(foreign key, tenant_id)` and an exclusion constraint for one active prompt version, which the API's Prisma schema needs |
 | `api_role` | The `cohort_api` login role the backend API connects as; it has no privileges of its own and switches to `authenticated` for each request |
+| `open_signup` | Open sign-up: one university can accept self sign-ups as students |
 
 ## Design rules
 
@@ -68,6 +70,13 @@ university's data even when row-level security is bypassed.
 import) with `app_metadata = {"tenant_id", "user_type", "institutional_id"}`. A trigger then creates
 the `users` row, the profile and the default role. `app_metadata` is only writable with the service
 role; the user-editable `user_metadata` supplies the display name only.
+
+**Open sign-up.** One university at a time can accept self sign-ups. When an account arrives with
+neither `tenant_id` nor `user_type` in `app_metadata`, the trigger puts it in the active university
+marked `open_signup`, as a student; with no such university it stays unlinked. Clients can only
+set `user_metadata`, so nothing they send can choose the university or the user type. Choose the
+university with `update public.tenants set open_signup = true where slug = '...'` (a unique index
+allows only one). Checking the email domain is still to come.
 
 **Authorisation (paper 6.6).** Roles grant permissions such as `academic.manage` or
 `ai.settings.manage`. Teaching, enrolment and advising access is attribute-based instead: a lecturer
