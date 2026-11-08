@@ -42,7 +42,8 @@ export function AppShell() {
           <NavLink to="/" end>
             Dashboard
           </NavLink>{" "}
-          <NavLink to="/register">Registration</NavLink>
+          <NavLink to="/register">Registration</NavLink>{" "}
+          <NavLink to="/student-assistant">Student assistant</NavLink>
         </nav>
         {signOutButton}
       </header>
