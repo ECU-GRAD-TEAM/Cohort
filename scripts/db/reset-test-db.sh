@@ -35,14 +35,7 @@ for migration in "$repo_root"/supabase/migrations/*.sql; do
   if [[ -f "$pre" ]]; then
     psql -X -q "$test_url" -v ON_ERROR_STOP=1 -1 -f "$pre"
   fi
-  if [[ "$(basename "$migration")" == 20261107203635_* ]]; then
-    # Two lines of this migration lack the closing quote of the tenant id, so it cannot be parsed
-    # as recorded. Close the quote in memory; the migration file itself stays untouched.
-    sed "s/^\(from tmp_fall26_meetings.*c\.tenant_id='97325228-75cb-4a36-b103-9da28968c660\)\$/\1'/" "$migration" |
-      psql -X -q "$test_url" -v ON_ERROR_STOP=1 -1 -f -
-  else
-    psql -X -q "$test_url" -v ON_ERROR_STOP=1 -1 -f "$migration"
-  fi
+  psql -X -q "$test_url" -v ON_ERROR_STOP=1 -1 -f "$migration"
 done
 
 echo "$db_name ready"
