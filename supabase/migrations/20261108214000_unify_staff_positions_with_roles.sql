@@ -42,6 +42,11 @@ SET role_type = 'both',
     is_academic_rank = EXCLUDED.is_academic_rank,
     is_active = EXCLUDED.is_active;
 
+-- Prevent the old trigger implementation from interpreting the new role IDs
+-- as staff_positions IDs while appointment references are being migrated.
+ALTER TABLE public.personnel_appointments
+  DISABLE TRIGGER personnel_appointments_sync_leadership_role;
+
 -- Ensure the appointment catalogue references the tenant-scoped role row.
 ALTER TABLE public.personnel_appointments
   DROP CONSTRAINT IF EXISTS personnel_appointments_position_id_fkey;
@@ -320,6 +325,10 @@ BEGIN
   RETURN NEW;
 END;
 $function$;
+
+-- Re-enable leadership synchronization after its function now reads public.roles.
+ALTER TABLE public.personnel_appointments
+  ENABLE TRIGGER personnel_appointments_sync_leadership_role;
 
 -- No function, trigger, or foreign key should retain a dependency on this table.
 DROP TABLE public.staff_positions;
