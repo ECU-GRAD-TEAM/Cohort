@@ -37,10 +37,7 @@ SELECT
 FROM public.tenants t
 CROSS JOIN public.staff_positions sp
 ON CONFLICT (tenant_id, key) DO UPDATE
-SET role_type = CASE
-      WHEN public.roles.is_system THEN 'both'
-      ELSE 'position'
-    END,
+SET role_type = 'both',
     category = EXCLUDED.category,
     is_academic_rank = EXCLUDED.is_academic_rank,
     is_active = EXCLUDED.is_active;
