@@ -1,8 +1,8 @@
-# UniFlow look, sign-up and preview tabs Implementation Plan
+# Cohort's new look, sign-up and preview tabs Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Students can sign up and sign in to a UniFlow-styled Cohort, land at Rivermere
+**Goal:** Students can sign up and sign in to Cohort, restyled after the team's UniFlow mock-up, land at Rivermere
 University as students, register for courses, and see the rest of the workspace as labelled
 preview tabs.
 
@@ -23,16 +23,15 @@ React Router 8, TanStack Query 5, Vite 8, plain CSS, MSW 3 in web tests.
   @tanstack/react-query 5.104.5, vite 8.3.5 and msw 3.0.3. Styling is plain CSS in one global
   stylesheet, `apps/web/src/styles.css`, imported only by `apps/web/src/main.tsx`.
 - **Brand:**
-  - name "UniFlow", tagline "Your university, in sync.", brand red `#B81104`;
-  - the lettermark is a red rounded square with a white "u", then "Uni" and "Flow", with "Flow"
-    in red.
+  - name "Cohort" (never "UniFlow" anywhere in the app), tagline "Your university, in sync.", brand red `#B81104`;
+  - the lettermark is a red rounded square with a white "c", then the word "Cohort".
 - **`apps/web/index.html`:**
-  - title "UniFlow — Your university, in sync";
+  - title "Cohort — Your university, in sync";
   - `<meta name="theme-color" content="#B81104">`;
-  - `<meta name="description" content="UniFlow connects courses, schedules, student support and
+  - `<meta name="description" content="Cohort connects courses, schedules, student support and
     campus operations in one responsive university workspace.">`.
 - **Copy, exactly:**
-  - **Sign-in page:** "Sign in to UniFlow"; "Email", "Password", "Sign in"; "New to UniFlow?" with
+  - **Sign-in page:** "Sign in to Cohort" (unchanged); "Email", "Password", "Sign in"; "New to Cohort?" with
     the link "Create an account".
   - **Sign-up page:**
     - "Create your student account";
@@ -46,9 +45,9 @@ React Router 8, TanStack Query 5, Vite 8, plain CSS, MSW 3 in web tests.
     - role labels "Student", "Teaching staff", "Administrator", "IT staff";
     - "A little more connected.", "A whole world of possibilities.", "Explore your campus ↗".
   - **Header:** the "☰" button labelled "Toggle navigation", and "Sign out".
-  - **Footer:** "UniFlow" and "Your university, in sync."
+  - **Footer:** "Cohort" and "Your university, in sync."
   - **Phone bar:** "More".
-  - **Preview tag and banner:** "Preview", and "Preview: sample data. This part of UniFlow isn't
+  - **Preview tag and banner:** "Preview", and "Preview: sample data. This part of Cohort isn't
     connected yet."
   - **Disabled-action note:** "Not available in the preview."
 - **Unchanged copy:** "Your account is not linked to a university yet. Contact your
@@ -207,7 +206,7 @@ React Router 8, TanStack Query 5, Vite 8, plain CSS, MSW 3 in web tests.
 
 ---
 
-### Task 2: The UniFlow look for the shell and the sign-in page
+### Task 2: The new look for the shell and the sign-in page
 
 **Files:**
 - Create: `apps/web/src/styles.css`
@@ -258,8 +257,8 @@ React Router 8, TanStack Query 5, Vite 8, plain CSS, MSW 3 in web tests.
   - **"keeps the not-linked message":** existing test, unchanged copy. Also assert there is no
     navigation named "Main".
 
-  **`App.test.tsx` and `AppShell.test.tsx`:** replace every "Sign in to Cohort" with "Sign in to
-  UniFlow".
+  **`App.test.tsx` and `AppShell.test.tsx`:** the sign-in heading stays "Sign in to Cohort", so
+  those assertions don't change.
 
 - [ ] **Step 2: Run them to verify they fail**
 
@@ -311,7 +310,7 @@ React Router 8, TanStack Query 5, Vite 8, plain CSS, MSW 3 in web tests.
 
 - [ ] **Step 6: Commit**
 
-  `git add` the files above, then `git commit -m "feat: restyle the shell and sign-in page in the UniFlow design"`.
+  `git add` the files above, then `git commit -m "feat: restyle the shell and sign-in page"`.
 
 ---
 
@@ -380,7 +379,7 @@ React Router 8, TanStack Query 5, Vite 8, plain CSS, MSW 3 in web tests.
     - on success it shows the confirmation `status` or navigates to `/`;
     - a signed-in visitor gets `<Navigate to="/" replace />`.
   - **Routing:** add `/signup` next to `/login` in `App.tsx`.
-  - **Sign-in page:** add the "New to UniFlow? Create an account" link to `LoginPage`.
+  - **Sign-in page:** add the "New to Cohort? Create an account" link to `LoginPage`.
 
 - [ ] **Step 4: Run all web tests and the type-check**
 
@@ -437,7 +436,7 @@ React Router 8, TanStack Query 5, Vite 8, plain CSS, MSW 3 in web tests.
     "<label> is a labelled preview".
     - Render the route with `fakeSession`.
     - Expect the heading "<label>".
-    - Expect a `note` with "Preview: sample data. This part of UniFlow isn't connected yet."
+    - Expect a `note` with "Preview: sample data. This part of Cohort isn't connected yet."
     - Inside the Main nav, the link whose name starts with "<label>" (`name: new RegExp(\`^${label}\`)`)
       contains the text "Preview". The tag is visible text, so it is part of the link's name.
   - **"previews fetch nothing but the signed-in user":**
@@ -485,7 +484,7 @@ React Router 8, TanStack Query 5, Vite 8, plain CSS, MSW 3 in web tests.
   Run, with the database variables exported: `npm run typecheck && npm test && npm run build:vercel`
   Expected:
   - every workspace passes;
-  - `.vercel/output/static/index.html` contains the title "UniFlow — Your university, in sync".
+  - `.vercel/output/static/index.html` contains the title "Cohort — Your university, in sync".
 
 - [ ] **Step 6: Commit**
 

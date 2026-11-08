@@ -1,18 +1,20 @@
-# UniFlow design, sign-up and sign-in: design
+# Cohort's new look (from the UniFlow mock-up), sign-up and sign-in: design
 
 ## Intent
 
 Students should be able to create their own account, sign in, and register for courses, in an
-app that looks like the team's UniFlow design rather than unstyled HTML. This is for the
+app that looks like the team's UniFlow mock-up rather than unstyled HTML. The product keeps
+its name, **Cohort**: the mock-up supplies the look only, and every product string says Cohort. This is for the
 end-of-sprint preview on Vercel, which the team and supervisors open.
 
-The team supplied the UniFlow page skeleton (`index.html` of a static demo: sidebar, header, main
+The team supplied the mock-up's page skeleton (`index.html` of a static demo: sidebar, header, main
 area, footer, mobile nav). Its stylesheets and scripts (`style.css`, `workspace.css`, `app.js`,
 `workspace.js`) were not supplied, so the look is rebuilt from that skeleton and its brand colour.
 
 ## Decisions made with the team
 
-- **What to build:** the UniFlow look for the existing app, plus sign-up and sign-in.
+- **What to build:** the UniFlow mock-up's look for the existing app, plus sign-up and sign-in.
+- **The name stays Cohort.** "UniFlow" appears nowhere in the app.
 - **The other tabs are previews.** The design's other sections appear as tabs with sample
   content. They don't have to work yet.
 - **Who signs up:** students, who then register for courses.
@@ -28,7 +30,7 @@ area, footer, mobile nav). Its stylesheets and scripts (`style.css`, `workspace.
    Supabase asks for that, sign in, and land on the dashboard as a Rivermere student.
 2. From there they can open Registration and register as the app already allows. With no terms
    in GradProj yet, the page says "No terms are available."
-3. Sign-in, sign-up, the dashboard and the registration page all use the UniFlow layout and
+3. Sign-in, sign-up, the dashboard and the registration page all use the new layout and
    brand, on desktop and on a phone.
 4. Accounts created by the university (with university details in `app_metadata`) behave exactly
    as today.
@@ -171,29 +173,29 @@ The README records how this row was made and how to point open sign-up at anothe
   - On failure, Supabase's message is shown in a `role="alert"`, for example "User already
     registered".
 - **Sign-in page** (`/login`):
-  - Heading "Sign in to UniFlow", fields "Email" and "Password", button "Sign in".
-  - Link "New to UniFlow? Create an account" to `/signup`.
+  - Heading "Sign in to Cohort", fields "Email" and "Password", button "Sign in".
+  - Link "New to Cohort? Create an account" to `/signup`.
   - Errors as today.
 - **Confirmation link:** Supabase redirects to the app with the session in the URL. supabase-js
   reads it on load (its default `detectSessionInUrl`), and the existing `onAuthStateChange`
   listener signs the visitor in.
 
-### Web: the UniFlow look
+### Web: the new look
 
 **Brand:**
-- Name "UniFlow", tagline "Your university, in sync.", brand red `#B81104`.
+- Name "Cohort", tagline "Your university, in sync.", brand red `#B81104`.
 - `index.html`:
-  - title "UniFlow — Your university, in sync"
+  - title "Cohort — Your university, in sync"
   - `theme-color` `#B81104`
-  - the description from the original page, word for word: "UniFlow connects courses, schedules,
+  - the original page's description, with the product name changed: "Cohort connects courses, schedules,
     student support and campus operations in one responsive university workspace."
-- Lettermark: a red rounded square with a white "u", then "Uni" and "Flow" with "Flow" in red.
+- Lettermark: a red rounded square with a white "c", then the word "Cohort".
 
 **Signed-in shell (desktop):**
 
 ```
 ┌──────────────┬──────────────────────────────────────────────────────┐
-│ [u] UniFlow  │                         (SS) Sara Student  [Sign out] │
+│ [c] Cohort   │                         (SS) Sara Student  [Sign out] │
 │              │                              Rivermere University     │
 │ ▥ Rivermere  ├──────────────────────────────────────────────────────┤
 │   University │                                                      │
@@ -206,7 +208,7 @@ The README records how this row was made and how to point open sign-up at anothe
 │ ▸ Dashboard  │                                                      │
 │   Registration│                                                     │
 │              ├──────────────────────────────────────────────────────┤
-│ A little more│ UniFlow  Your university, in sync.                   │
+│ A little more│ Cohort  Your university, in sync.                    │
 │ connected.   │                                                      │
 └──────────────┴──────────────────────────────────────────────────────┘
 ```
@@ -222,7 +224,7 @@ The README records how this row was made and how to point open sign-up at anothe
     "Explore your campus ↗" linking to the Campus preview.
 - **Header:** avatar initials from the display name, the display name with the university name
   under it, and a "Sign out" button.
-- **Footer:** "UniFlow" and "Your university, in sync."
+- **Footer:** "Cohort" and "Your university, in sync."
 
 **Phone width (under about 900 px):**
 - The sidebar hides behind a "☰" button in the header labelled "Toggle navigation".
@@ -235,7 +237,7 @@ the form. They are not inside the shell.
 
 Seven sections from the paper's student workspace are tabs inside the signed-in shell. Each one
 sits under the same layout as the real pages. Each opens with a banner: "Preview: sample data.
-This part of UniFlow isn't connected yet." Their content comes from static sample data in the web
+This part of Cohort isn't connected yet." Their content comes from static sample data in the web
 app; they make no API calls.
 
 The sample names must be clearly made up, such as "Sample course A". They must not reuse
