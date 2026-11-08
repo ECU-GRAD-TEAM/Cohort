@@ -1,5 +1,6 @@
--- Allow Auth Admin to create an unconfirmed Auth identity first, then provision
--- the university account only after trusted app_metadata is assigned by Admin API.
+-- Provision university records only after trusted Auth app_metadata is set.
+-- Auth Admin createUser may create the Auth identity before the server applies
+-- tenant_id and user_type through updateUserById.
 
 CREATE OR REPLACE FUNCTION private.provision_auth_user_account(
   p_user_id uuid,
@@ -29,7 +30,6 @@ BEGIN
   v_tenant_text := nullif(btrim(coalesce(p_raw_app_meta_data ->> 'tenant_id', '')), '');
   IF v_tenant_text IS NULL
      AND nullif(btrim(coalesce(p_raw_app_meta_data ->> 'user_type', '')), '') IS NULL THEN
-    -- Normal Auth creation may precede trusted server-side tenant provisioning.
     RETURN;
   END IF;
 
