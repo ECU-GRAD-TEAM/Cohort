@@ -1,21 +1,34 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { NavLink, Outlet } from "react-router";
 import { useAuth } from "./auth/AuthProvider.tsx";
+import { BrandMark } from "./components/BrandMark.tsx";
 import { ApiError } from "./lib/api.ts";
 import { useApi } from "./lib/ApiContext.tsx";
+import { formatUserType, initials } from "./lib/format.ts";
 import { queryKeys } from "./lib/queryKeys.ts";
+import { mobileNavPaths, navItems } from "./navigation.ts";
 
 const NOT_LINKED = "Your account is not linked to a university yet. Contact your administrator.";
+
+function Footer() {
+  return (
+    <footer className="app-footer">
+      <strong>Cohort</strong> <span>Your university, in sync.</span>
+    </footer>
+  );
+}
 
 export function AppShell() {
   const api = useApi();
   const { signOut } = useAuth();
   const me = useQuery({ queryKey: queryKeys.me, queryFn: () => api.getMe() });
+  const [menuOpen, setMenuOpen] = useState(false);
 
   if (me.isPending) return <p>Loading…</p>;
 
   const signOutButton = (
-    <button type="button" onClick={() => void signOut()}>
+    <button type="button" className="button-secondary" onClick={() => void signOut()}>
       Sign out
     </button>
   );
@@ -27,28 +40,88 @@ export function AppShell() {
   const notLinked = error instanceof ApiError && error.status === 403 && error.code === "forbidden";
   if (notLinked || me.data === undefined) {
     return (
-      <>
-        <header>{signOutButton}</header>
-        <main>{notLinked ? <p>{NOT_LINKED}</p> : <p role="alert">{error?.message}</p>}</main>
-      </>
+      <div className="shell shell-plain">
+        <header className="app-header">
+          <BrandMark />
+          <div className="header-end">{signOutButton}</div>
+        </header>
+        <main className="app-main">
+          {notLinked ? <p>{NOT_LINKED}</p> : <p role="alert">{error?.message}</p>}
+        </main>
+        <Footer />
+      </div>
     );
   }
 
+  const user = me.data;
+  const closeMenu = () => setMenuOpen(false);
+  const mobileItems = mobileNavPaths.flatMap((path) => navItems.filter((item) => item.to === path));
+
   return (
-    <>
-      <header>
-        <p>{`${me.data.displayName} · ${me.data.tenant.name}`}</p>
-        <nav aria-label="Main">
-          <NavLink to="/" end>
-            Dashboard
-          </NavLink>{" "}
-          <NavLink to="/register">Registration</NavLink>
+    <div className={menuOpen ? "shell menu-open" : "shell"}>
+      <aside id="sidebar" className="sidebar">
+        <NavLink to="/" className="brand-link" onClick={closeMenu}>
+          <BrandMark />
+        </NavLink>
+        <div className="university-card">
+          <span className="university-name">{user.tenant.name}</span>
+          <small>ONE CONNECTED CAMPUS</small>
+        </div>
+        <div className="workspace">
+          <span className="workspace-label">WORKSPACE</span>
+          <span className="workspace-role">{formatUserType(user.userType)}</span>
+        </div>
+        <nav aria-label="Main" className="side-nav">
+          {navItems.map((item) => (
+            <NavLink key={item.to} to={item.to} end={item.to === "/"} onClick={closeMenu}>
+              {item.label}
+              {item.preview && <span className="preview-tag">Preview</span>}
+            </NavLink>
+          ))}
         </nav>
-        {signOutButton}
+        <div className="sidebar-foot">
+          <b>A little more connected.</b>
+          <p>A whole world of possibilities.</p>
+          <span className="foot-link">Explore your campus ↗</span>
+        </div>
+      </aside>
+      {menuOpen && <div className="scrim" onClick={closeMenu} aria-hidden="true" />}
+      <header className="app-header">
+        <button
+          type="button"
+          className="menu-button"
+          aria-label="Toggle navigation"
+          aria-expanded={menuOpen}
+          aria-controls="sidebar"
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          ☰
+        </button>
+        <div className="header-end">
+          <span className="avatar" aria-hidden="true">
+            {initials(user.displayName)}
+          </span>
+          <div className="user">
+            <span className="user-name">{user.displayName}</span>
+            <small>{user.tenant.name}</small>
+          </div>
+          {signOutButton}
+        </div>
       </header>
-      <main>
+      <main className="app-main">
         <Outlet />
       </main>
-    </>
+      <Footer />
+      <nav aria-label="Mobile" className="mobile-nav">
+        {mobileItems.map((item) => (
+          <NavLink key={item.to} to={item.to} end={item.to === "/"} onClick={closeMenu}>
+            {item.label}
+          </NavLink>
+        ))}
+        <button type="button" onClick={() => setMenuOpen(true)}>
+          More
+        </button>
+      </nav>
+    </div>
   );
 }

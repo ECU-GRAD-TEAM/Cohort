@@ -1,6 +1,14 @@
 import type { EnrollmentStatus } from "@cohort/contracts";
 import { describe, expect, it } from "vitest";
-import { formatCredits, formatEnrollmentStatus, formatGradeItem, formatMeeting, formatScore } from "./format.ts";
+import {
+  formatCredits,
+  formatEnrollmentStatus,
+  formatGradeItem,
+  formatMeeting,
+  formatScore,
+  formatUserType,
+  initials,
+} from "./format.ts";
 
 describe("formatEnrollmentStatus", () => {
   it("shows the waiting-list position for a waitlisted enrolment", () => {
@@ -78,5 +86,30 @@ describe("formatCredits", () => {
       "0.5 credits",
       "0 credits",
     ]);
+  });
+});
+
+describe("formatUserType", () => {
+  it("labels every user type", () => {
+    expect(formatUserType("student")).toBe("Student");
+    expect(formatUserType("teaching_staff")).toBe("Teaching staff");
+    expect(formatUserType("administrator")).toBe("Administrator");
+    expect(formatUserType("it_staff")).toBe("IT staff");
+  });
+});
+
+describe("initials", () => {
+  it("uses the first letters of the first and last words", () => {
+    expect(initials("Sara Student")).toBe("SS");
+    expect(initials("Ana María de la Cruz")).toBe("AC");
+  });
+
+  it("uses one letter for a single word, upper-cased", () => {
+    expect(initials("nadia")).toBe("N");
+  });
+
+  it("gives a question mark for an empty name", () => {
+    expect(initials("  ")).toBe("?");
+    expect(initials("")).toBe("?");
   });
 });

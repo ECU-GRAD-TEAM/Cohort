@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { act, screen } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
@@ -22,6 +22,8 @@ describe("AppShell", () => {
       await screen.findByText("Your account is not linked to a university yet. Contact your administrator."),
     ).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Dashboard" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Mobile" })).not.toBeInTheDocument();
   });
 
   it("lets an unlinked account sign out", async () => {
@@ -56,20 +58,56 @@ describe("AppShell", () => {
 
   it("links to both pages", async () => {
     renderApp({ route: "/", auth: createFakeAuth({ session: fakeSession }) });
-    expect(await screen.findByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/");
-    expect(screen.getByRole("link", { name: "Registration" })).toHaveAttribute("href", "/register");
+    const main = within(await screen.findByRole("navigation", { name: "Main" }));
+    expect(main.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/");
+    expect(main.getByRole("link", { name: "Registration" })).toHaveAttribute("href", "/register");
+  });
+
+  it("shows the student's university and role in the sidebar", async () => {
+    renderApp({ route: "/", auth: createFakeAuth({ session: fakeSession }) });
+    const sidebar = within(await screen.findByRole("complementary"));
+    expect(sidebar.getByText("Smoke University A")).toBeInTheDocument();
+    expect(sidebar.getByText("ONE CONNECTED CAMPUS")).toBeInTheDocument();
+    expect(sidebar.getByText("WORKSPACE")).toBeInTheDocument();
+    expect(sidebar.getByText("Student")).toBeInTheDocument();
+  });
+
+  it("shows the student's initials", async () => {
+    renderApp({ route: "/", auth: createFakeAuth({ session: fakeSession }) });
+    expect(within(await screen.findByRole("banner")).getByText("SS")).toBeInTheDocument();
+  });
+
+  it("opens and closes the menu on a phone", async () => {
+    renderApp({ route: "/", auth: createFakeAuth({ session: fakeSession }) });
+    const toggle = await screen.findByRole("button", { name: "Toggle navigation" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await userEvent.click(
+      within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Registration" }),
+    );
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("opens the menu from the More button on the phone bar", async () => {
+    renderApp({ route: "/", auth: createFakeAuth({ session: fakeSession }) });
+    const toggle = await screen.findByRole("button", { name: "Toggle navigation" });
+    const mobile = within(screen.getByRole("navigation", { name: "Mobile" }));
+    expect(mobile.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/");
+    await userEvent.click(mobile.getByRole("button", { name: "More" }));
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
   });
 
   it("shows the page for the route inside the shell", async () => {
     renderApp({ route: "/register", auth: createFakeAuth({ session: fakeSession }) });
     expect(await screen.findByRole("heading", { name: "Course registration" })).toBeInTheDocument();
-    expect(screen.getByText("Sara Student · Smoke University A")).toBeInTheDocument();
+    expect(within(screen.getByRole("banner")).getByText("Sara Student")).toBeInTheDocument();
   });
 
   it("does not show the previous user's data to the next user", async () => {
     const auth = createFakeAuth({ session: fakeSession });
     renderApp({ route: "/", auth });
-    expect(await screen.findByText("Sara Student · Smoke University A")).toBeInTheDocument();
+    expect(await within(await screen.findByRole("banner")).findByText("Sara Student")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
     await screen.findByRole("heading", { name: "Sign in to Cohort" });
 
@@ -91,7 +129,7 @@ describe("AppShell", () => {
     expect(await screen.findByText("Loading…")).toBeInTheDocument();
     expect(screen.queryByText(/Sara Student/)).not.toBeInTheDocument();
     release();
-    expect(await screen.findByText("Omar Other · Smoke University A")).toBeInTheDocument();
+    expect(await within(await screen.findByRole("banner")).findByText("Omar Other")).toBeInTheDocument();
   });
 
   describe("when /me is refetched after the shell has loaded", () => {
@@ -122,8 +160,10 @@ describe("AppShell", () => {
       // The refetch really failed, yet the page and the signed-in line stay.
       expect(queryClient.getQueryState(queryKeys.me)?.status).toBe("error");
       expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
-      expect(screen.getByText("Sara Student · Smoke University A")).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "Registration" })).toBeInTheDocument();
+      expect(within(screen.getByRole("banner")).getByText("Sara Student")).toBeInTheDocument();
+      expect(
+        within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Registration" }),
+      ).toBeInTheDocument();
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     });
 

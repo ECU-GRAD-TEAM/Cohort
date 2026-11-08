@@ -1,4 +1,4 @@
-import type { EnrollmentStatus, Grade, Meeting } from "@cohort/contracts";
+import type { EnrollmentStatus, Grade, Meeting, UserType } from "@cohort/contracts";
 
 const STATUS_LABELS: Record<Exclude<EnrollmentStatus, "waitlisted">, string> = {
   enrolled: "Enrolled",
@@ -43,4 +43,26 @@ export function formatMeeting(meeting: Meeting): string {
 /** Credit hours as "1 credit", "3 credits" or "3.5 credits": the number exactly as it is. */
 export function formatCredits(creditHours: number): string {
   return creditHours === 1 ? "1 credit" : `${creditHours} credits`;
+}
+
+const USER_TYPE_LABELS: Record<UserType, string> = {
+  student: "Student",
+  teaching_staff: "Teaching staff",
+  administrator: "Administrator",
+  it_staff: "IT staff",
+};
+
+/** The label for a user type, as the sidebar shows it. */
+export function formatUserType(type: UserType): string {
+  return USER_TYPE_LABELS[type];
+}
+
+/** The first letters of the first and last words of a name, upper-cased; "?" for an empty name. */
+export function initials(displayName: string): string {
+  const words = displayName.split(/\s+/).filter((word) => word !== "");
+  const first = words[0];
+  const last = words[words.length - 1];
+  if (first === undefined || last === undefined) return "?";
+  const letters = words.length === 1 ? [first] : [first, last];
+  return letters.map((word) => Array.from(word)[0] ?? "").join("").toUpperCase();
 }
