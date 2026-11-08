@@ -12,8 +12,9 @@ area, footer, mobile nav). Its stylesheets and scripts (`style.css`, `workspace.
 
 ## Decisions made with the team
 
-- **What to build:** the UniFlow look for the existing app, plus sign-up and sign-in. Not the
-  demo's other screens or features.
+- **What to build:** the UniFlow look for the existing app, plus sign-up and sign-in.
+- **The other tabs are previews.** The design's other sections appear as tabs with sample
+  content. They don't have to work yet.
 - **Who signs up:** students, who then register for courses.
 - **No university email check for now.** Anyone can sign up with any email address.
 - **Every new self-signed-up account joins one university, Rivermere University, as a student**
@@ -31,13 +32,16 @@ area, footer, mobile nav). Its stylesheets and scripts (`style.css`, `workspace.
    brand, on desktop and on a phone.
 4. Accounts created by the university (with university details in `app_metadata`) behave exactly
    as today.
+5. The rest of the planned workspace is visible as preview tabs, so supervisors can see where the
+   product is going.
 
 ## Non-goals
 
 - A university email-domain check (deferred by the team).
 - Terms, courses and other demo data in GradProj. Only the Rivermere University row is added.
-- The demo's other features: search, the Arabic language switch, notifications, the profile
-  page, the workspace (role) switcher, "Explore your campus", toasts and dialogs.
+- Making the preview tabs work: they show sample content only.
+- The demo's header controls: search, the Arabic language switch, notifications, the profile
+  page and the workspace (role) switcher. Also toasts and dialogs.
 - Password reset, social sign-in, editing the profile after sign-up.
 - Sign-up for staff, administrators or IT staff.
 - Internationalisation and right-to-left layout.
@@ -45,8 +49,11 @@ area, footer, mobile nav). Its stylesheets and scripts (`style.css`, `workspace.
 ## Anti-goals
 
 - Any way for a sign-up to grant more than a student account at the one open university.
-- Controls that look like they work but do nothing (a search box that searches nothing, a
-  notifications bell with no notifications).
+- Anything that pretends to work.
+  - A preview page must say it is a preview, and its sample content must not look like the
+    student's real data.
+  - Outside the preview pages, no control may look like it works and do nothing (a search box
+    that searches nothing, a notifications bell with no notifications).
 - Supabase's service-role key anywhere in the API or the web app.
 - Regressions in the existing flows: account linking for university-created accounts, the
   401 sign-out, the "not linked" message, registration and the dashboard.
@@ -209,8 +216,10 @@ The README records how this row was made and how to point open sign-up at anothe
   - a university card with the caller's university name (from `/me`) and "ONE CONNECTED CAMPUS";
   - "WORKSPACE" with the caller's role as text ("Student", "Teaching staff", "Administrator" or
     "IT staff", from `/me` `userType`), not a switcher;
-  - nav links "Dashboard" and "Registration", with the current one highlighted in brand red;
-  - at the foot, "A little more connected." and "A whole world of possibilities."
+  - nav links "Dashboard" and "Registration", then the preview tabs (below), each with a small
+    "Preview" tag; the current link is highlighted in brand red;
+  - at the foot, "A little more connected." and "A whole world of possibilities.", with
+    "Explore your campus ↗" linking to the Campus preview.
 - **Header:** avatar initials from the display name, the display name with the university name
   under it, and a "Sign out" button.
 - **Footer:** "UniFlow" and "Your university, in sync."
@@ -221,6 +230,33 @@ The README records how this row was made and how to point open sign-up at anothe
 
 **Auth pages:** a centred card on a soft brand background, with the lettermark, the tagline and
 the form. They are not inside the shell.
+
+### Web: preview tabs
+
+Seven sections from the paper's student workspace are tabs inside the signed-in shell. Each one
+sits under the same layout as the real pages. Each opens with a banner: "Preview: sample data.
+This part of UniFlow isn't connected yet." Their content comes from static sample data in the web
+app; they make no API calls.
+
+The sample names must be clearly made up, such as "Sample course A". They must not reuse
+the course codes the student may really be enrolled in.
+
+| Tab | Path | Preview content |
+| --- | --- | --- |
+| Courses | `/courses` | Course cards with materials and a progress bar |
+| Schedule | `/schedule` | A week timetable grid, Monday to Sunday |
+| Assignments | `/assignments` | Upcoming assignments and exams with due dates and status |
+| Messages | `/messages` | A course chat thread and a list of conversations |
+| Support | `/support` | Request tickets with status, and a "New request" form |
+| Campus | `/campus` | A campus map placeholder and a list of buildings and services |
+| AI assistant | `/assistant` | A chat with a sample question and answer |
+
+- Inputs and buttons that would act (send a message, submit a request, ask the assistant) are
+  disabled. Each has a note saying it isn't available in the preview.
+- The phone bottom bar shows Dashboard, Registration, Courses and Schedule, plus "More", which
+  opens the sidebar.
+- If the team later supplies the demo's `app.js`, its real tab list and wording replace this
+  table.
 
 **Loading and messages:**
 - "Loading…" sits in the content area.
@@ -263,6 +299,8 @@ In the Supabase Dashboard, under Authentication > URL Configuration:
   - a signed-in visitor is redirected away from `/signup`;
   - the new sign-in copy;
   - the shell shows the university name and role;
+  - each preview tab is reachable from the nav, shows the preview banner, and makes no API call
+    (the test server rejects unexpected requests);
   - the existing shell, dashboard and registration tests still pass, with updated copy where the
     copy changed.
 - **Whole workspace:** `npm run typecheck && npm test` and `npm run build:vercel` pass.
@@ -275,3 +313,5 @@ In the Supabase Dashboard, under Authentication > URL Configuration:
   tests through the owner connection), as long as the cases above are covered.
 - The migration's timestamp and the index name.
 - Whether `RequireAuth`'s "Loading…" uses the shell frame.
+- The preview pages' exact sample content and layout, within the table above and the
+  anti-goals.
