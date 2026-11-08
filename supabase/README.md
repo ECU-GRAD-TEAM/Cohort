@@ -10,18 +10,19 @@ changes are written to an immutable audit log.
 
 ## Status
 
+Every migration in `supabase/migrations` is applied in GradProj, and the folder mirrors GradProj.
+The source of truth is the `supabase_migrations` schema on GradProj
+(`select version, name from supabase_migrations.schema_migrations order by version`). When the
+folder and GradProj disagree, GradProj is right.
+
 | Migration | In GradProj |
 | --- | --- |
 | `20261022134334_foundation` to `20261022140102_hardening` (11 files) | Applied |
-| `20261022150000_builtin_time_ranges` | **Pending**: apply with `supabase db push` (below) |
-| `20261025120000_prisma_compat` | **Pending**: apply with `supabase db push` (below) |
-| `20261025120100_api_role` | **Pending**: apply with `supabase db push` (below) |
+| `20261022150000_builtin_time_ranges` | Applied |
+| `20261025120000_prisma_compat` | Applied |
+| `20261025120100_api_role` | Applied |
+| Every later migration in `supabase/migrations` (through `20261108195715`) | Applied |
 
-`builtin_time_ranges` replaces a custom `timerange` type with built-in ranges. On Supabase the
-constructor functions of a custom range type are created as `supabase_admin`, so the earlier
-migrations could not take `EXECUTE` on them away from `anon`. It contains `DROP` statements, which
-the Supabase connector used to build this could not run without an interactive confirmation.
-`prisma_compat` also drops an index, to replace it with an equivalent exclusion constraint.
 `api_role` creates `cohort_api` without a password; set one in GradProj with
 `alter role cohort_api with password '...'`.
 
@@ -38,6 +39,11 @@ npx supabase test db            # runs supabase/tests/rls_smoke_test.sql through
 `tests/rls_smoke_test.sql` seeds two universities and eight users, then signs in as each of them
 and checks what they can and cannot see or change. It runs in one transaction and rolls back.
 It also runs with plain `psql -f` against any database built from these migrations.
+
+**Known problem:** `tests/rls_smoke_test.sql` still seeds the old user types (`student`,
+`teaching_staff`, ...), so it fails against the current schema, where `user_type` is `staff` or
+`non_staff` and roles are granted explicitly. It needs updating to `staff`/`non_staff` before it
+can run again.
 
 ## Migrations
 

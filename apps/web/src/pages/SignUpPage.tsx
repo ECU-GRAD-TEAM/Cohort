@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, Navigate } from "react-router";
 import { useAuth } from "../auth/AuthProvider.tsx";
 import { AuthLayout } from "../components/AuthLayout.tsx";
@@ -11,6 +11,12 @@ export function SignUpPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirmedEmail, setConfirmedEmail] = useState<string | null>(null);
+
+  const confirmation = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    if (confirmedEmail !== null) confirmation.current?.focus();
+  }, [confirmedEmail]);
 
   if (loading) return <p>Loading…</p>;
   if (session) return <Navigate to="/" replace />;
@@ -33,7 +39,7 @@ export function SignUpPage() {
     return (
       <AuthLayout>
         <h1>Create your student account</h1>
-        <p role="status">Check your inbox. We sent a confirmation link to {confirmedEmail}.</p>
+        <p role="status" tabIndex={-1} ref={confirmation}>Check your inbox. We sent a confirmation link to {confirmedEmail}.</p>
         <p className="auth-switch">
           <Link to="/login">Back to sign in</Link>
         </p>
@@ -74,6 +80,7 @@ export function SignUpPage() {
             type="password"
             autoComplete="new-password"
             required
+            minLength={6}
             aria-describedby="password-hint"
             value={password}
             onChange={(event) => setPassword(event.target.value)}

@@ -74,7 +74,8 @@ describe("AppShell", () => {
 
   it("shows the student's initials", async () => {
     renderApp({ route: "/", auth: createFakeAuth({ session: fakeSession }) });
-    expect(within(await screen.findByRole("banner")).getByText("SS")).toBeInTheDocument();
+    await screen.findByRole("navigation", { name: "Main" });
+    expect(within(screen.getByRole("banner")).getByText("SS")).toBeInTheDocument();
   });
 
   it("opens and closes the menu on a phone", async () => {
@@ -98,6 +99,67 @@ describe("AppShell", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "true");
   });
 
+  it("moves focus into the sidebar when the menu opens from the toggle", async () => {
+    renderApp({ route: "/", auth: createFakeAuth({ session: fakeSession }) });
+    await userEvent.click(await screen.findByRole("button", { name: "Toggle navigation" }));
+    const first = within(screen.getByRole("complementary")).getAllByRole("link")[0];
+    expect(first).toHaveFocus();
+  });
+
+  it("moves focus into the sidebar when the menu opens from More", async () => {
+    renderApp({ route: "/", auth: createFakeAuth({ session: fakeSession }) });
+    const more = within(await screen.findByRole("navigation", { name: "Mobile" })).getByRole("button", {
+      name: "More",
+    });
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    expect(more).toHaveAttribute("aria-controls", "sidebar");
+    await userEvent.click(more);
+    expect(more).toHaveAttribute("aria-expanded", "true");
+    expect(within(screen.getByRole("complementary")).getAllByRole("link")[0]).toHaveFocus();
+  });
+
+  it("closes on Escape and returns focus to the button that opened it", async () => {
+    renderApp({ route: "/", auth: createFakeAuth({ session: fakeSession }) });
+    const toggle = await screen.findByRole("button", { name: "Toggle navigation" });
+    await userEvent.click(toggle);
+    await userEvent.keyboard("{Escape}");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveFocus();
+
+    const more = within(screen.getByRole("navigation", { name: "Mobile" })).getByRole("button", {
+      name: "More",
+    });
+    await userEvent.click(more);
+    await userEvent.keyboard("{Escape}");
+    expect(more).toHaveFocus();
+  });
+
+  it("makes the content behind the open menu inert", async () => {
+    renderApp({ route: "/", auth: createFakeAuth({ session: fakeSession }) });
+    const toggle = await screen.findByRole("button", { name: "Toggle navigation" });
+    const behind = () => [
+      screen.getByRole("banner"),
+      screen.getByRole("main"),
+      screen.getByRole("contentinfo"),
+      screen.getByRole("navigation", { name: "Mobile" }),
+    ];
+    behind().forEach((element) => expect(element).not.toHaveAttribute("inert"));
+    await userEvent.click(toggle);
+    behind().forEach((element) => expect(element).toHaveAttribute("inert"));
+    expect(screen.getByRole("complementary")).not.toHaveAttribute("inert");
+    await userEvent.keyboard("{Escape}");
+    behind().forEach((element) => expect(element).not.toHaveAttribute("inert"));
+  });
+
+  it("shows Loading… inside the shell frame while the user loads", async () => {
+    server.use(http.get(`${API}/me`, () => new Promise<never>(() => {})));
+    renderApp({ route: "/", auth: createFakeAuth({ session: fakeSession }) });
+    // The sign-in check shows its own bare "Loading…" first; wait for the shell's.
+    const main = await screen.findByRole("main");
+    expect(within(main).getByText("Loading…")).toBeInTheDocument();
+    expect(screen.getByRole("contentinfo")).toBeInTheDocument();
+  });
+
   it("shows the page for the route inside the shell", async () => {
     renderApp({ route: "/register", auth: createFakeAuth({ session: fakeSession }) });
     expect(await screen.findByRole("heading", { name: "Course registration" })).toBeInTheDocument();
@@ -107,7 +169,8 @@ describe("AppShell", () => {
   it("does not show the previous user's data to the next user", async () => {
     const auth = createFakeAuth({ session: fakeSession });
     renderApp({ route: "/", auth });
-    expect(await within(await screen.findByRole("banner")).findByText("Sara Student")).toBeInTheDocument();
+    await screen.findByRole("navigation", { name: "Main" });
+    expect(await within(screen.getByRole("banner")).findByText("Sara Student")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
     await screen.findByRole("heading", { name: "Sign in to Cohort" });
 
@@ -129,7 +192,8 @@ describe("AppShell", () => {
     expect(await screen.findByText("Loading…")).toBeInTheDocument();
     expect(screen.queryByText(/Sara Student/)).not.toBeInTheDocument();
     release();
-    expect(await within(await screen.findByRole("banner")).findByText("Omar Other")).toBeInTheDocument();
+    await screen.findByRole("navigation", { name: "Main" });
+    expect(await within(screen.getByRole("banner")).findByText("Omar Other")).toBeInTheDocument();
   });
 
   describe("when /me is refetched after the shell has loaded", () => {

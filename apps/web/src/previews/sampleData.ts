@@ -42,6 +42,7 @@ export const sampleLessons: SampleLesson[] = [
 
 export const sampleAssignments: SampleAssignment[] = [
   { title: "Sample essay", course: "Sample course A", due: "Sample date: next Monday", status: "Not started" },
+  { title: "Sample midterm exam", course: "Sample course A", due: "Sample date: in two weeks", status: "Not started" },
   { title: "Sample problem set", course: "Sample course B", due: "Sample date: next Thursday", status: "In progress" },
   { title: "Sample lab report", course: "Sample course C", due: "Sample date: last week", status: "Submitted" },
 ];

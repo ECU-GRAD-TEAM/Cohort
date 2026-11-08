@@ -28,6 +28,18 @@ describe("SignUpPage", () => {
     expect(screen.getByRole("link", { name: "Back to sign in" })).toHaveAttribute("href", "/login");
   });
 
+  it("requires a password of at least 6 characters", async () => {
+    renderApp({ route: "/signup", auth: createFakeAuth() });
+    expect(await screen.findByLabelText("Password")).toHaveAttribute("minlength", "6");
+  });
+
+  it("moves focus to the confirmation message after sign-up", async () => {
+    const user = userEvent.setup();
+    renderApp({ route: "/signup", auth: createFakeAuth() });
+    await fillAndSubmit(user);
+    expect(await screen.findByRole("status")).toHaveFocus();
+  });
+
   it("signs the student straight in when no confirmation is needed", async () => {
     const user = userEvent.setup();
     renderApp({ route: "/signup", auth: createFakeAuth({ signUpSession: true }) });

@@ -40,6 +40,11 @@ describe("preview tabs", () => {
     expect(link).toHaveTextContent("Preview");
   });
 
+  it("the assignments preview includes a sample midterm exam", async () => {
+    renderApp({ route: "/assignments", auth: createFakeAuth({ session: fakeSession }) });
+    expect(await screen.findByText("Sample midterm exam")).toBeInTheDocument();
+  });
+
   it("previews fetch nothing but the signed-in user", async () => {
     const paths: string[] = [];
     const listener = ({ request }: { request: Request }) => {

@@ -363,6 +363,7 @@ label {
   place-items: center;
   min-height: 100vh;
   padding: 1rem;
+  background: linear-gradient(160deg, var(--brand-soft), var(--surface-alt) 70%);
 }
 
 .auth-card {
