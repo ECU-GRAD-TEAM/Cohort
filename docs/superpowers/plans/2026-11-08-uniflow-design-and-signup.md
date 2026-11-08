@@ -521,3 +521,151 @@ Supabase and GitHub connectors. It is not a subagent task.
 - [ ] **Step 4: Open the pull request into `main`, and give the user the Site URL step**
 
   The Site URL step is the one in Task 3's README text.
+
+---
+
+## Revision 1: plug sign-up into the team's provisioning flow
+
+GradProj's identity model changed while this plan ran (see the spec's "Revision" section). Task 1
+is withdrawn and Task 5 is replaced, as the list below sets out. Tasks 2–4 stand. Tasks 6–8
+follow, in order.
+
+**Global Constraints, amended:**
+- Role labels are "Student" (the caller has the `student` role), "Staff" (`staff`) and
+  "Non-staff" (`non_staff` without the `student` role).
+- Nothing in this branch writes to GradProj or adds a migration of its own. The repository's
+  migrations mirror GradProj's, including `20261108195715`.
+
+**Changes to earlier tasks:**
+- **Task 1:** withdrawn, and its commits are reverted in Task 6.
+- **Task 5:** replaced. There is no GradProj step. The release is a pull request into `main`,
+  after a final review.
+
+### Task 6: Withdraw open sign-up and merge `main`
+
+**Files:**
+- Revert: commits `d95eb3b` and `f2899d5`, in one revert commit. Afterwards
+  `20261108120000_open_signup.sql`, `apps/api/test/open-signup.test.ts` and `withOwnerTransaction`
+  are gone, and `schema.prisma` and `supabase/README.md` are back to their state before Task 1.
+- Merge: `origin/main`. Expect conflicts in `apps/web/src/App.tsx`, `apps/web/src/AppShell.tsx`
+  and `README.md`.
+- Modify: `apps/web/src/navigation.ts`. Add
+  `{ to: "/student-assistant", label: "Student assistant", preview: false }` after Registration.
+
+**Interfaces:**
+- Consumes: `main`'s `StudentAiPage` at route `student-assistant`.
+- Produces: a branch that contains `main`. The shell keeps this branch's layout, with Student
+  assistant as a real nav item.
+
+- [ ] **Step 1: Revert Task 1**
+  - Run `git revert --no-commit d95eb3b f2899d5`.
+  - Commit as `revert: withdraw open sign-up; the team provisions accounts`.
+- [ ] **Step 2: Merge `origin/main`**
+  - **App.tsx:** keep this branch's routes and add main's `student-assistant` route inside the
+    shell.
+  - **AppShell.tsx:** keep this branch's version. The nav comes from `navigation.ts`, so drop
+    main's hand-written `NavLink`s.
+  - **README.md:** keep both sides' additions.
+- [ ] **Step 3: Update the nav-order test**
+  In `apps/web/src/previews/previews.test.tsx`, the test that pins the nav order now expects
+  Student assistant after Registration.
+- [ ] **Step 4: Verify the web app**
+  - Run `npm test -w @cohort/web && npm run typecheck -w @cohort/web`. Every web test should pass.
+  - Run `npm run typecheck -w @cohort/api`. It should be clean.
+  - The API's database tests are expected to fail until Task 7: `main`'s migrations need columns
+    the test stub lacks. Record the failure, don't fix it here.
+- [ ] **Step 5: Commit the merge**
+  Message: `merge: bring main (staff/non_staff model, Student assistant) into the sign-up branch`.
+
+### Task 7: Bring the code in line with GradProj's account model
+
+**Files:**
+- Create: `supabase/migrations/20261108195715_provision_auth_accounts_after_trusted_metadata_update.sql`,
+  copied byte for byte from `.superpowers/sdd/2026-11-08-uniflow-design-and-signup/` (it was
+  copied from GradProj's recorded migration).
+- Modify: `scripts/db/supabase-stub.sql`. `auth.users` gains `email_confirmed_at timestamptz` and
+  `invited_at timestamptz`, plus any other column the migrations read; find them by grepping the
+  migrations.
+- Modify: `apps/api/prisma/schema.prisma`, regenerated with `db:pull`.
+- Modify: `packages/contracts/src/me.ts` and its test.
+- Modify: `apps/api/src/routes/me.ts`.
+- Modify: `apps/api/test/support/db.ts`, `apps/api/test/**/*.test.ts` (as needed),
+  `apps/web/src/lib/format.ts` and its test, `apps/web/src/AppShell.tsx`, `apps/web/test/server.ts`,
+  and every web test fixture with a `userType`.
+
+**Interfaces:**
+- Produces:
+  - `UserType = z.enum(["staff", "non_staff"])`.
+  - `/me.roles` lists only active assignments: `assignment_status = 'active'`,
+    `starts_at <= now`, `revoked_at` null, and `expires_at` null or in the future.
+  - `formatRole(me: Pick<MeResponse, "userType" | "roles">): string` gives "Student", "Staff" or
+    "Non-staff". It replaces `formatUserType`.
+  - `seedUniversity` still returns `University`, with the same keys:
+    - every user is created through `auth.users` with `email_confirmed_at` set, so it is active;
+    - students are `non_staff`, with the `student` role granted in `user_roles`
+      (`assignment_status 'active'`, `starts_at now()`);
+    - the teacher is `staff` with `instructor`;
+    - the admin is `staff` with `administrator`.
+  - `createAuthOnlyUser` still produces an account with no `users` row.
+
+- [ ] **Step 1: Make the test database build**
+  - Add the migration file and extend the stub.
+  - Run `npm run db:test:reset`. Expect `cohort_test ready`.
+- [ ] **Step 2: Regenerate Prisma**
+  - Run `npm run db:pull -w @cohort/api`.
+  - The `user_type` enum becomes `staff`/`non_staff`. Keep the model names `users` and
+    `auth_users`, re-applying the plan's rename script only if `db pull` undoes them.
+- [ ] **Step 3: Write the failing tests**
+  - **Contracts:** `MeResponse` rejects `student` and accepts `non_staff`.
+  - **me.test.ts:**
+    - "describes the signed-in student" expects `userType: "non_staff"` and `roles: ["student"]`.
+    - A revoked role, an inactive role and a not-yet-started role are each left out.
+  - **format.test.ts:** `formatRole` covers all three labels.
+  - **AppShell test:** the sidebar shows "Student" for the default `/me`, which is now `non_staff`
+    with roles `["student"]`.
+- [ ] **Step 4: Implement**
+  - Update the contracts, the `/me` role filter, `seedUniversity` and the fixtures.
+  - Fix the API tests the model change breaks. Enrolment needs the `student` role. Keep each
+    test's intent.
+- [ ] **Step 5: Verify the whole workspace**
+  With the database variables exported, run `npm run typecheck && npm test`. Everything passes
+  with no warnings.
+- [ ] **Step 6: Commit**
+  Message: `fix: follow GradProj's staff/non_staff account model`.
+
+### Task 8: Sign-up in the provisioning flow, and the final review's fixes
+
+**Files:**
+- Modify: `apps/web/src/AppShell.tsx`, `apps/web/src/pages/SignUpPage.tsx`,
+  `apps/web/src/previews/sampleData.ts`, `apps/web/src/styles.css`, `README.md` and
+  `supabase/README.md`, with their tests.
+
+- [ ] **Step 1: Write the failing tests**
+  - **Phone menu:**
+    - opening it with ☰ or "More" moves focus to the first sidebar link;
+    - Escape closes it and returns focus to the button that opened it;
+    - "More" has `aria-expanded` and `aria-controls="sidebar"`.
+  - **Loading:** while `/me` is pending, "Loading…" renders inside `main` within the shell frame.
+  - **Sign-up:**
+    - the password input has `minLength` 6;
+    - after success, focus moves to the confirmation message.
+  - **Assignments:** the preview includes "Sample midterm exam".
+- [ ] **Step 2: Implement**
+  - The four behaviours above.
+  - `.auth-page` uses the soft brand background (`--brand-soft`, or a light gradient from it).
+  - While the menu is open, the content behind it is `inert`.
+- [ ] **Step 3: Rewrite the stale release documentation**
+  - **README.md:**
+    - Remove "Apply the pending migrations" and the `cohort_api` step's "pending" wording. GradProj
+      has every migration in the repository, and `supabase/migrations` mirrors GradProj.
+    - Describe sign-up: it creates the login; the team's trusted provisioning step links the
+      account to ECU and grants roles; until then the person sees "not linked".
+    - Keep the Site URL step.
+    - Move the "Sign-up" subsection after step 8.
+  - **supabase/README.md:** the status table shows every migration as applied, and points to
+    `supabase_migrations` on GradProj as the source of truth.
+- [ ] **Step 4: Verify**
+  - Run `npm run typecheck && npm test && npm run build:vercel`. Everything passes.
+  - `grep -ri uniflow apps packages` returns nothing.
+- [ ] **Step 5: Commit**
+  Message: `fix: keyboard-friendly phone menu, sign-up focus, and current setup docs`.

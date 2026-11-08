@@ -11,6 +11,45 @@ The team supplied the mock-up's page skeleton (`index.html` of a static demo: si
 area, footer, mobile nav). Its stylesheets and scripts (`style.css`, `workspace.css`, `app.js`,
 `workspace.js`) were not supplied, so the look is rebuilt from that skeleton and its brand colour.
 
+## Revision: sign-up plugs into the team's provisioning flow
+
+While this design was being built, the team changed GradProj's identity model. PR #6 merged, and
+migrations up to `20261108195715` were applied. The user decided to **plug sign-up into that flow**
+instead of adding a database rule. This section replaces the open-sign-up parts below. Where they
+disagree, this section wins.
+
+- **The model now:**
+  - `public.user_type` is `staff` or `non_staff`.
+  - New accounts get no role automatically.
+  - Registering for a course needs `non_staff` plus an active `student` role.
+- **How an account is linked:** an Auth account created without university details is allowed and
+  stays unlinked: no `users` row and no role. A trusted server step later sets its `app_metadata`
+  (`tenant_id`, `user_type`) through Supabase's Admin API. The trigger
+  `on_auth_user_app_metadata_updated` then provisions the account, and the step grants roles
+  explicitly. The university is ECU (Egyptian Chinese University).
+- **What this design builds:**
+  - The sign-up page creates the login only, with `full_name`, through `auth.signUp`, as below.
+  - The university and role come from the team's trusted step.
+  - Until the account is linked, the person sees the existing "not linked to a university"
+    message.
+- **Dropped from this design:**
+  - the `open_signup` column, the trigger change and its guard;
+  - the Rivermere University row;
+  - the GradProj release step.
+
+  Nothing from this design writes to GradProj.
+- **Brought into line with the database:**
+  - The shared contracts, Prisma schema, `/me` and test support move to `staff`/`non_staff`.
+  - Roles count only when active: `assignment_status = 'active'`, `starts_at <= now()`, not
+    revoked, not expired, matching `private.has_role`.
+  - The repository gets `20261108195715_provision_auth_accounts_after_trusted_metadata_update.sql`,
+    copied from GradProj's recorded migration, so the test database matches GradProj.
+- **Sidebar role label:**
+  - "Student" when the caller has the `student` role;
+  - otherwise "Staff" for `staff`, and "Non-staff" for `non_staff`.
+- **Student assistant:** `main`'s Student assistant page joins the nav as a real (non-preview) item
+  after Registration.
+
 ## Decisions made with the team
 
 - **What to build:** the UniFlow mock-up's look for the existing app, plus sign-up and sign-in.
