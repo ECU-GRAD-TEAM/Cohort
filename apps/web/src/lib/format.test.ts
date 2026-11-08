@@ -100,3 +100,19 @@ describe("formatRole", () => {
     expect(formatRole({ userType: "staff", roles: ["student", "instructor"] })).toBe("Student");
   });
 });
+
+describe("initials", () => {
+  it("uses the first letters of the first and last words", () => {
+    expect(initials("Sara Student")).toBe("SS");
+    expect(initials("Ana María de la Cruz")).toBe("AC");
+  });
+
+  it("uses one letter for a single word, upper-cased", () => {
+    expect(initials("nadia")).toBe("N");
+  });
+
+  it("gives a question mark for an empty name", () => {
+    expect(initials("  ")).toBe("?");
+    expect(initials("")).toBe("?");
+  });
+});
