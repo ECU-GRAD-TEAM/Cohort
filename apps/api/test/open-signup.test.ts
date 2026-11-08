@@ -117,3 +117,29 @@ it("allows only one open university", scenario(async (h) => {
   await h.university(true);
   await expect(h.university(true)).rejects.toMatchObject({ code: "23505" });
 }));
+
+async function signedInAdmin(h: Helpers) {
+  const tenant = await h.university(false);
+  const admin = await h.signUp({ tenant_id: tenant, user_type: "administrator" }, {});
+  await h.query(`select set_config('request.jwt.claims', $1, true)`, [
+    JSON.stringify({ sub: admin, role: "authenticated" }),
+  ]);
+  await h.query(`set local role authenticated`);
+  return tenant;
+}
+
+it("admins can still update their university", scenario(async (h) => {
+  const tenant = await signedInAdmin(h);
+  const rows = await h.query(
+    `update public.tenants set name = 'Renamed' where id = $1 returning id`,
+    [tenant],
+  );
+  expect(rows).toHaveLength(1);
+}));
+
+it("admins cannot open their university for sign-up", scenario(async (h) => {
+  const tenant = await signedInAdmin(h);
+  await expect(
+    h.query(`update public.tenants set open_signup = true where id = $1`, [tenant]),
+  ).rejects.toMatchObject({ code: "42501" });
+}));

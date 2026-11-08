@@ -37,3 +37,23 @@ begin
   return new;
 end;
 $$;
+
+-- Choosing the open university is the platform operator's decision. University administrators can
+-- update their tenant row, so a signed-in change to the flag is refused whatever their permissions.
+-- The database owner and the service role have no signed-in user, so they can still change it.
+create function private.guard_tenant_open_signup()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.open_signup is distinct from old.open_signup and auth.uid() is not null then
+    raise exception 'Only the platform operator can open a university for sign-up'
+      using errcode = 'insufficient_privilege';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger tenants_guard_open_signup before update of open_signup on public.tenants
+  for each row execute function private.guard_tenant_open_signup();

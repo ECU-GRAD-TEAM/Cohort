@@ -76,7 +76,8 @@ neither `tenant_id` nor `user_type` in `app_metadata`, the trigger puts it in th
 marked `open_signup`, as a student; with no such university it stays unlinked. Clients can only
 set `user_metadata`, so nothing they send can choose the university or the user type. Choose the
 university with `update public.tenants set open_signup = true where slug = '...'` (a unique index
-allows only one). Checking the email domain is still to come.
+allows only one). Only the operator (the database owner or the service role) can set the flag; a
+signed-in user, administrators included, is refused with `42501`. Checking the email domain is still to come.
 
 **Authorisation (paper 6.6).** Roles grant permissions such as `academic.manage` or
 `ai.settings.manage`. Teaching, enrolment and advising access is attribute-based instead: a lecturer
