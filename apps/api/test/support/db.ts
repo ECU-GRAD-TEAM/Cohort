@@ -23,33 +23,7 @@ export async function closeOwnerPool(): Promise<void> {
   await ownerPool.end();
 }
 
-/**
- * Runs `fn` on one owner connection inside a transaction that is always rolled back, even when
- * `fn` throws, so nothing it writes becomes visible to other test files.
- */
-export async function withOwnerTransaction<T>(
-  fn: (query: <R>(sql: string, params?: unknown[]) => Promise<R[]>) => Promise<T>,
-): Promise<T> {
-  const client = await ownerPool.connect();
-  try {
-    await client.query("begin");
-    return await fn(async <R>(sql: string, params: unknown[] = []) => {
-      const result = await client.query(sql, params);
-      return result.rows as R[];
-    });
-  } finally {
-    try {
-      await client.query("rollback");
-    } finally {
-      client.release();
-    }
-  }
-}
-
-/**
- * An `auth.users` row with no app metadata: when no university is open for sign-up, the sign-up
- * trigger creates no `public.users` row.
- */
+/** An `auth.users` row with no app metadata: the sign-up trigger creates no `public.users` row. */
 export async function createAuthOnlyUser(): Promise<string> {
   const id = randomUUID();
   await ownerQuery(`insert into auth.users (id, email) values ($1, $2)`, [
