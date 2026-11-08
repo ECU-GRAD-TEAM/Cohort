@@ -646,12 +646,17 @@ label {
     transform: translateX(-100%);
     transition:
       transform 0.2s ease,
-      visibility 0.2s;
+      visibility 0s linear 0.2s;
   }
 
+  /* Opening shows the panel at once (no visibility delay) so focus can enter it; closing keeps
+     the delayed hide so the slide-out still animates. */
   .menu-open .sidebar {
     visibility: visible;
     transform: none;
+    transition:
+      transform 0.2s ease,
+      visibility 0s;
   }
 
   .menu-open .scrim {
