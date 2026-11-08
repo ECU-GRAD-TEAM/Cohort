@@ -23,7 +23,7 @@ SELECT
   sp.key,
   sp.name,
   sp.description,
-  false,
+  true,
   CASE
     WHEN EXISTS (
       SELECT 1 FROM public.roles existing
