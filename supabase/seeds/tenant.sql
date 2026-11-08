@@ -125,7 +125,7 @@ WHERE level_1.tenant_id = r.tenant_id AND level_1.faculty_id = r.faculty_id AND 
 
 -- Seed ECU's existing semester pathway into the generalized academic-level model.
 -- The legacy semester columns remain populated for compatibility with older clients.
-INSERT INTO public.academic_levels (
+INSERT INTO public.academic_semesters (
   tenant_id, faculty_id, code, name, sequence_number, period_unit, stage_key, is_terminal
 )
 SELECT
@@ -156,7 +156,7 @@ WHERE t.slug = 'ecu'
 ON CONFLICT (tenant_id, faculty_id, code) DO NOTHING;
 
 -- Apply the five academic-level labels from the ECU curriculum PDF.
-UPDATE public.academic_levels AS level
+UPDATE public.academic_semesters AS level
 SET name = CASE
       WHEN level.sequence_number BETWEEN 1 AND 2 THEN 'General Level (Freshman)'
       WHEN level.sequence_number BETWEEN 3 AND 4 THEN 'First Level (Sophomore)'
@@ -182,8 +182,8 @@ UPDATE public.faculty_academic_pathways AS p
 SET department_selection_level_id = sel.id,
     department_effective_level_id = eff.id,
     programme_selection_level_id = NULL
-FROM public.academic_levels AS sel,
-     public.academic_levels AS eff
+FROM public.academic_semesters AS sel,
+     public.academic_semesters AS eff
 WHERE sel.tenant_id = p.tenant_id AND sel.faculty_id = p.faculty_id
   AND sel.sequence_number = p.department_selection_semester
   AND eff.tenant_id = p.tenant_id AND eff.faculty_id = p.faculty_id
@@ -191,7 +191,7 @@ WHERE sel.tenant_id = p.tenant_id AND sel.faculty_id = p.faculty_id
 
 UPDATE public.faculty_academic_pathways AS p
 SET expected_completion_level_id = completion.id
-FROM public.academic_levels AS completion
+FROM public.academic_semesters AS completion
 WHERE completion.tenant_id = p.tenant_id
   AND completion.faculty_id = p.faculty_id
   AND completion.sequence_number = 10;
@@ -923,7 +923,7 @@ CROSS JOIN (
     ('GRADUATION_PROJECT_1','Graduation Project (1)','graduation_project',9,3::numeric,14,'SET 497; 3 credits; Semester 9.'),
     ('GRADUATION_PROJECT_2','Graduation Project (2)','graduation_project',10,3::numeric,15,'SET 498; 3 credits; Semester 10; prerequisite SET 497.')
 ) AS requirement(code,title,category,semester_number,minimum_credit_hours,sort_order,notes)
-JOIN public.academic_levels AS al
+JOIN public.academic_semesters AS al
   ON al.tenant_id = t.id
  AND al.faculty_id = d.faculty_id
  AND al.sequence_number = requirement.semester_number
@@ -1092,7 +1092,7 @@ CROSS JOIN (
 ) AS curriculum(course_code, semester_number)
 JOIN public.courses AS c
   ON c.tenant_id = t.id AND c.code = curriculum.course_code
-JOIN public.academic_levels AS al
+JOIN public.academic_semesters AS al
   ON al.tenant_id = t.id
  AND al.faculty_id = f.id
  AND al.sequence_number = curriculum.semester_number
@@ -1121,7 +1121,7 @@ SELECT
 FROM public.tenants AS tenant
 JOIN public.curriculum_requirement_groups AS requirement_group
   ON requirement_group.tenant_id = tenant.id
-JOIN public.academic_levels AS academic_level
+JOIN public.academic_semesters AS academic_level
   ON academic_level.id = requirement_group.academic_level_id
  AND academic_level.tenant_id = tenant.id
 JOIN public.specializations AS specialization
@@ -1146,3 +1146,438 @@ WHERE tenant.slug = 'ecu'
   AND course.credit_hours >= 3
 ON CONFLICT (requirement_group_id, course_id)
 DO UPDATE SET is_active = true;
+
+
+-- ---------------------------------------------------------------------------
+-- Current ECU role catalogue.
+-- The tenant bootstrap trigger from the identity migration creates legacy
+-- roles and permission mappings. Normalize that bootstrap to the approved
+-- catalogue. Permission definitions remain migration-owned; all role-to-
+-- permission mappings are intentionally empty per the current project setup.
+-- ---------------------------------------------------------------------------
+DO $role_seed$
+DECLARE
+  v_tenant_id uuid;
+BEGIN
+  SELECT id INTO v_tenant_id FROM public.tenants WHERE slug = 'ecu';
+  IF v_tenant_id IS NULL THEN
+    RAISE EXCEPTION 'ECU tenant must exist before seeding its role catalogue';
+  END IF;
+
+  -- Never delete a role definition that is already referenced by an account
+  -- or appointment. A fresh local seed has no such references.
+  IF EXISTS (
+    SELECT 1
+    FROM public.roles r
+    WHERE r.tenant_id = v_tenant_id
+      AND r.key IN (
+        'administrator','admission_officer','hr_manager','hr_officer',
+        'lab_technician','laboratory_technician','quality_assurance_director',
+        'registrar','support_technician','system_administrator',
+        'data_protection_officer'
+      )
+      AND (
+        EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.role_id = r.id)
+        OR EXISTS (SELECT 1 FROM public.personnel_appointments pa WHERE pa.role_id = r.id)
+      )
+  ) THEN
+    RAISE EXCEPTION 'A role scheduled for removal is already assigned; clean up assignments explicitly before running this seed';
+  END IF;
+
+  DELETE FROM public.role_permissions;
+
+  ALTER TABLE public.roles DISABLE TRIGGER roles_guard_identity_fields;
+
+  DELETE FROM public.roles
+  WHERE tenant_id = v_tenant_id
+    AND key IN (
+      'administrator','admission_officer','hr_manager','hr_officer',
+      'lab_technician','laboratory_technician','quality_assurance_director',
+      'registrar','support_technician','system_administrator',
+      'data_protection_officer'
+    );
+
+  UPDATE public.roles SET key = 'academic_advisor', name = 'Academic Advisor'
+  WHERE tenant_id = v_tenant_id AND key = 'advisor';
+
+  UPDATE public.roles SET key = 'it_officer', name = 'IT Officer'
+  WHERE tenant_id = v_tenant_id AND key = 'it_staff';
+
+  UPDATE public.roles SET key = 'president', name = 'President'
+  WHERE tenant_id = v_tenant_id AND key = 'university_president';
+
+  UPDATE public.roles SET name = 'Teaching Assistant'
+  WHERE tenant_id = v_tenant_id AND key = 'teaching_assistant';
+
+  INSERT INTO public.roles
+    (tenant_id, key, name, description, is_system, role_type, category, is_academic_rank, is_active)
+  SELECT
+    v_tenant_id, seed.key, seed.name, seed.description, true,
+    seed.role_type, seed.category, seed.is_academic_rank, true
+  FROM (VALUES
+    ('academic_advisor','Academic Advisor',NULL::text,'system'::text,NULL::text,false),
+    ('assistant_professor','Assistant Professor','Academic rank.','position'::text,'academic'::text,true),
+    ('associate_professor','Associate Professor','Academic rank.','position'::text,'academic'::text,true),
+    ('dean','Dean','Faculty-scoped academic leadership position.','both'::text,'academic'::text,false),
+    ('department_head','Department Head','Department-scoped academic leadership position.','both'::text,'academic'::text,false),
+    ('finance_manager','Finance Manager','Finance management position.','position'::text,'administrative'::text,false),
+    ('finance_officer','Finance Officer','Finance operations position.','position'::text,'administrative'::text,false),
+    ('instructor','Instructor','Teaching role without an academic professorial rank.','both'::text,'academic'::text,false),
+    ('it_administrator','IT Administrator','University technology administration position.','position'::text,'technical'::text,false),
+    ('it_director','IT Director','University technology leadership position.','position'::text,'technical'::text,false),
+    ('it_officer','IT Officer',NULL::text,'system'::text,NULL::text,false),
+    ('lecturer','Lecturer','Academic teaching position.','position'::text,'academic'::text,true),
+    ('librarian','Librarian','Library services position.','position'::text,'support'::text,false),
+    ('president','President','University-wide leadership position.','position'::text,'academic'::text,false),
+    ('professor','Professor','Senior academic rank.','position'::text,'academic'::text,true),
+    ('programme_coordinator','Programme Coordinator','Academic programme coordination position.','position'::text,'academic'::text,false),
+    ('programme_director','Programme Director','Academic programme leadership position.','position'::text,'academic'::text,false),
+    ('student','Student',NULL::text,'system'::text,NULL::text,false),
+    ('student_affairs_officer','Student Affairs Officer','Student affairs administration position.','position'::text,'administrative'::text,false),
+    ('teaching_assistant','Teaching Assistant','Academic teaching support position.','both'::text,'academic'::text,false),
+    ('vice_dean','Vice Dean','Faculty-scoped deputy academic leadership position.','both'::text,'academic'::text,false),
+    ('vice_president','Vice President','University-wide deputy leadership position.','position'::text,'academic'::text,false)
+  ) AS seed(key,name,description,role_type,category,is_academic_rank)
+  ON CONFLICT (tenant_id, key) DO UPDATE
+  SET name = EXCLUDED.name,
+      description = coalesce(EXCLUDED.description, public.roles.description),
+      is_system = true,
+      role_type = EXCLUDED.role_type,
+      category = EXCLUDED.category,
+      is_academic_rank = EXCLUDED.is_academic_rank,
+      is_active = true;
+
+  ALTER TABLE public.roles ENABLE TRIGGER roles_guard_identity_fields;
+END
+$role_seed$;
+
+-- The five annual progression levels have stable display labels.
+UPDATE public.academic_year_levels AS level
+SET name = labels.level_name,
+    display_name = labels.level_name
+FROM (VALUES
+  (1,'General Level'),
+  (2,'First Level'),
+  (3,'Second Level'),
+  (4,'Third Level'),
+  (5,'Fourth Level')
+) AS labels(sequence_number,level_name)
+JOIN public.tenants AS t ON t.slug = 'ecu'
+JOIN public.faculties AS f ON f.tenant_id = t.id AND f.code = 'ENG'
+WHERE level.tenant_id = t.id
+  AND level.faculty_id = f.id
+  AND level.sequence_number = labels.sequence_number;
+
+-- ---------------------------------------------------------------------------
+-- ECU academic calendar skeleton for 2026/2027.
+-- Official dates were not provided, so date and registration fields remain NULL.
+-- ---------------------------------------------------------------------------
+DO $calendar_seed$
+DECLARE
+  v_tenant_id uuid;
+  v_calendar_id uuid;
+  v_year_id uuid;
+BEGIN
+  SELECT id INTO v_tenant_id FROM public.tenants WHERE slug = 'ecu';
+
+  SELECT id INTO v_calendar_id
+  FROM public.academic_calendars
+  WHERE tenant_id = v_tenant_id AND code = 'ECU_MAIN';
+
+  IF v_calendar_id IS NULL THEN
+    INSERT INTO public.academic_calendars
+      (tenant_id, faculty_id, code, name, timezone, is_default, is_active)
+    VALUES
+      (v_tenant_id, NULL, 'ECU_MAIN', 'ECU Academic Calendar', 'Africa/Cairo', true, true)
+    RETURNING id INTO v_calendar_id;
+  END IF;
+
+  SELECT id INTO v_year_id
+  FROM public.academic_years
+  WHERE tenant_id = v_tenant_id
+    AND calendar_id = v_calendar_id
+    AND code = '2026-2027';
+
+  IF v_year_id IS NULL THEN
+    INSERT INTO public.academic_years
+      (tenant_id, calendar_id, code, name, starts_on, ends_on, status)
+    VALUES
+      (v_tenant_id, v_calendar_id, '2026-2027',
+       'Academic Year 2026/2027', NULL, NULL, 'planned')
+    RETURNING id INTO v_year_id;
+  END IF;
+
+  INSERT INTO public.terms
+    (tenant_id, code, name, starts_on, ends_on, status,
+     academic_year_id, term_kind, sequence_number,
+     instructional_starts_on, instructional_ends_on,
+     registration_opens_at, registration_closes_at, add_drop_ends_at)
+  SELECT v_tenant_id, seed.code, seed.name, NULL, NULL, 'planned',
+         v_year_id, seed.term_kind, seed.sequence_number,
+         NULL, NULL, NULL, NULL, NULL
+  FROM (VALUES
+    ('2026-2027-FALL','Fall 2026/2027','fall'::public.academic_term_kind,1),
+    ('2026-2027-SPRING','Spring 2026/2027','spring'::public.academic_term_kind,2),
+    ('2026-2027-SUMMER','Summer 2026/2027','summer'::public.academic_term_kind,3)
+  ) AS seed(code,name,term_kind,sequence_number)
+  WHERE NOT EXISTS (
+    SELECT 1 FROM public.terms existing
+    WHERE existing.tenant_id = v_tenant_id AND existing.code = seed.code
+  );
+END
+$calendar_seed$;
+
+-- ---------------------------------------------------------------------------
+-- ECU Article 38 grade scale. Permission mappings remain intentionally empty;
+-- grade scales are academic grading data, not authorization mappings.
+-- ---------------------------------------------------------------------------
+DO $grade_scale_seed$
+DECLARE
+  v_tenant_id uuid;
+  v_scale_id uuid;
+BEGIN
+  SELECT id INTO v_tenant_id FROM public.tenants WHERE slug = 'ecu';
+
+  INSERT INTO public.grade_scales (tenant_id, name, max_grade_points, is_default)
+  VALUES (v_tenant_id, 'ECU Article 38', 4.0, true)
+  ON CONFLICT (tenant_id, name)
+  DO UPDATE SET max_grade_points = EXCLUDED.max_grade_points, is_default = true
+  RETURNING id INTO v_scale_id;
+
+  UPDATE public.grade_scales
+  SET is_default = false
+  WHERE tenant_id = v_tenant_id AND id <> v_scale_id AND is_default;
+
+  INSERT INTO public.grade_scale_bands
+    (tenant_id, scale_id, letter, min_percentage, grade_points, is_passing)
+  VALUES
+    (v_tenant_id,v_scale_id,'A+',97,4.0,true),
+    (v_tenant_id,v_scale_id,'A',93,4.0,true),
+    (v_tenant_id,v_scale_id,'A-',89,3.7,true),
+    (v_tenant_id,v_scale_id,'B+',84,3.3,true),
+    (v_tenant_id,v_scale_id,'B',80,3.0,true),
+    (v_tenant_id,v_scale_id,'B-',76,2.7,true),
+    (v_tenant_id,v_scale_id,'C+',73,2.3,true),
+    (v_tenant_id,v_scale_id,'C',70,2.0,true),
+    (v_tenant_id,v_scale_id,'C-',67,1.7,true),
+    (v_tenant_id,v_scale_id,'D+',64,1.3,true),
+    (v_tenant_id,v_scale_id,'D',60,1.0,true),
+    (v_tenant_id,v_scale_id,'F',0,0.0,false)
+  ON CONFLICT (scale_id, letter) DO UPDATE
+  SET min_percentage = EXCLUDED.min_percentage,
+      grade_points = EXCLUDED.grade_points,
+      is_passing = EXCLUDED.is_passing;
+END
+$grade_scale_seed$;
+
+-- ---------------------------------------------------------------------------
+-- 2026/2027 draft course offerings.
+-- Odd curriculum semesters are offered in Fall; even semesters in Spring.
+-- Summer is retained as a term for approved retakes/additional offerings.
+-- ---------------------------------------------------------------------------
+INSERT INTO public.course_offerings
+  (tenant_id, course_id, term_id, status, grade_scale_id, grading_basis)
+SELECT t.id, c.id, term.id, 'draft'::public.offering_status, gs.id, 'letter_graded'
+FROM public.tenants t
+JOIN (VALUES
+  ('HUM 011','2026-2027-FALL'),
+  ('HUM 113','2026-2027-FALL'),
+  ('HUM 312','2026-2027-FALL'),
+  ('MCE 061','2026-2027-FALL'),
+  ('MCE 112','2026-2027-FALL'),
+  ('MCE 132','2026-2027-FALL'),
+  ('PHM 012','2026-2027-FALL'),
+  ('PHM 032','2026-2027-FALL'),
+  ('PHM 042','2026-2027-FALL'),
+  ('PHM 113','2026-2027-FALL'),
+  ('PHM 115','2026-2027-FALL'),
+  ('SET 012','2026-2027-FALL'),
+  ('SET 111','2026-2027-FALL'),
+  ('SET 112','2026-2027-FALL'),
+  ('SET 113','2026-2027-FALL'),
+  ('SET 211','2026-2027-FALL'),
+  ('SET 212','2026-2027-FALL'),
+  ('SET 213','2026-2027-FALL'),
+  ('SET 214','2026-2027-FALL'),
+  ('SET 311','2026-2027-FALL'),
+  ('SET 312','2026-2027-FALL'),
+  ('SET 313','2026-2027-FALL'),
+  ('SET 314','2026-2027-FALL'),
+  ('SET 392','2026-2027-FALL'),
+  ('SET 411','2026-2027-FALL'),
+  ('SET 412','2026-2027-FALL'),
+  ('SET 413','2026-2027-FALL'),
+  ('SET 472','2026-2027-FALL'),
+  ('SET 473','2026-2027-FALL'),
+  ('SET 497','2026-2027-FALL'),
+  ('HUM 014','2026-2027-SPRING'),
+  ('HUM 112','2026-2027-SPRING'),
+  ('HUM 212','2026-2027-SPRING'),
+  ('MCE 024','2026-2027-SPRING'),
+  ('PHM 013','2026-2027-SPRING'),
+  ('PHM 014','2026-2027-SPRING'),
+  ('PHM 022','2026-2027-SPRING'),
+  ('PHM 033','2026-2027-SPRING'),
+  ('PHM 114','2026-2027-SPRING'),
+  ('SET 121','2026-2027-SPRING'),
+  ('SET 122','2026-2027-SPRING'),
+  ('SET 123','2026-2027-SPRING'),
+  ('SET 124','2026-2027-SPRING'),
+  ('SET 221','2026-2027-SPRING'),
+  ('SET 222','2026-2027-SPRING'),
+  ('SET 223','2026-2027-SPRING'),
+  ('SET 224','2026-2027-SPRING'),
+  ('SET 225','2026-2027-SPRING'),
+  ('SET 226','2026-2027-SPRING'),
+  ('SET 321','2026-2027-SPRING'),
+  ('SET 322','2026-2027-SPRING'),
+  ('SET 323','2026-2027-SPRING'),
+  ('SET 421','2026-2027-SPRING'),
+  ('SET 422','2026-2027-SPRING'),
+  ('SET 423','2026-2027-SPRING'),
+  ('SET 498','2026-2027-SPRING')
+) AS seed(course_code,term_code) ON true
+JOIN public.courses c ON c.tenant_id = t.id AND c.code = seed.course_code
+JOIN public.terms term ON term.tenant_id = t.id AND term.code = seed.term_code
+JOIN public.grade_scales gs ON gs.tenant_id = t.id AND gs.name = 'ECU Article 38'
+WHERE t.slug = 'ecu'
+ON CONFLICT (course_id, term_id) DO NOTHING;
+
+-- ---------------------------------------------------------------------------
+-- Fall 2026 SET timetable: buildings, rooms, sections, and meetings.
+-- Instructor identities/assignments are not invented because the timetable
+-- source does not provide verified personnel-directory mappings.
+-- ---------------------------------------------------------------------------
+DO $room_seed$
+DECLARE
+  v_tenant_id uuid;
+BEGIN
+  SELECT id INTO v_tenant_id FROM public.tenants WHERE slug = 'ecu';
+
+  INSERT INTO public.buildings (tenant_id,code,name)
+  VALUES (v_tenant_id,'A','Building A'),(v_tenant_id,'D','Building D')
+  ON CONFLICT (tenant_id,code) DO UPDATE SET name = EXCLUDED.name;
+
+  INSERT INTO public.rooms (tenant_id,building_id,code,name,room_type)
+  SELECT v_tenant_id,b.id,r.room_code,r.room_code,'classroom'::public.room_type
+  FROM (VALUES
+    ('A','202'),('A','206'),('A','207'),('A','208'),('A','308'),
+    ('A','311'),('A','312'),('A','313'),
+    ('D','101'),('D','103'),('D','104'),('D','110'),('D','208')
+  ) AS r(building_code,room_code)
+  JOIN public.buildings b
+    ON b.tenant_id = v_tenant_id AND b.code = r.building_code
+  ON CONFLICT (building_id,code) DO UPDATE SET name = EXCLUDED.name;
+END
+$room_seed$;
+
+CREATE TEMP TABLE IF NOT EXISTS seed_fall_2026_meetings (
+  course_code text NOT NULL,
+  group_code text NOT NULL,
+  section_kind public.section_kind NOT NULL,
+  day_of_week smallint NOT NULL,
+  starts_at time NOT NULL,
+  ends_at time NOT NULL,
+  building_code text,
+  room_code text,
+  meeting_type text NOT NULL
+);
+TRUNCATE TABLE seed_fall_2026_meetings;
+
+INSERT INTO seed_fall_2026_meetings
+  (course_code,group_code,section_kind,day_of_week,starts_at,ends_at,building_code,room_code,meeting_type)
+VALUES
+('SET 412','SA-G1+G2','lecture',0,'08:30','09:30','A','308','lecture'),
+('SET 497','SA-G1+G2','lecture',0,'09:30','13:30',NULL,NULL,'graduation_project'),
+('SET 392','SA-G1+G2','lecture',0,'14:30','16:30','A','207','lecture'),
+('SET 412','DMC-G1','lecture',0,'10:30','11:30','D','104','lecture'),
+('SET 473','DMC-G1','lecture',0,'11:30','13:30','D','110','lecture'),
+('SET 497','DMC-G1','lecture',0,'13:30','17:30',NULL,NULL,'graduation_project'),
+('SET 392','SA-G1','tutorial',1,'08:30','09:30','A','311','tutorial'),
+('SET 411','SA-G1','lab',1,'10:30','12:30','A','311','tutorial_lab'),
+('SET 412','SA-G1','lab',1,'14:30','16:30','A','311','tutorial_lab'),
+('SET 412','SA-G2','lab',1,'08:30','10:30','A','313','tutorial_lab'),
+('SET 392','SA-G2','tutorial',1,'10:30','11:30','A','313','tutorial'),
+('SET 411','SA-G2','lab',1,'14:30','16:30','A','313','tutorial_lab'),
+('SET 411','DMC-G1','lab',1,'08:30','10:30','A','206','tutorial_lab'),
+('SET 412','DMC-G1','lab',1,'10:30','12:30','A','206','tutorial_lab'),
+('SET 473','DMC-G1','tutorial',1,'14:30','15:30','A','206','tutorial'),
+('SET 411','SA-G1+G2','lecture',3,'08:30','09:30','A','312','lecture'),
+('SET 413','SA-G1','lab',3,'10:30','11:30','A','311','tutorial_lab'),
+('SET 472','SA-G1','tutorial',3,'13:30','14:30','D','101','tutorial'),
+('SET 472','SA-G2','tutorial',3,'10:30','11:30','D','101','tutorial'),
+('SET 413','SA-G2','lab',3,'12:30','13:30','A','311','tutorial_lab'),
+('SET 413','DMC-G1','lab',3,'08:30','09:30','A','311','tutorial_lab'),
+('SET 411','DMC-G1','lecture',3,'09:30','11:30','D','110','lecture'),
+('SET 472','DMC-G1','tutorial',3,'14:30','15:30','D','101','tutorial'),
+('SET 472','SA-G1+G2','lecture',4,'08:30','09:30','A','202','lecture'),
+('SET 413','SA-G1+G2','lecture',4,'09:30','11:30','A','208','lecture'),
+('SET 413','DMC-G1','lecture',4,'08:30','09:30','D','103','lecture'),
+('SET 472','DMC-G1','lecture',4,'13:30','14:30','D','208','lecture');
+
+INSERT INTO public.sections (tenant_id,offering_id,code,kind,group_code)
+SELECT DISTINCT
+  o.tenant_id,
+  o.id,
+  replace(m.group_code,'+','-') || '-' ||
+    regexp_replace(upper(c.code),'[^A-Z0-9]','','g') || '-' ||
+    upper(m.section_kind::text),
+  m.section_kind,
+  m.group_code
+FROM seed_fall_2026_meetings m
+JOIN public.courses c
+  ON regexp_replace(upper(c.code),'[^A-Z0-9]','','g') =
+     regexp_replace(upper(m.course_code),'[^A-Z0-9]','','g')
+ AND c.tenant_id = (SELECT id FROM public.tenants WHERE slug='ecu')
+JOIN public.course_offerings o ON o.course_id = c.id
+JOIN public.terms term ON term.id = o.term_id AND term.code = '2026-2027-FALL'
+ON CONFLICT (offering_id,code)
+DO UPDATE SET group_code = EXCLUDED.group_code, kind = EXCLUDED.kind;
+
+INSERT INTO public.section_meetings
+  (tenant_id,section_id,offering_id,room_id,day_of_week,starts_at,ends_at,meeting_type)
+SELECT
+  o.tenant_id,
+  s.id,
+  o.id,
+  room.id,
+  m.day_of_week,
+  m.starts_at,
+  m.ends_at,
+  m.meeting_type
+FROM seed_fall_2026_meetings m
+JOIN public.courses c
+  ON regexp_replace(upper(c.code),'[^A-Z0-9]','','g') =
+     regexp_replace(upper(m.course_code),'[^A-Z0-9]','','g')
+ AND c.tenant_id = (SELECT id FROM public.tenants WHERE slug='ecu')
+JOIN public.course_offerings o ON o.course_id = c.id
+JOIN public.terms term ON term.id = o.term_id AND term.code = '2026-2027-FALL'
+JOIN public.sections s
+  ON s.offering_id = o.id
+ AND s.group_code = m.group_code
+ AND s.kind = m.section_kind
+ AND s.code = replace(m.group_code,'+','-') || '-' ||
+      regexp_replace(upper(c.code),'[^A-Z0-9]','','g') || '-' ||
+      upper(m.section_kind::text)
+LEFT JOIN public.buildings b
+  ON b.tenant_id = o.tenant_id AND b.code = m.building_code
+LEFT JOIN public.rooms room
+  ON room.tenant_id = o.tenant_id
+ AND room.building_id = b.id
+ AND room.code = m.room_code
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM public.section_meetings existing
+  WHERE existing.section_id = s.id
+    AND existing.offering_id = o.id
+    AND existing.day_of_week = m.day_of_week
+    AND existing.starts_at = m.starts_at
+    AND existing.ends_at = m.ends_at
+    AND existing.meeting_type = m.meeting_type
+);
+
+DROP TABLE seed_fall_2026_meetings;
+
+-- Staff appointments and user-role assignments are intentionally not seeded:
+-- they depend on actual Supabase Auth users and verified staff identities.
+-- The permission catalogue is defined by migrations; role_permissions remains empty.
