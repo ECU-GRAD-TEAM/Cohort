@@ -20,7 +20,9 @@ type Listener = (event: AuthChangeEvent, session: Session | null) => void;
  * A stand-in for Supabase's auth client. It keeps a session in memory and tells every
  * `onAuthStateChange` listener when sign-in or sign-out changes it, as Supabase does.
  */
-export function createFakeAuth(options: { session?: Session | null; signInError?: string } = {}): AuthClientLike {
+export function createFakeAuth(
+  options: { session?: Session | null; signInError?: string; signUpError?: string; signUpSession?: boolean } = {},
+): AuthClientLike {
   let session = options.session ?? null;
   const listeners = new Set<Listener>();
   const notify = (event: AuthChangeEvent) => {
@@ -48,6 +50,20 @@ export function createFakeAuth(options: { session?: Session | null; signInError?
       session = fakeSession;
       notify("SIGNED_IN");
       return { data: { session: fakeSession, user: fakeSession.user }, error: null };
+    }),
+    signUp: vi.fn(async () => {
+      if (options.signUpError !== undefined) {
+        return {
+          data: { session: null, user: null },
+          error: { message: options.signUpError } as AuthError,
+        };
+      }
+      if (options.signUpSession) {
+        session = fakeSession;
+        notify("SIGNED_IN");
+        return { data: { session: fakeSession, user: fakeSession.user }, error: null };
+      }
+      return { data: { user: fakeSession.user, session: null }, error: null };
     }),
     signOut: vi.fn(async () => {
       session = null;

@@ -133,6 +133,15 @@ An account gets its university when the backend creates it with `app_metadata` (
 [supabase/README.md](supabase/README.md)). An account without one signs in but sees "Your account
 is not linked to a university yet."
 
+### Sign-up
+
+Self sign-ups join the university open for sign-up as students (see `supabase/README.md`).
+
+- In the Supabase Dashboard, under Authentication > URL Configuration, set the Site URL to the
+  production address `https://cohort-nine-mu.vercel.app`.
+- Also there, add `http://localhost:5173/**` to Redirect URLs.
+- With "Confirm email" on, students confirm by email before they can sign in.
+
 ### 8. Run the tests
 
 ```bash
