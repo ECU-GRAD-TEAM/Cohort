@@ -1582,6 +1582,126 @@ WHERE NOT EXISTS (
 
 DROP TABLE seed_fall_2026_meetings;
 
--- Staff appointments and user-role assignments are intentionally not seeded:
--- they depend on actual Supabase Auth users and verified staff identities.
--- The permission catalogue is defined by migrations; role_permissions remains empty.
+-- Staff accounts are provisioned separately through Supabase Auth. If the approved
+-- 15 SET staff accounts already exist, seed their verified position appointments
+-- and Rania's separate Head of Department appointment. With no Auth accounts,
+-- this block is a no-op; partial directories fail loudly instead of guessing.
+DO $staff_appointment_seed$
+DECLARE
+  v_tenant_id uuid;
+  v_staff_count integer;
+  v_professor_count integer;
+  v_ta_count integer;
+  v_department_id uuid;
+BEGIN
+  SELECT id INTO v_tenant_id FROM public.tenants WHERE slug = 'ecu';
+  SELECT id INTO v_department_id
+  FROM public.departments
+  WHERE tenant_id = v_tenant_id AND code = 'SET';
+
+  SELECT count(*),
+         count(*) FILTER (WHERE profile.title = 'Professor'),
+         count(*) FILTER (WHERE profile.title = 'Teaching Assistant')
+  INTO v_staff_count, v_professor_count, v_ta_count
+  FROM public.users account
+  JOIN public.person_profiles profile ON profile.user_id = account.id
+  WHERE account.tenant_id = v_tenant_id
+    AND lower(account.email) IN (
+      'rswief@ecu.edu.eg','mayar.ali@ecu.edu.eg','islam.mohammed@ecu.edu.eg',
+      'doaa.amin@ecu.edu.eg','hmhussen@ecu.edu.eg','norhan.mamdoh@ecu.edu.eg',
+      'mohamed.mohamed@ecu.edu.eg','maiada.alaaeldin@ecu.edu.eg','ramobark@ecu.edu.eg',
+      'asmaa.elwihady@ecu.edu.eg','reem.waleed@ecu.edu.eg','fady.romany@ecu.edu.eg',
+      'mohamed.taha@ecu.edu.eg','rahma.ali@ecu.edu.eg','amira.ali@ecu.edu.eg'
+    );
+
+  IF v_staff_count = 0 THEN
+    RAISE NOTICE 'SET staff appointments skipped: Auth accounts have not been provisioned.';
+    RETURN;
+  END IF;
+
+  IF v_staff_count <> 15 OR v_professor_count <> 3 OR v_ta_count <> 12
+     OR v_department_id IS NULL THEN
+    RAISE EXCEPTION
+      'SET staff appointment seed requires all 15 approved accounts (3 professors, 12 teaching assistants) and the SET department; found %, %, %',
+      v_staff_count, v_professor_count, v_ta_count;
+  END IF;
+
+  INSERT INTO public.personnel_appointments
+    (tenant_id,user_id,role_id,appointment_type,scope_type,scope_id,status,appointed_by,notes)
+  SELECT
+    account.tenant_id,
+    account.id,
+    role_definition.id,
+    'position',
+    'department',
+    v_department_id,
+    'active',
+    NULL,
+    'Initial SET staff directory appointment; seeded from the approved staff directory.'
+  FROM public.users account
+  JOIN public.person_profiles profile ON profile.user_id = account.id
+  JOIN public.roles role_definition
+    ON role_definition.tenant_id = account.tenant_id
+   AND role_definition.key = CASE profile.title
+     WHEN 'Professor' THEN 'professor'
+     WHEN 'Teaching Assistant' THEN 'teaching_assistant'
+   END
+   AND role_definition.role_type IN ('position','both')
+   AND role_definition.is_active
+  WHERE account.tenant_id = v_tenant_id
+    AND lower(account.email) IN (
+      'rswief@ecu.edu.eg','mayar.ali@ecu.edu.eg','islam.mohammed@ecu.edu.eg',
+      'doaa.amin@ecu.edu.eg','hmhussen@ecu.edu.eg','norhan.mamdoh@ecu.edu.eg',
+      'mohamed.mohamed@ecu.edu.eg','maiada.alaaeldin@ecu.edu.eg','ramobark@ecu.edu.eg',
+      'asmaa.elwihady@ecu.edu.eg','reem.waleed@ecu.edu.eg','fady.romany@ecu.edu.eg',
+      'mohamed.taha@ecu.edu.eg','rahma.ali@ecu.edu.eg','amira.ali@ecu.edu.eg'
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.personnel_appointments existing
+      WHERE existing.tenant_id = account.tenant_id
+        AND existing.user_id = account.id
+        AND existing.role_id = role_definition.id
+        AND existing.appointment_type = 'position'
+        AND existing.scope_type = 'department'
+        AND existing.scope_id = v_department_id
+        AND existing.status = 'active'
+    );
+
+  -- Rania's Head of SET Department appointment is separate from her Professor role.
+  INSERT INTO public.personnel_appointments
+    (tenant_id,user_id,role_id,appointment_type,scope_type,scope_id,status,appointed_by,notes)
+  SELECT
+    account.tenant_id,
+    account.id,
+    role_definition.id,
+    'leadership',
+    'department',
+    v_department_id,
+    'active',
+    NULL,
+    'Head of SET Department leadership appointment; seeded from the approved staff directory.'
+  FROM public.users account
+  JOIN public.roles role_definition
+    ON role_definition.tenant_id = account.tenant_id
+   AND role_definition.key = 'department_head'
+   AND role_definition.role_type IN ('position','both')
+   AND role_definition.is_active
+  WHERE account.tenant_id = v_tenant_id
+    AND lower(account.email) = 'rswief@ecu.edu.eg'
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.personnel_appointments existing
+      WHERE existing.tenant_id = account.tenant_id
+        AND existing.user_id = account.id
+        AND existing.role_id = role_definition.id
+        AND existing.appointment_type = 'leadership'
+        AND existing.scope_type = 'department'
+        AND existing.scope_id = v_department_id
+        AND existing.status = 'active'
+    );
+END
+$staff_appointment_seed$;
+
+-- The permission catalogue is defined by migrations. Role-to-permission
+-- mappings intentionally remain empty for the ECU tenant.
