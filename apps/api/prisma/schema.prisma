@@ -1470,7 +1470,6 @@ model person_profiles {
   title           String?
   avatar_path     String?
   bio             String?
-  phone           String?
   personal_email  String?
   date_of_birth   DateTime?    @db.Date
   office_location String?
@@ -1478,11 +1477,30 @@ model person_profiles {
   theme           String       @default("system")
   updated_at      DateTime     @default(now()) @db.Timestamptz(6)
   department_id   String?      @db.Uuid
-  departments     departments? @relation(fields: [department_id, tenant_id], references: [id, tenant_id], onDelete: SetNull, onUpdate: NoAction)
+  departments          departments?          @relation(fields: [department_id, tenant_id], references: [id, tenant_id], onDelete: SetNull, onUpdate: NoAction)
+  person_profile_phones person_profile_phones[]
   users           users        @relation(fields: [user_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([user_id, tenant_id])
   @@index([department_id, tenant_id])
+  @@schema("public")
+}
+
+model person_profile_phones {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String          @db.Uuid
+  user_id         String          @db.Uuid
+  phone_number    String
+  label           String          @default("mobile")
+  is_primary      Boolean         @default(false)
+  is_verified     Boolean         @default(false)
+  created_at      DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime        @default(now()) @db.Timestamptz(6)
+  person_profiles person_profiles @relation(fields: [user_id, tenant_id], references: [user_id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, phone_number])
+  @@index([tenant_id, user_id])
+  @@index([user_id, tenant_id])
   @@schema("public")
 }
 
