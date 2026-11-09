@@ -1694,3 +1694,125 @@ $staff_appointment_seed$;
 
 -- The permission catalogue is defined by migrations. Role-to-permission
 -- mappings intentionally remain empty for the ECU tenant.
+
+
+-- ---------------------------------------------------------------------------
+-- Confirmed Fall 2026 SET section instructor assignments
+-- ---------------------------------------------------------------------------
+-- These four staff identities were explicitly confirmed. Unknown timetable
+-- names and SET 497 supervisors are intentionally not assigned.
+-- This seed runs after the SET offerings, sections, and staff directory seed.
+DO $fall_2026_section_instructors$
+DECLARE
+  v_tenant_id uuid;
+  v_staff_count integer;
+  v_section_count integer;
+  v_assignment_count integer;
+BEGIN
+  SELECT id INTO v_tenant_id
+  FROM public.tenants
+  WHERE slug = 'ecu';
+
+  SELECT count(DISTINCT account.id)
+  INTO v_staff_count
+  FROM public.users account
+  WHERE account.tenant_id = v_tenant_id
+    AND lower(account.email) IN (
+      'mohamed.mohamed@ecu.edu.eg',
+      'rahma.ali@ecu.edu.eg',
+      'amira.ali@ecu.edu.eg',
+      'islam.mohammed@ecu.edu.eg'
+    );
+
+  -- Auth-backed staff accounts may not exist in a fresh local reset.
+  IF v_staff_count = 0 THEN
+    RAISE NOTICE 'Fall 2026 section instructor seed skipped: staff Auth accounts are not provisioned.';
+    RETURN;
+  END IF;
+
+  IF v_staff_count <> 4 THEN
+    RAISE EXCEPTION
+      'Fall 2026 section instructor seed requires all 4 confirmed staff accounts; found %',
+      v_staff_count;
+  END IF;
+
+  WITH assignments(section_code, staff_email, assignment_role) AS (
+    VALUES
+      ('SA-G1-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
+      ('SA-G2-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
+      ('DMC-G1-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
+      ('SA-G1-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
+      ('SA-G2-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
+      ('DMC-G1-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
+      ('SA-G1-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'teaching_assistant'),
+      ('SA-G2-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'teaching_assistant'),
+      ('DMC-G1-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'teaching_assistant'),
+      ('DMC-G1-SET473-LECTURE', 'islam.mohammed@ecu.edu.eg', 'instructor')
+  )
+  SELECT count(*) INTO v_section_count
+  FROM assignments a
+  JOIN public.sections s
+    ON s.tenant_id = v_tenant_id AND s.code = a.section_code;
+
+  IF v_section_count <> 10 THEN
+    RAISE EXCEPTION
+      'Fall 2026 section instructor seed requires all 10 SET sections; found %',
+      v_section_count;
+  END IF;
+
+  WITH assignments(section_code, staff_email, assignment_role) AS (
+    VALUES
+      ('SA-G1-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
+      ('SA-G2-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
+      ('DMC-G1-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
+      ('SA-G1-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
+      ('SA-G2-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
+      ('DMC-G1-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
+      ('SA-G1-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'teaching_assistant'),
+      ('SA-G2-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'teaching_assistant'),
+      ('DMC-G1-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'teaching_assistant'),
+      ('DMC-G1-SET473-LECTURE', 'islam.mohammed@ecu.edu.eg', 'instructor')
+  )
+  INSERT INTO public.section_instructors (section_id, user_id, tenant_id, role)
+  SELECT s.id, account.id, v_tenant_id, a.assignment_role::public.teaching_role
+  FROM assignments a
+  JOIN public.sections s
+    ON s.tenant_id = v_tenant_id AND s.code = a.section_code
+  JOIN public.users account
+    ON account.tenant_id = v_tenant_id
+   AND lower(account.email) = a.staff_email
+  ON CONFLICT (section_id, user_id) DO NOTHING;
+
+  WITH assignments(section_code, staff_email, assignment_role) AS (
+    VALUES
+      ('SA-G1-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
+      ('SA-G2-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
+      ('DMC-G1-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
+      ('SA-G1-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
+      ('SA-G2-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
+      ('DMC-G1-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
+      ('SA-G1-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'teaching_assistant'),
+      ('SA-G2-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'teaching_assistant'),
+      ('DMC-G1-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'teaching_assistant'),
+      ('DMC-G1-SET473-LECTURE', 'islam.mohammed@ecu.edu.eg', 'instructor')
+  )
+  SELECT count(*) INTO v_assignment_count
+  FROM assignments a
+  JOIN public.sections s
+    ON s.tenant_id = v_tenant_id AND s.code = a.section_code
+  JOIN public.users account
+    ON account.tenant_id = v_tenant_id
+   AND lower(account.email) = a.staff_email
+  JOIN public.section_instructors si
+    ON si.tenant_id = v_tenant_id
+   AND si.section_id = s.id
+   AND si.user_id = account.id
+   AND si.role = a.assignment_role::public.teaching_role;
+
+  IF v_assignment_count <> 10 THEN
+    RAISE EXCEPTION
+      'Expected 10 verified Fall 2026 section instructor assignments; found %',
+      v_assignment_count;
+  END IF;
+END
+$fall_2026_section_instructors$;
