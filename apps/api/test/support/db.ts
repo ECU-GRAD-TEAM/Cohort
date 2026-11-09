@@ -43,14 +43,20 @@ export type University = {
   sections: { cs101: string; cs201: string; ma101: string };
 };
 
-type SeedOptions = { cs101Capacity?: number; cs101Waitlist?: number; registrationOpen?: boolean };
+type SeedOptions = {
+  cs101Capacity?: number;
+  cs101Waitlist?: number;
+  registrationOpen?: boolean;
+  /** False seeds the three students as `non_staff` accounts with no `student` role. */
+  studentRoles?: boolean;
+};
 
 /**
  * Seeds one university as the database owner, with random ids: five users, one term with three
  * courses (CS201 needs CS101; MA101 is a draft), one section each, and a timetable slot for CS101.
  */
 export async function seedUniversity(options: SeedOptions = {}): Promise<University> {
-  const { cs101Capacity = 30, cs101Waitlist = 0, registrationOpen = true } = options;
+  const { cs101Capacity = 30, cs101Waitlist = 0, registrationOpen = true, studentRoles = true } = options;
   const k = shortId();
 
   const tenantId = randomUUID();
@@ -107,6 +113,7 @@ export async function seedUniversity(options: SeedOptions = {}): Promise<Univers
           JSON.stringify({ full_name: account.name }),
         ],
       );
+      if (account.role === "student" && !studentRoles) continue;
       await client.query(
         `insert into public.user_roles
            (user_id, role_id, tenant_id, assignment_status, starts_at)

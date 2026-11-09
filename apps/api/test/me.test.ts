@@ -105,10 +105,11 @@ it("lists only the roles that are active now", async () => {
        from public.roles r where r.tenant_id = $2 and r.key = $7`,
       [v.users.student, v.tenantId, starts, expires, revokedAt, status, roleKey],
     );
+  // The role keys below come from the tenant's seeded roles.
   await grant("teaching_assistant", { expires: "1 day" }); // still running: listed
   await grant("advisor", { expires: "-1 day" }); // expired
   await grant("dean", { revokedAt: "-1 hour" }); // revoked_at set
-  await grant("department_head", { status: "revoked", revokedAt: "-1 hour" }); // not active
+  await grant("department_head", { status: "revoked" }); // status alone, no revoked_at
   await grant("it_staff", { starts: "1 day" }); // not started yet
 
   const r = await get("/me", await t.tokenFor(v.users.student));

@@ -36,6 +36,13 @@ it("lists only the caller's terms, newest first", async () => {
   expect(ids).not.toContain(other.termId);
 });
 
+it("lists a term with no start date last", async () => {
+  const v = await seedUniversity();
+  await ownerQuery(`insert into public.terms (tenant_id, code, name, starts_on) values ($1, 'UND', 'Undated', null)`, [v.tenantId]);
+  const r = await get("/terms", await t.tokenFor(v.users.student));
+  expect(r.json().terms.map((t: { name: string }) => t.name)).toEqual(["Fall 2026", "Undated"]);
+});
+
 it("describes a term with ISO dates and timestamps", async () => {
   const v = await seedUniversity();
   await ownerQuery(
