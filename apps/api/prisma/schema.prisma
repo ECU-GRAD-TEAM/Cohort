@@ -1752,35 +1752,6 @@ model role_permissions {
 
 /// Dated, scoped organizational appointments. Role definitions are shared with
 /// the system authorization catalogue; user_roles remains a separate assignment.
-model personnel_appointments {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id     String   @db.Uuid
-  user_id       String   @db.Uuid
-  role_id       String   @db.Uuid
-  appointment_type String @default("position")
-  scope_type    String
-  scope_id      String?  @db.Uuid
-  starts_at     DateTime @default(now()) @db.Timestamptz(6)
-  ends_at       DateTime? @db.Timestamptz(6)
-  status        String   @default("active")
-  appointed_by  String?  @db.Uuid
-  ended_by      String?  @db.Uuid
-  notes         String?
-  created_at    DateTime @default(now()) @db.Timestamptz(6)
-  tenants       tenants  @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  roles         roles    @relation(fields: [role_id, tenant_id], references: [id, tenant_id], onDelete: Restrict, onUpdate: NoAction)
-  users         users    @relation("personnel_appointments_user", fields: [user_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
-  appointed_by_user users? @relation("personnel_appointments_appointed_by", fields: [appointed_by, tenant_id], references: [id, tenant_id], onDelete: NoAction, onUpdate: NoAction)
-  ended_by_user users? @relation("personnel_appointments_ended_by", fields: [ended_by, tenant_id], references: [id, tenant_id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([role_id, tenant_id])
-  @@index([tenant_id, scope_type, scope_id])
-  @@index([user_id, tenant_id, starts_at, ends_at])
-  @@index([appointed_by, tenant_id])
-  @@index([ended_by, tenant_id])
-  @@schema("public")
-}
-
 model roles {
   id                   String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id            String                   @db.Uuid
@@ -1795,8 +1766,7 @@ model roles {
   created_at           DateTime                 @default(now()) @db.Timestamptz(6)
   role_permissions     role_permissions[]
   tenants              tenants                  @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  user_roles           user_roles[]
-  personnel_appointments personnel_appointments[]
+  user_roles                                                                 user_roles[] @relation("user_roles_user")
 
   @@unique([id, tenant_id])
   @@unique([tenant_id, key])
@@ -2322,28 +2292,39 @@ model topics {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model user_roles {
-  user_id           String    @db.Uuid
-  role_id           String    @db.Uuid
-  tenant_id         String    @db.Uuid
-  granted_by        String?   @db.Uuid
-  granted_at        DateTime  @default(now()) @db.Timestamptz(6)
-  expires_at        DateTime? @db.Timestamptz(6)
-  scope_type        String    @default("university")
-  scope_id          String?   @db.Uuid
-  starts_at         DateTime  @default(now()) @db.Timestamptz(6)
-  revoked_at        DateTime? @db.Timestamptz(6)
-  assignment_status String    @default("active")
-  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  roles             roles     @relation(fields: [role_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
-  users             users     @relation(fields: [user_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  user_id              String    @db.Uuid
+  role_id              String    @db.Uuid
+  tenant_id            String    @db.Uuid
+  granted_by           String?   @db.Uuid
+  granted_at           DateTime  @default(now()) @db.Timestamptz(6)
+  expires_at           DateTime? @db.Timestamptz(6)
+  scope_type           String    @default("university")
+  scope_id             String?   @db.Uuid
+  starts_at            DateTime  @default(now()) @db.Timestamptz(6)
+  revoked_at           DateTime? @db.Timestamptz(6)
+  assignment_status    String    @default("active")
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  appointment_type     String    @default("system_access")
+  ends_at              DateTime? @db.Timestamptz(6)
+  status               String    @default("active")
+  appointed_by         String?   @db.Uuid
+  ended_by             String?   @db.Uuid
+  notes                String?
+  created_at           DateTime  @default(now()) @db.Timestamptz(6)
+  source_appointment_id String?  @unique @db.Uuid
+  roles                roles     @relation(fields: [role_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  users                users     @relation("user_roles_user", fields: [user_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  granted_by_user      users?    @relation("user_roles_granted_by", fields: [granted_by, tenant_id], references: [id, tenant_id], onDelete: NoAction, onUpdate: NoAction)
+  appointed_by_user    users?    @relation("user_roles_appointed_by", fields: [appointed_by, tenant_id], references: [id, tenant_id], onDelete: NoAction, onUpdate: NoAction)
+  ended_by_user        users?    @relation("user_roles_ended_by", fields: [ended_by, tenant_id], references: [id, tenant_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([role_id, tenant_id])
   @@index([user_id, tenant_id])
+  @@index([appointed_by, tenant_id])
+  @@index([ended_by, tenant_id])
   @@schema("public")
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model users {
   id                                                                         String                       @id @db.Uuid
   tenant_id                                                                  String                       @db.Uuid
@@ -2409,6 +2390,9 @@ model users {
   tickets_tickets_assignee_id_tenant_idTousers                               tickets[]                    @relation("tickets_assignee_id_tenant_idTousers")
   tickets_tickets_requester_id_tenant_idTousers                              tickets[]                    @relation("tickets_requester_id_tenant_idTousers")
   user_roles                                                                 user_roles[]
+  user_roles_granted_by_user                                                user_roles[] @relation("user_roles_granted_by")
+  user_roles_appointed_by_user                                              user_roles[] @relation("user_roles_appointed_by")
+  user_roles_ended_by_user                                                  user_roles[] @relation("user_roles_ended_by")
   personnel_appointments_personnel_appointments_user_id_tenant_idTousers    personnel_appointments[] @relation("personnel_appointments_user")
   personnel_appointments_personnel_appointments_appointed_by_tenant_idTousers personnel_appointments[] @relation("personnel_appointments_appointed_by")
   personnel_appointments_personnel_appointments_ended_by_tenant_idTousers   personnel_appointments[] @relation("personnel_appointments_ended_by")
