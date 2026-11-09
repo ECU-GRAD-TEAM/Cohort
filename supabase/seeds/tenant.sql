@@ -1220,6 +1220,7 @@ BEGIN
     ('academic_advisor','Academic Advisor',NULL::text),
     ('assistant_professor','Assistant Professor','Academic rank.'),
     ('associate_professor','Associate Professor','Academic rank.'),
+    ('assistant_lecturer','Assistant Lecturer','Academic teaching position.'),
     ('dean','Dean','Faculty-scoped academic leadership position.'),
     ('department_head','Department Head','Department-scoped academic leadership position.'),
     ('finance_manager','Finance Manager','Finance management position.'),
