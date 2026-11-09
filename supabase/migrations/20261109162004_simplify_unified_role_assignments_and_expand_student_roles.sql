@@ -290,7 +290,4 @@ ALTER TABLE public.user_roles
   DROP COLUMN source_appointment_id,
   DROP COLUMN appointment_type;
 
--- The previously approved role-permission catalogue remains empty.
-DELETE FROM public.role_permissions;
-
 COMMIT;
