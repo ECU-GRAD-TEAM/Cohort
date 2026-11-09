@@ -38,8 +38,11 @@ export function SignUpPage() {
   if (confirmedEmail !== null) {
     return (
       <AuthLayout>
-        <h1>Create your student account</h1>
-        <p role="status" tabIndex={-1} ref={confirmation}>Check your inbox. We sent a confirmation link to {confirmedEmail}.</p>
+        <h1>Create your Cohort account</h1>
+        <p role="status" tabIndex={-1} ref={confirmation}>
+          Check your inbox. We sent a confirmation link to {confirmedEmail}. Your university links your account
+          before you can register for courses.
+        </p>
         <p className="auth-switch">
           <Link to="/login">Back to sign in</Link>
         </p>
@@ -49,7 +52,7 @@ export function SignUpPage() {
 
   return (
     <AuthLayout>
-      <h1>Create your student account</h1>
+      <h1>Create your Cohort account</h1>
       <form onSubmit={handleSubmit}>
         <div>
           <label htmlFor="full-name">Full name</label>

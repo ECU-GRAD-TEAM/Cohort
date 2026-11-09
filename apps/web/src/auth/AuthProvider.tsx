@@ -13,7 +13,10 @@ type AuthValue = {
   /** True until the stored session (if any) has been read. */
   loading: boolean;
   signIn(email: string, password: string): Promise<void>;
-  /** Creates a student account. `needsConfirmation` is true when the email must be confirmed first. */
+  /**
+   * Creates the login only. The university links the account later (its trusted server step sets the
+   * account's university and roles). `needsConfirmation` is true when the email must be confirmed first.
+   */
   signUp(fullName: string, email: string, password: string): Promise<{ needsConfirmation: boolean }>;
   signOut(): Promise<void>;
 };
