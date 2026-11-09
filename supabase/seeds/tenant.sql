@@ -1178,7 +1178,7 @@ BEGIN
       )
       AND (
         EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.role_id = r.id)
-        OR EXISTS (SELECT 1 FROM public.personnel_appointments pa WHERE pa.role_id = r.id)
+        OR EXISTS (SELECT 1 FROM public.user_roles pa WHERE pa.role_id = r.id)
       )
   ) THEN
     RAISE EXCEPTION 'A role scheduled for removal is already assigned; clean up assignments explicitly before running this seed';
