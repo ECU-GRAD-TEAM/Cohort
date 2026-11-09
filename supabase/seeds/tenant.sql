@@ -1740,18 +1740,18 @@ BEGIN
 
   WITH assignments(section_code, staff_email, assignment_role) AS (
     VALUES
-      ('SA-G1-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
-      ('SA-G2-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
-      ('DMC-G1-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
-      ('SA-G1-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'teaching_assistant'),
-      ('SA-G2-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'teaching_assistant'),
-      ('DMC-G1-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'teaching_assistant'),
-      ('SA-G1-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
-      ('SA-G2-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
-      ('DMC-G1-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
-      ('SA-G1-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'teaching_assistant'),
-      ('SA-G2-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'teaching_assistant'),
-      ('DMC-G1-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'teaching_assistant'),
+      ('SA-G1-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'instructor'),
+      ('SA-G2-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'instructor'),
+      ('DMC-G1-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'instructor'),
+      ('SA-G1-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'instructor'),
+      ('SA-G2-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'instructor'),
+      ('DMC-G1-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'instructor'),
+      ('SA-G1-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'instructor'),
+      ('SA-G2-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'instructor'),
+      ('DMC-G1-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'instructor'),
+      ('SA-G1-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'instructor'),
+      ('SA-G2-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'instructor'),
+      ('DMC-G1-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'instructor'),
       ('DMC-G1-SET473-LECTURE', 'islam.mohammed@ecu.edu.eg', 'instructor')
   )
   SELECT count(*) INTO v_section_count
@@ -1767,18 +1767,18 @@ BEGIN
 
   WITH assignments(section_code, staff_email, assignment_role) AS (
     VALUES
-      ('SA-G1-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
-      ('SA-G2-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
-      ('DMC-G1-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
-      ('SA-G1-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'teaching_assistant'),
-      ('SA-G2-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'teaching_assistant'),
-      ('DMC-G1-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'teaching_assistant'),
-      ('SA-G1-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
-      ('SA-G2-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
-      ('DMC-G1-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
-      ('SA-G1-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'teaching_assistant'),
-      ('SA-G2-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'teaching_assistant'),
-      ('DMC-G1-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'teaching_assistant'),
+      ('SA-G1-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'instructor'),
+      ('SA-G2-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'instructor'),
+      ('DMC-G1-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'instructor'),
+      ('SA-G1-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'instructor'),
+      ('SA-G2-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'instructor'),
+      ('DMC-G1-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'instructor'),
+      ('SA-G1-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'instructor'),
+      ('SA-G2-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'instructor'),
+      ('DMC-G1-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'instructor'),
+      ('SA-G1-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'instructor'),
+      ('SA-G2-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'instructor'),
+      ('DMC-G1-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'instructor'),
       ('DMC-G1-SET473-LECTURE', 'islam.mohammed@ecu.edu.eg', 'instructor')
   )
   INSERT INTO public.section_instructors (section_id, user_id, tenant_id, role)
@@ -1793,18 +1793,18 @@ BEGIN
 
   WITH assignments(section_code, staff_email, assignment_role) AS (
     VALUES
-      ('SA-G1-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
-      ('SA-G2-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
-      ('DMC-G1-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
-      ('SA-G1-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'teaching_assistant'),
-      ('SA-G2-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'teaching_assistant'),
-      ('DMC-G1-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'teaching_assistant'),
-      ('SA-G1-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
-      ('SA-G2-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
-      ('DMC-G1-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
-      ('SA-G1-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'teaching_assistant'),
-      ('SA-G2-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'teaching_assistant'),
-      ('DMC-G1-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'teaching_assistant'),
+      ('SA-G1-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'instructor'),
+      ('SA-G2-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'instructor'),
+      ('DMC-G1-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'instructor'),
+      ('SA-G1-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'instructor'),
+      ('SA-G2-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'instructor'),
+      ('DMC-G1-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'instructor'),
+      ('SA-G1-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'instructor'),
+      ('SA-G2-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'instructor'),
+      ('DMC-G1-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'instructor'),
+      ('SA-G1-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'instructor'),
+      ('SA-G2-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'instructor'),
+      ('DMC-G1-SET472-TUTORIAL', 'amira.ali@ecu.edu.eg', 'instructor'),
       ('DMC-G1-SET473-LECTURE', 'islam.mohammed@ecu.edu.eg', 'instructor')
   )
   SELECT count(*) INTO v_assignment_count
