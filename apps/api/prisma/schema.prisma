@@ -1766,7 +1766,7 @@ model roles {
   created_at           DateTime                 @default(now()) @db.Timestamptz(6)
   role_permissions     role_permissions[]
   tenants              tenants                  @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  user_roles                                                                 user_roles[] @relation("user_roles_user")
+  user_roles             user_roles[]
 
   @@unique([id, tenant_id])
   @@unique([tenant_id, key])
@@ -2296,32 +2296,25 @@ model user_roles {
   tenant_id            String    @db.Uuid
   granted_by           String?   @db.Uuid
   granted_at           DateTime  @default(now()) @db.Timestamptz(6)
-  expires_at           DateTime? @db.Timestamptz(6)
   scope_type           String    @default("university")
   scope_id             String?   @db.Uuid
   starts_at            DateTime  @default(now()) @db.Timestamptz(6)
   revoked_at           DateTime? @db.Timestamptz(6)
   assignment_status    String    @default("active")
   id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  appointment_type     String    @default("system_access")
   ends_at              DateTime? @db.Timestamptz(6)
   status               String    @default("active")
-  appointed_by         String?   @db.Uuid
   ended_by             String?   @db.Uuid
   notes                String?
   created_at           DateTime  @default(now()) @db.Timestamptz(6)
-  source_appointment_id String?  @db.Uuid
   roles                roles     @relation(fields: [role_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
   users                users     @relation("user_roles_user", fields: [user_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
   granted_by_user      users?    @relation("user_roles_granted_by", fields: [granted_by, tenant_id], references: [id, tenant_id], onDelete: NoAction, onUpdate: NoAction)
-  appointed_by_user    users?    @relation("user_roles_appointed_by", fields: [appointed_by, tenant_id], references: [id, tenant_id], onDelete: NoAction, onUpdate: NoAction)
   ended_by_user        users?    @relation("user_roles_ended_by", fields: [ended_by, tenant_id], references: [id, tenant_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([role_id, tenant_id])
   @@index([user_id, tenant_id])
-  @@index([appointed_by, tenant_id])
   @@index([ended_by, tenant_id])
-  @@unique([source_appointment_id], where: raw("source_appointment_id IS NOT NULL"))
   @@schema("public")
 }
 
@@ -2391,7 +2384,6 @@ model users {
   tickets_tickets_requester_id_tenant_idTousers                              tickets[]                    @relation("tickets_requester_id_tenant_idTousers")
   user_roles                                                                 user_roles[] @relation("user_roles_user")
   user_roles_granted_by_user                                                user_roles[] @relation("user_roles_granted_by")
-  user_roles_appointed_by_user                                              user_roles[] @relation("user_roles_appointed_by")
   user_roles_ended_by_user                                                  user_roles[] @relation("user_roles_ended_by")
   users                                                                      auth_users                   @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   tenants                                                                    tenants                      @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
