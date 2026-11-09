@@ -170,6 +170,10 @@ label {
   text-decoration: none;
 }
 
+.sidebar-close {
+  display: none;
+}
+
 .university-card {
   display: flex;
   flex-direction: column;
@@ -744,6 +748,7 @@ label {
     inset: 0 auto 0 0;
     z-index: 30;
     width: min(var(--sidebar-width), 85vw);
+    height: auto;
     visibility: hidden;
     transform: translateX(-100%);
     transition:
@@ -771,6 +776,11 @@ label {
 
   .menu-button {
     display: inline-block;
+  }
+
+  .sidebar-close {
+    display: block;
+    align-self: flex-end;
   }
 
   .app-header {
@@ -842,7 +852,8 @@ label {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sidebar {
+  .sidebar,
+  .menu-open .sidebar {
     transition: none;
   }
 }

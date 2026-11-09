@@ -9,6 +9,9 @@ import { formatRole, initials } from "./lib/format.ts";
 import { queryKeys } from "./lib/queryKeys.ts";
 import { mobileNavPaths, navItems } from "./navigation.ts";
 
+/** The width at which the sidebar becomes the off-canvas phone menu; keep in step with styles.css. */
+const PHONE_QUERY = "(max-width: 899px)";
+
 const NOT_LINKED = "Your account is not linked to a university yet. Contact your administrator.";
 
 function Footer({ inert }: { inert?: boolean }) {
@@ -48,6 +51,18 @@ export function AppShell() {
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [menuOpen]);
+
+  // Widening past the phone breakpoint hides the menu's controls, so close it rather than leave the
+  // page behind it inert.
+  useEffect(() => {
+    const query = window.matchMedia?.(PHONE_QUERY);
+    if (!query) return;
+    const onChange = (event: { matches: boolean }) => {
+      if (!event.matches) setMenuOpen(false);
+    };
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
 
   const openMenu = (opener: HTMLElement) => {
     openerRef.current = opener;
@@ -96,11 +111,18 @@ export function AppShell() {
 
   const user = me.data;
   const closeMenu = () => setMenuOpen(false);
+  const closeAndRestoreFocus = () => {
+    restoreFocus.current = true;
+    setMenuOpen(false);
+  };
   const mobileItems = mobileNavPaths.flatMap((path) => navItems.filter((item) => item.to === path));
 
   return (
     <div className={menuOpen ? "shell menu-open" : "shell"}>
       <aside id="sidebar" className="sidebar" ref={sidebarRef}>
+        <button type="button" className="sidebar-close button-secondary" onClick={closeAndRestoreFocus}>
+          Close menu
+        </button>
         <NavLink to="/" className="brand-link" onClick={closeMenu}>
           <BrandMark />
         </NavLink>
@@ -141,7 +163,7 @@ export function AppShell() {
           ☰
         </button>
         <div className="header-end">
-          <span className="avatar" aria-hidden="true">
+          <span className="avatar" role="img" aria-label={`Signed in as ${user.displayName}`}>
             {initials(user.displayName)}
           </span>
           <div className="user">

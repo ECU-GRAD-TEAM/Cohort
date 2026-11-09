@@ -2,7 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { queryKeys } from "./lib/queryKeys.ts";
 import { API, defaultMe, server } from "../test/server.ts";
 import { createFakeAuth, fakeSession, renderApp } from "../test/render.tsx";
@@ -132,6 +132,65 @@ describe("AppShell", () => {
     await userEvent.click(more);
     await userEvent.keyboard("{Escape}");
     expect(more).toHaveFocus();
+  });
+
+  it("has a Close menu button that closes the menu and returns focus to the opener", async () => {
+    renderApp({ route: "/", auth: createFakeAuth({ session: fakeSession }) });
+    const toggle = await screen.findByRole("button", { name: "Toggle navigation" });
+    await userEvent.click(toggle);
+    await userEvent.click(within(screen.getByRole("complementary")).getByRole("button", { name: "Close menu" }));
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveFocus();
+    expect(screen.getByRole("main")).not.toHaveAttribute("inert");
+  });
+
+  describe("when the viewport widens", () => {
+    afterEach(() => {
+      Reflect.deleteProperty(window, "matchMedia");
+    });
+
+    function stubMatchMedia() {
+      const listeners = new Set<(event: { matches: boolean }) => void>();
+      const removed = vi.fn();
+      window.matchMedia = vi.fn((query: string) => ({
+        matches: true,
+        media: query,
+        addEventListener: (_type: string, listener: (event: { matches: boolean }) => void) => listeners.add(listener),
+        removeEventListener: (_type: string, listener: (event: { matches: boolean }) => void) => {
+          removed();
+          listeners.delete(listener);
+        },
+      })) as unknown as typeof window.matchMedia;
+      return { change: (matches: boolean) => listeners.forEach((listener) => listener({ matches })), removed };
+    }
+
+    it("closes the open phone menu so nothing is left inert", async () => {
+      const media = stubMatchMedia();
+      renderApp({ route: "/", auth: createFakeAuth({ session: fakeSession }) });
+      const toggle = await screen.findByRole("button", { name: "Toggle navigation" });
+      await userEvent.click(toggle);
+      expect(screen.getByRole("main")).toHaveAttribute("inert");
+      act(() => media.change(true)); // still phone width: stays open
+      expect(toggle).toHaveAttribute("aria-expanded", "true");
+      act(() => media.change(false));
+      expect(toggle).toHaveAttribute("aria-expanded", "false");
+      expect(screen.getByRole("main")).not.toHaveAttribute("inert");
+      expect(screen.getByRole("banner")).not.toHaveAttribute("inert");
+    });
+
+    it("stops listening when the shell unmounts", async () => {
+      const media = stubMatchMedia();
+      const view = renderApp({ route: "/", auth: createFakeAuth({ session: fakeSession }) });
+      await screen.findByRole("button", { name: "Toggle navigation" });
+      view.unmount();
+      expect(media.removed).toHaveBeenCalled();
+    });
+  });
+
+  it("names the signed-in user in the header even when the name is hidden on a phone", async () => {
+    renderApp({ route: "/", auth: createFakeAuth({ session: fakeSession }) });
+    await screen.findByRole("navigation", { name: "Main" });
+    expect(within(screen.getByRole("banner")).getByRole("img", { name: "Signed in as Sara Student" })).toBeInTheDocument();
   });
 
   it("makes the content behind the open menu inert", async () => {
