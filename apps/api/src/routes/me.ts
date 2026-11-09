@@ -32,10 +32,7 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
                 status: "active",
                 starts_at: { lte: now },
                 revoked_at: null,
-                AND: [
-                  { OR: [{ expires_at: null }, { expires_at: { gt: now } }] },
-                  { OR: [{ ends_at: null }, { ends_at: { gt: now } }] },
-                ],
+                OR: [{ ends_at: null }, { ends_at: { gt: now } }],
               },
             },
           },
