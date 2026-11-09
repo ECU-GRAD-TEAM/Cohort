@@ -1238,7 +1238,7 @@ BEGIN
     ('programme_director','Programme Director','Academic programme leadership position.','position'::text,'academic'::text,false),
     ('undergraduate','Undergraduate',NULL::text,'system'::text,'academic'::text,false),
     ('graduate','Graduate','Graduate student role.','system'::text,'academic'::text,false),
-    ('postgraduate','PostGraduate','Postgraduate student role.','system'::text,'academic'::text,false),
+    ('postgraduate','Postgraduate','Postgraduate student role.','system'::text,'academic'::text,false),
     ('student_affairs_officer','Student Affairs Officer','Student affairs administration position.','position'::text,'administrative'::text,false),
     ('teaching_assistant','Teaching Assistant','Academic teaching support position.','both'::text,'academic'::text,false),
     ('vice_dean','Vice Dean','Faculty-scoped deputy academic leadership position.','both'::text,'academic'::text,false),
