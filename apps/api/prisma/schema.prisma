@@ -2310,7 +2310,7 @@ model user_roles {
   ended_by             String?   @db.Uuid
   notes                String?
   created_at           DateTime  @default(now()) @db.Timestamptz(6)
-  source_appointment_id String?  @unique @db.Uuid
+  source_appointment_id String?  @db.Uuid
   roles                roles     @relation(fields: [role_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
   users                users     @relation("user_roles_user", fields: [user_id, tenant_id], references: [id, tenant_id], onDelete: Cascade, onUpdate: NoAction)
   granted_by_user      users?    @relation("user_roles_granted_by", fields: [granted_by, tenant_id], references: [id, tenant_id], onDelete: NoAction, onUpdate: NoAction)
@@ -2321,6 +2321,7 @@ model user_roles {
   @@index([user_id, tenant_id])
   @@index([appointed_by, tenant_id])
   @@index([ended_by, tenant_id])
+  @@unique([source_appointment_id], where: raw("source_appointment_id IS NOT NULL"))
   @@schema("public")
 }
 
