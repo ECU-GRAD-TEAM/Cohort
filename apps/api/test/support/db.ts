@@ -72,9 +72,9 @@ export async function seedUniversity(options: SeedOptions = {}): Promise<Univers
   const sections = { cs101: randomUUID(), cs201: randomUUID(), ma101: randomUUID() };
 
   const accounts = [
-    { key: "student", name: "Sara Student", type: "student" },
-    { key: "classmate", name: "Samir Student", type: "student" },
-    { key: "latecomer", name: "Laila Late", type: "student" },
+    { key: "student", name: "Sara Student", type: "non_staff" },
+    { key: "classmate", name: "Samir Student", type: "non_staff" },
+    { key: "latecomer", name: "Laila Late", type: "non_staff" },
     { key: "teacher", name: "Tariq Teacher", type: "teaching_staff" },
     { key: "admin", name: "Ada Admin", type: "administrator" },
   ] as const;
