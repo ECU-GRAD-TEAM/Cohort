@@ -85,7 +85,7 @@ it("describes the signed-in student", async () => {
     userType: "student",
     displayName: "Sara Student",
     tenant: { id: u.tenantId, name: u.tenantName },
-    roles: ["student"],
+    roles: ["undergraduate"],
   });
 });
 
@@ -94,17 +94,19 @@ it("leaves out roles that have expired", async () => {
   const v = await seedUniversity();
   const grant = (roleKey: string, expiresAt: string) =>
     ownerQuery(
-      `insert into public.user_roles (user_id, role_id, tenant_id, expires_at)
-       select $1, r.id, r.tenant_id, now() + $3::interval from public.roles r
-       where r.tenant_id = $2 and r.key = $4`,
+      \`insert into public.user_roles (user_id, role_id, tenant_id, starts_at, ends_at)
+       select $1, r.id, r.tenant_id,
+              CASE WHEN $3::interval < interval '0' THEN now() - interval '2 days' ELSE now() - interval '1 day' END,
+              now() + $3::interval
+       from public.roles r where r.tenant_id = $2 and r.key = $4\`,
       [v.users.student, v.tenantId, expiresAt, roleKey],
     );
-  await grant("advisor", "-1 day");
+  await grant("academic_advisor", "-1 day");
   await grant("teaching_assistant", "1 day");
 
   const r = await get("/me", await t.tokenFor(v.users.student));
   expect(r.statusCode).toBe(200);
-  expect(r.json().roles).toEqual(["student", "teaching_assistant"]);
+  expect(r.json().roles).toEqual(["teaching_assistant", "undergraduate"]);
 });
 
 it("explains an account that is not linked to a university", async () => {
