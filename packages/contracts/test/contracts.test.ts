@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ApiErrorBody, CatalogueSection, Meeting, Term } from "../src/index.ts";
+import { ApiErrorBody, CatalogueSection, Meeting, MeResponse, Term } from "../src/index.ts";
 
 const uuid = "0a000000-0000-4000-8000-00000000000a";
 
@@ -16,6 +16,16 @@ describe("contracts", () => {
   });
   it("allows terms without a registration window", () => {
     expect(Term.safeParse({ id: uuid, code: "F26", name: "Fall 2026", startsOn: "2026-09-01", endsOn: "2026-12-20",
+      registrationOpensAt: null, registrationClosesAt: null, addDropEndsAt: null }).success).toBe(true);
+  });
+  it("takes the staff and non_staff user types, and no others", () => {
+    const me = { id: uuid, email: "a@b.c", displayName: "A", tenant: { id: uuid, name: "U" }, roles: ["student"] };
+    expect(MeResponse.safeParse({ ...me, userType: "non_staff" }).success).toBe(true);
+    expect(MeResponse.safeParse({ ...me, userType: "staff" }).success).toBe(true);
+    expect(MeResponse.safeParse({ ...me, userType: "student" }).success).toBe(false);
+  });
+  it("allows terms whose calendar is not set yet", () => {
+    expect(Term.safeParse({ id: uuid, code: "F27", name: "Fall 2027", startsOn: null, endsOn: null,
       registrationOpensAt: null, registrationClosesAt: null, addDropEndsAt: null }).success).toBe(true);
   });
   it("rejects unknown error codes", () => {

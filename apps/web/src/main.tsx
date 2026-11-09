@@ -8,6 +8,7 @@ import { webConfig } from "./config.ts";
 import { ApiError, createApiClient } from "./lib/api.ts";
 import { ApiProvider } from "./lib/ApiContext.tsx";
 import { supabase } from "./lib/supabase.ts";
+import "./styles.css";
 
 // The API's token for the current request, or null when there is none. Never throws: the API
 // answers 401 when it gets no token, which signs the user out.

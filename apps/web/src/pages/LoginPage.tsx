@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
-import { Navigate } from "react-router";
+import { Link, Navigate } from "react-router";
 import { useAuth } from "../auth/AuthProvider.tsx";
+import { AuthLayout } from "../components/AuthLayout.tsx";
 
 export function LoginPage() {
   const { session, loading, signIn } = useAuth();
@@ -26,7 +27,7 @@ export function LoginPage() {
   }
 
   return (
-    <main>
+    <AuthLayout>
       <h1>Sign in to Cohort</h1>
       <form onSubmit={handleSubmit}>
         <div>
@@ -56,6 +57,9 @@ export function LoginPage() {
           Sign in
         </button>
       </form>
-    </main>
+      <p className="auth-switch">
+        New to Cohort? <Link to="/signup">Create an account</Link>
+      </p>
+    </AuthLayout>
   );
 }

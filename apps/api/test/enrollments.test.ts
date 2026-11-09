@@ -73,8 +73,9 @@ it("waitlists, then refuses, when the section fills", async () => {
 it.each([
   ["missing prerequisite", (u: University) => post(u.sections.cs201, u.users.student), 422, "rule_violation", "Prerequisites for CS201 are not met"],
   ["teacher registering", (u: University) => post(u.sections.cs101, u.users.teacher), 403, "forbidden", "You are not allowed to do that."],
-])("refuses a %s", async (_label, act, status, code, message) => {
-  const r = await act(await seedUniversity());
+  ["non-staff account without the student role", (u: University) => post(u.sections.cs101, u.users.student), 403, "forbidden", "You are not allowed to do that.", { studentRoles: false }],
+])("refuses a %s", async (_label, act, status, code, message, seed?: { studentRoles: boolean }) => {
+  const r = await act(await seedUniversity(seed ?? {}));
   expect([r.statusCode, r.json()]).toEqual([status, { error: { code, message } }]);
 });
 

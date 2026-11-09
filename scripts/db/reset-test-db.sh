@@ -28,7 +28,13 @@ SQL
 
 psql -X -q "$test_url" -v ON_ERROR_STOP=1 -1 -f "$repo_root/scripts/db/supabase-stub.sql"
 
+# GradProj has a little state that no migration creates. A file in scripts/db/pre-migration with
+# a migration's name runs just before that migration, to recreate it.
 for migration in "$repo_root"/supabase/migrations/*.sql; do
+  pre="$repo_root/scripts/db/pre-migration/$(basename "$migration")"
+  if [[ -f "$pre" ]]; then
+    psql -X -q "$test_url" -v ON_ERROR_STOP=1 -1 -f "$pre"
+  fi
   psql -X -q "$test_url" -v ON_ERROR_STOP=1 -1 -f "$migration"
 done
 

@@ -23,7 +23,7 @@ export async function closeOwnerPool(): Promise<void> {
   await ownerPool.end();
 }
 
-/** An `auth.users` row with no app metadata: the sign-up trigger creates no `public.users` row. */
+/** An `auth.users` row with no app metadata: the triggers create no `public.users` row. */
 export async function createAuthOnlyUser(): Promise<string> {
   const id = randomUUID();
   await ownerQuery(`insert into auth.users (id, email) values ($1, $2)`, [
@@ -43,14 +43,20 @@ export type University = {
   sections: { cs101: string; cs201: string; ma101: string };
 };
 
-type SeedOptions = { cs101Capacity?: number; cs101Waitlist?: number; registrationOpen?: boolean };
+type SeedOptions = {
+  cs101Capacity?: number;
+  cs101Waitlist?: number;
+  registrationOpen?: boolean;
+  /** False seeds the three students as `non_staff` accounts with no `student` role. */
+  studentRoles?: boolean;
+};
 
 /**
  * Seeds one university as the database owner, with random ids: five users, one term with three
  * courses (CS201 needs CS101; MA101 is a draft), one section each, and a timetable slot for CS101.
  */
 export async function seedUniversity(options: SeedOptions = {}): Promise<University> {
-  const { cs101Capacity = 30, cs101Waitlist = 0, registrationOpen = true } = options;
+  const { cs101Capacity = 30, cs101Waitlist = 0, registrationOpen = true, studentRoles = true } = options;
   const k = shortId();
 
   const tenantId = randomUUID();
@@ -72,11 +78,11 @@ export async function seedUniversity(options: SeedOptions = {}): Promise<Univers
   const sections = { cs101: randomUUID(), cs201: randomUUID(), ma101: randomUUID() };
 
   const accounts = [
-    { key: "student", name: "Sara Student", type: "non_staff" },
-    { key: "classmate", name: "Samir Student", type: "non_staff" },
-    { key: "latecomer", name: "Laila Late", type: "non_staff" },
-    { key: "teacher", name: "Tariq Teacher", type: "teaching_staff" },
-    { key: "admin", name: "Ada Admin", type: "administrator" },
+    { key: "student", name: "Sara Student", type: "non_staff", role: "student" },
+    { key: "classmate", name: "Samir Student", type: "non_staff", role: "student" },
+    { key: "latecomer", name: "Laila Late", type: "non_staff", role: "student" },
+    { key: "teacher", name: "Tariq Teacher", type: "staff", role: "instructor" },
+    { key: "admin", name: "Ada Admin", type: "staff", role: "administrator" },
   ] as const;
   const catalogue = [
     { key: "cs101", code: "CS101", title: "Programming I", credits: 3.5, status: "published", capacity: cs101Capacity, waitlist: cs101Waitlist },
@@ -94,17 +100,26 @@ export async function seedUniversity(options: SeedOptions = {}): Promise<Univers
       [tenantId, `t-${k}`, tenantName],
     );
 
-    // Accounts are provisioned through auth.users; the sign-up trigger creates public.users.
+    // Accounts are provisioned through auth.users with trusted app metadata and a confirmed email,
+    // so the triggers create an active public.users row; roles are then granted explicitly.
     for (const account of accounts) {
       await client.query(
-        `insert into auth.users (id, email, raw_app_meta_data, raw_user_meta_data)
-         values ($1, $2, $3::jsonb, $4::jsonb)`,
+        `insert into auth.users (id, email, raw_app_meta_data, raw_user_meta_data, email_confirmed_at)
+         values ($1, $2, $3::jsonb, $4::jsonb, now())`,
         [
           users[account.key],
           `${account.key}-${k}@cohort.test`,
           JSON.stringify({ tenant_id: tenantId, user_type: account.type }),
           JSON.stringify({ full_name: account.name }),
         ],
+      );
+      if (account.role === "student" && !studentRoles) continue;
+      await client.query(
+        `insert into public.user_roles
+           (user_id, role_id, tenant_id, assignment_status, starts_at)
+         select $1, r.id, r.tenant_id, 'active', now() from public.roles r
+         where r.tenant_id = $2 and r.key = $3`,
+        [users[account.key], tenantId, account.role],
       );
     }
 

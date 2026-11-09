@@ -39,7 +39,7 @@ function SectionRow({ section, held, onNotice }: { section: CatalogueSection; he
     <li>
       <p>{`${section.course.code} ${section.course.title} · Section ${section.code} · ${formatCredits(section.course.creditHours)}`}</p>
       {section.meetings.length > 0 && (
-        <ul>
+        <ul className="meeting-list">
           {section.meetings.map((meeting, index) => (
             <li key={index}>{formatMeeting(meeting)}</li>
           ))}
@@ -88,7 +88,7 @@ function SectionList({ termId, onNotice }: { termId: string; onNotice: OnNotice 
       .map((enrollment) => enrollment.sectionId),
   );
   return (
-    <ul>
+    <ul className="card-list">
       {sectionsData.sections.map((section) => (
         <SectionRow key={section.id} section={section} held={heldSectionIds.has(section.id)} onNotice={onNotice} />
       ))}
@@ -103,8 +103,8 @@ function TermRegistration({ terms, defaultTerm }: { terms: Term[]; defaultTerm: 
 
   return (
     <>
-      <p>
-        <label htmlFor={selectId}>Term</label>{" "}
+      <p className="field-row">
+        <label htmlFor={selectId}>Term</label>
         <select id={selectId} value={termId} onChange={(event) => setTermId(event.target.value)}>
           {terms.map((term) => (
             <option key={term.id} value={term.id}>

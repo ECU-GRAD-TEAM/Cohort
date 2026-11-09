@@ -16,7 +16,7 @@ row-level security decides what each person can see and change.
 
 ## Running Cohort locally
 
-You need Node 22.22.2 or later and npm. The steps run in order; steps 2 and 8 are only for the
+You need Node 22.22.2 or later and npm. The steps run in order; steps 2 and 7 are only for the
 tests.
 
 ### Before you start: check that GradProj signs tokens with asymmetric keys
@@ -59,29 +59,30 @@ npm run db:test:reset
 This drops and recreates the database named in `TEST_DATABASE_URL` (its name must end in `_test`)
 and applies every migration in `supabase/migrations`.
 
-### 3. Apply the pending migrations to GradProj
+GradProj has two pieces of state that no migration creates: a foreign key renamed by hand, and
+the ECU tenant. Files in `scripts/db/pre-migration/` named after a migration recreate that state
+just before that migration runs, in the test database only.
 
-The Supabase project GradProj (`gejismdqvjuygtxibdhs`) does not have the last three migrations
-yet. `db push` applies exactly these:
+#### Regenerating the Prisma schema
 
-- `20261022150000_builtin_time_ranges`
-- `20261025120000_prisma_compat`
-- `20261025120100_api_role`
+Regenerate `apps/api/prisma/schema.prisma` with `npm run db:pull -w @cohort/api`. `db pull`
+introspects the database in `TEST_DATABASE_URL` (the test database from step 2), never GradProj,
+so run `npm run db:test:reset` first. A fresh
+`db pull` infers six relations as one-to-one, because their tables have partial unique indexes,
+and `prisma validate` then fails. Change these six opposite relation fields back to lists:
 
-```bash
-npx supabase link --project-ref gejismdqvjuygtxibdhs
-npx supabase db push
-```
+- `faculties.academic_calendars`
+- `academic_calendars.academic_years`
+- `person_profiles.person_profile_phones`
+- `programs.program_academic_policies`
+- `users.student_department_assignments_student`
+- `users.student_programme_selections_student`
 
-The CLI needs you to be logged in (`npx supabase login`) and asks for the project's database
-password. `db push` lists the migrations it is about to apply and waits for your confirmation; this
-changes the live project, so read the list first. [supabase/README.md](supabase/README.md) explains
-why these three are applied this way.
+### 3. Set the API role's password
 
-### 4. Set the API role's password
-
-Migration `api_role` creates the `cohort_api` login role without a password, so the API cannot
-connect until you set one. In the Supabase Dashboard, open the SQL Editor for GradProj and run:
+GradProj has every migration in this repository (`supabase/migrations` mirrors it). Migration
+`api_role` creates the `cohort_api` login role without a password, so the API cannot connect
+until you set one. In the Supabase Dashboard, open the SQL Editor for GradProj and run:
 
 ```sql
 alter role cohort_api with password '<cohort_api password>';
@@ -89,7 +90,7 @@ alter role cohort_api with password '<cohort_api password>';
 
 Use a long random password and keep it out of git.
 
-### 5. Configure the API
+### 4. Configure the API
 
 Copy `apps/api/.env.example` to `apps/api/.env` (git-ignored) and replace the placeholders:
 
@@ -106,7 +107,7 @@ a dot, then the project ref). Copy the host from Dashboard > Connect. If the pas
 privileges of its own and switches to the `authenticated` role for each request, so row-level
 security applies to every query. A superuser connection would skip that protection.
 
-### 6. Configure the web app
+### 5. Configure the web app
 
 Copy `apps/web/.env.example` to `apps/web/.env` (git-ignored) and replace `<publishable key>` with
 the project's publishable key (Dashboard > Project Settings > API Keys):
@@ -119,7 +120,7 @@ VITE_API_URL=http://localhost:3000
 
 Never put a secret or service-role key in the web app.
 
-### 7. Start the API and the web app
+### 6. Start the API and the web app
 
 Run each in its own terminal:
 
@@ -129,11 +130,11 @@ npm run dev -w @cohort/web    # http://localhost:5173
 ```
 
 Open http://localhost:5173 and sign in with a Supabase Auth account that belongs to a university.
-An account gets its university when the backend creates it with `app_metadata` (see Identity in
+An account gets its university when the backend creates it, or later updates it, with `app_metadata` (see Identity in
 [supabase/README.md](supabase/README.md)). An account without one signs in but sees "Your account
 is not linked to a university yet."
 
-### 8. Run the tests
+### 7. Run the tests
 
 ```bash
 npm test                      # every workspace; the API's tests need the database from step 2
@@ -142,6 +143,29 @@ npm run typecheck
 ```
 
 The database's own tests are described in [supabase/README.md](supabase/README.md).
+
+### Sign-up
+
+The sign-up page creates the Supabase Auth login only. It sends the full name as `user_metadata`
+and nothing about a university, role or user type.
+
+- Linking the account to ECU (Egyptian Chinese University) and granting roles is the team's
+  trusted provisioning step: a server-side call that sets `app_metadata` through the Admin API,
+  after which the database provisions the account and the step grants roles.
+- Until then the person signs in and sees "Your account is not linked to a university yet.
+  Contact your administrator."
+- With "Confirm email" on, people confirm by email before they can sign in.
+
+The project owner sets these in the Supabase Dashboard before this branch merges, because `main`
+auto-deploys `/signup` to production:
+
+- **Authentication > Sign In / Providers:** "Allow new users to sign up" must be on.
+- **Authentication > URL Configuration:** the Site URL must be `https://cohort-nine-mu.vercel.app`.
+  Also add `http://localhost:5173/**` to Redirect URLs.
+- **Custom SMTP (Authentication > Emails > SMTP Settings):** with "Confirm email" on, Supabase's
+  built-in email service only delivers to members of the project's organisation, and only a few
+  emails an hour. Anyone else cannot receive the confirmation email until custom SMTP is
+  configured.
 
 ## Deploying to Vercel
 

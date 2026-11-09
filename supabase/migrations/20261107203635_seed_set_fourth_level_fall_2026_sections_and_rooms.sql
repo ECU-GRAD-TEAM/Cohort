@@ -80,13 +80,13 @@ insert into tmp_fall26_meetings values
 
 insert into public.sections(tenant_id,offering_id,code,kind,group_code)
 select distinct o.tenant_id,o.id,replace(m.group_code,'+','-')||'-'||regexp_replace(upper(c.code),'[^A-Z0-9]','','g')||'-'||upper(m.section_kind::text),m.section_kind,m.group_code
-from tmp_fall26_meetings m join public.courses c on regexp_replace(upper(c.code),'[^A-Z0-9]','','g')=regexp_replace(upper(m.course_code),'[^A-Z0-9]','','g') and c.tenant_id='97325228-75cb-4a36-b103-9da28968c660
+from tmp_fall26_meetings m join public.courses c on regexp_replace(upper(c.code),'[^A-Z0-9]','','g')=regexp_replace(upper(m.course_code),'[^A-Z0-9]','','g') and c.tenant_id='97325228-75cb-4a36-b103-9da28968c660'
 join public.course_offerings o on o.course_id=c.id join public.terms t on t.id=o.term_id and t.code='2026-2027-FALL'
 on conflict(offering_id,code) do update set group_code=excluded.group_code,kind=excluded.kind;
 
 insert into public.section_meetings(tenant_id,section_id,offering_id,day_of_week,starts_at,ends_at,meeting_type)
 select o.tenant_id,s.id,o.id,m.day_of_week,m.starts_at,m.ends_at,m.meeting_type
-from tmp_fall26_meetings m join public.courses c on regexp_replace(upper(c.code),'[^A-Z0-9]','','g')=regexp_replace(upper(m.course_code),'[^A-Z0-9]','','g') and c.tenant_id='97325228-75cb-4a36-b103-9da28968c660
+from tmp_fall26_meetings m join public.courses c on regexp_replace(upper(c.code),'[^A-Z0-9]','','g')=regexp_replace(upper(m.course_code),'[^A-Z0-9]','','g') and c.tenant_id='97325228-75cb-4a36-b103-9da28968c660'
 join public.course_offerings o on o.course_id=c.id join public.terms t on t.id=o.term_id and t.code='2026-2027-FALL'
 join public.sections s on s.offering_id=o.id and s.group_code=m.group_code and s.kind=m.section_kind
  and s.code=replace(m.group_code,'+','-')||'-'||regexp_replace(upper(c.code),'[^A-Z0-9]','','g')||'-'||upper(m.section_kind::text)

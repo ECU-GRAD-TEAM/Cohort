@@ -9,7 +9,7 @@ const sectionId = "3f6c2a1e-8b4d-4c2a-9e1f-2b3c4d5e6f70";
 const me: MeResponse = {
   id: "7b1d9c52-4e0a-4f3b-8a6d-1c2e3f405162",
   email: "ayla.hassan@cohort.test",
-  userType: "student",
+  userType: "non_staff",
   displayName: "Ayla Hassan",
   tenant: { id: "a4c8e0f2-1b3d-4a5c-9e7f-0123456789ab", name: "Cohort University" },
   roles: ["student"],
