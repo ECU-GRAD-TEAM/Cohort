@@ -89,17 +89,17 @@ it("describes the signed-in student", async () => {
   });
 });
 
-it("leaves out roles that have expired", async () => {
+it("leaves out assignments that have ended", async () => {
   // A university of its own, so the extra assignments do not change the student above.
   const v = await seedUniversity();
-  const grant = (roleKey: string, expiresAt: string) =>
+  const grant = (roleKey: string, endsIn: string) =>
     ownerQuery(
       \`insert into public.user_roles (user_id, role_id, tenant_id, starts_at, ends_at)
        select $1, r.id, r.tenant_id,
               CASE WHEN $3::interval < interval '0' THEN now() - interval '2 days' ELSE now() - interval '1 day' END,
               now() + $3::interval
        from public.roles r where r.tenant_id = $2 and r.key = $4\`,
-      [v.users.student, v.tenantId, expiresAt, roleKey],
+      [v.users.student, v.tenantId, endsIn, roleKey],
     );
   await grant("academic_advisor", "-1 day");
   await grant("teaching_assistant", "1 day");
