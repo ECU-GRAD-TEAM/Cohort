@@ -1802,9 +1802,6 @@ model roles {
   name                 String
   description          String?
   is_system            Boolean                  @default(false)
-  role_type            String                   @default("system")
-  category             String?
-  is_academic_rank     Boolean                  @default(false)
   is_active            Boolean                  @default(true)
   created_at           DateTime                 @default(now()) @db.Timestamptz(6)
   role_permissions     role_permissions[]
