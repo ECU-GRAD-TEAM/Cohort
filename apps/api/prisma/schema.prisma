@@ -2107,7 +2107,6 @@ model tenants {
   terms                    terms[]
   tickets                  tickets[]
   users                    users[]
-  personnel_appointments  personnel_appointments[]
   workflow_definitions     workflow_definitions[]
 
   @@schema("public")
@@ -2389,13 +2388,10 @@ model users {
   ticket_comments                                                            ticket_comments[]
   tickets_tickets_assignee_id_tenant_idTousers                               tickets[]                    @relation("tickets_assignee_id_tenant_idTousers")
   tickets_tickets_requester_id_tenant_idTousers                              tickets[]                    @relation("tickets_requester_id_tenant_idTousers")
-  user_roles                                                                 user_roles[]
+  user_roles                                                                 user_roles[] @relation("user_roles_user")
   user_roles_granted_by_user                                                user_roles[] @relation("user_roles_granted_by")
   user_roles_appointed_by_user                                              user_roles[] @relation("user_roles_appointed_by")
   user_roles_ended_by_user                                                  user_roles[] @relation("user_roles_ended_by")
-  personnel_appointments_personnel_appointments_user_id_tenant_idTousers    personnel_appointments[] @relation("personnel_appointments_user")
-  personnel_appointments_personnel_appointments_appointed_by_tenant_idTousers personnel_appointments[] @relation("personnel_appointments_appointed_by")
-  personnel_appointments_personnel_appointments_ended_by_tenant_idTousers   personnel_appointments[] @relation("personnel_appointments_ended_by")
   users                                                                      auth_users                   @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   tenants                                                                    tenants                      @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
