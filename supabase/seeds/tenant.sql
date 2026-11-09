@@ -1583,7 +1583,7 @@ WHERE NOT EXISTS (
 DROP TABLE seed_fall_2026_meetings;
 
 -- Staff accounts are provisioned separately through Supabase Auth. If the approved
--- 15 SET staff accounts already exist, seed their verified position appointments
+-- 15 SET staff accounts already exist, seed their verified position assignments
 -- and Rania's separate Head of Department appointment. With no Auth accounts,
 -- this block is a no-op; partial directories fail loudly instead of guessing.
 DO $staff_appointment_seed$
@@ -1615,18 +1615,18 @@ BEGIN
     );
 
   IF v_staff_count = 0 THEN
-    RAISE NOTICE 'SET staff appointments skipped: Auth accounts have not been provisioned.';
+    RAISE NOTICE 'SET staff assignments skipped: Auth accounts have not been provisioned.';
     RETURN;
   END IF;
 
   IF v_staff_count <> 15 OR v_professor_count <> 3 OR v_ta_count <> 12
      OR v_department_id IS NULL THEN
     RAISE EXCEPTION
-      'SET staff appointment seed requires all 15 approved accounts (3 professors, 12 teaching assistants) and the SET department; found %, %, %',
+      'SET staff assignment seed requires all 15 approved accounts (3 professors, 12 teaching assistants) and the SET department; found %, %, %',
       v_staff_count, v_professor_count, v_ta_count;
   END IF;
 
-  INSERT INTO public.personnel_appointments
+  INSERT INTO public.user_roles
     (tenant_id,user_id,role_id,appointment_type,scope_type,scope_id,status,appointed_by,notes)
   SELECT
     account.tenant_id,
@@ -1658,7 +1658,7 @@ BEGIN
     )
     AND NOT EXISTS (
       SELECT 1
-      FROM public.personnel_appointments existing
+      FROM public.user_roles existing
       WHERE existing.tenant_id = account.tenant_id
         AND existing.user_id = account.id
         AND existing.role_id = role_definition.id
@@ -1669,7 +1669,7 @@ BEGIN
     );
 
   -- Rania's Head of SET Department appointment is separate from her Professor role.
-  INSERT INTO public.personnel_appointments
+  INSERT INTO public.user_roles
     (tenant_id,user_id,role_id,appointment_type,scope_type,scope_id,status,appointed_by,notes)
   SELECT
     account.tenant_id,
@@ -1691,7 +1691,7 @@ BEGIN
     AND lower(account.email) = 'rswief@ecu.edu.eg'
     AND NOT EXISTS (
       SELECT 1
-      FROM public.personnel_appointments existing
+      FROM public.user_roles existing
       WHERE existing.tenant_id = account.tenant_id
         AND existing.user_id = account.id
         AND existing.role_id = role_definition.id
