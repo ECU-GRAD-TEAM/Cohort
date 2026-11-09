@@ -108,6 +108,16 @@ export async function seedUniversity(options: SeedOptions = {}): Promise<Univers
       );
     }
 
+    // Grant the explicit Undergraduate system role to non-staff test accounts.
+    await client.query(
+      `insert into public.user_roles (user_id, role_id, tenant_id)
+       select u.id, r.id, u.tenant_id
+       from public.users u
+       join public.roles r on r.tenant_id = u.tenant_id and r.key = 'undergraduate'
+       where u.tenant_id = $1 and u.user_type = 'non_staff'`,
+      [tenantId],
+    );
+
     await client.query(
       `insert into public.faculties (id, tenant_id, code, name) values ($1, $2, 'ENG', 'Engineering')`,
       [facultyId, tenantId],
