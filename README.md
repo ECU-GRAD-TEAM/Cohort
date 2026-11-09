@@ -16,7 +16,7 @@ row-level security decides what each person can see and change.
 
 ## Running Cohort locally
 
-You need Node 22.22.2 or later and npm. The steps run in order; steps 2 and 8 are only for the
+You need Node 22.22.2 or later and npm. The steps run in order; steps 2 and 7 are only for the
 tests.
 
 ### Before you start: check that GradProj signs tokens with asymmetric keys
@@ -65,7 +65,9 @@ just before that migration runs, in the test database only.
 
 #### Regenerating the Prisma schema
 
-Regenerate `apps/api/prisma/schema.prisma` with `npm run db:pull -w @cohort/api`. A fresh
+Regenerate `apps/api/prisma/schema.prisma` with `npm run db:pull -w @cohort/api`. `db pull`
+introspects the database in `TEST_DATABASE_URL` (the test database from step 2), never GradProj,
+so run `npm run db:test:reset` first. A fresh
 `db pull` infers six relations as one-to-one, because their tables have partial unique indexes,
 and `prisma validate` then fails. Change these six opposite relation fields back to lists:
 
@@ -128,7 +130,7 @@ npm run dev -w @cohort/web    # http://localhost:5173
 ```
 
 Open http://localhost:5173 and sign in with a Supabase Auth account that belongs to a university.
-An account gets its university when the backend creates it with `app_metadata` (see Identity in
+An account gets its university when the backend creates it, or later updates it, with `app_metadata` (see Identity in
 [supabase/README.md](supabase/README.md)). An account without one signs in but sees "Your account
 is not linked to a university yet."
 
@@ -152,10 +154,18 @@ and nothing about a university, role or user type.
   after which the database provisions the account and the step grants roles.
 - Until then the person signs in and sees "Your account is not linked to a university yet.
   Contact your administrator."
-- In the Supabase Dashboard, under Authentication > URL Configuration, set the Site URL to the
-  production address `https://cohort-nine-mu.vercel.app`.
-- Also there, add `http://localhost:5173/**` to Redirect URLs.
 - With "Confirm email" on, people confirm by email before they can sign in.
+
+The project owner sets these in the Supabase Dashboard before this branch merges, because `main`
+auto-deploys `/signup` to production:
+
+- **Authentication > Sign In / Providers:** "Allow new users to sign up" must be on.
+- **Authentication > URL Configuration:** the Site URL must be `https://cohort-nine-mu.vercel.app`.
+  Also add `http://localhost:5173/**` to Redirect URLs.
+- **Custom SMTP (Authentication > Emails > SMTP Settings):** with "Confirm email" on, Supabase's
+  built-in email service only delivers to members of the project's organisation, and only a few
+  emails an hour. Anyone else cannot receive the confirmation email until custom SMTP is
+  configured.
 
 ## Deploying to Vercel
 

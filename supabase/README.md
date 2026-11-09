@@ -5,7 +5,7 @@ Platform for Universities* (sections 6.5 Core data model, 6.6 Multi-tenancy and 
 7 AI layer, 8 Security and privacy). It runs on Supabase: project **GradProj**
 (`gejismdqvjuygtxibdhs`, eu-west-1, Postgres 17).
 
-100 tables, 216 row-level security policies, 12 functions clients call, and 30 tables whose
+122 tables, 270 row-level security policies, 12 functions clients call, and 30 tables whose
 changes are written to an immutable audit log.
 
 ## Status
@@ -40,6 +40,10 @@ npx supabase test db            # runs supabase/tests/rls_smoke_test.sql through
 and checks what they can and cannot see or change. It runs in one transaction and rolls back.
 It also runs with plain `psql -f` against any database built from these migrations.
 
+A fresh local stack (`npx supabase start`) cannot replay the migrations on its own: GradProj has
+state that no migration creates, which the files in `scripts/db/pre-migration` recreate. To build a
+database the migrations apply to, run `npm run db:test:reset` (see the root README, step 2).
+
 **Known problem:** `tests/rls_smoke_test.sql` still seeds the old user types (`student`,
 `teaching_staff`, ...), so it fails against the current schema, where `user_type` is `staff` or
 `non_staff` and roles are granted explicitly. It needs updating to `staff`/`non_staff` before it
@@ -70,10 +74,15 @@ can run again.
 tenant-scoped rows are composite foreign keys on `(id, tenant_id)`, so a row cannot point at another
 university's data even when row-level security is bypassed.
 
-**Identity.** A user is a Supabase Auth account. The backend provisions accounts (invite or bulk
-import) with `app_metadata = {"tenant_id", "user_type", "institutional_id"}`. A trigger then creates
-the `users` row, the profile and the default role. `app_metadata` is only writable with the service
-role; the user-editable `user_metadata` supplies the display name only.
+**Identity.** A user is a Supabase Auth account. An account can exist without `app_metadata` (sign-up
+creates one that way) and then stays unlinked: it has no `users` row and no university. The
+team's trusted server step sets `app_metadata = {"tenant_id", "user_type", "institutional_id"}`
+(`user_type` is `staff` or `non_staff`), either when it creates the account or later through the Admin
+API's `updateUserById`. The triggers then create the `users` row and the profile. No role is granted
+automatically: the trusted step must grant roles explicitly, and a student needs the `student` role to
+register for courses. The account stays `invited` until its email is confirmed, then becomes `active`.
+`app_metadata` is only writable with the service role; the user-editable `user_metadata` supplies the
+display name only.
 
 **Authorisation (paper 6.6).** Roles grant permissions such as `academic.manage` or
 `ai.settings.manage`. Teaching, enrolment and advising access is attribute-based instead: a lecturer

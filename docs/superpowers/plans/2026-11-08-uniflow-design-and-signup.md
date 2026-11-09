@@ -1,3 +1,6 @@
+> **Superseded in part.** The Goal and Architecture, and Tasks 1 and 5, below are superseded. Read
+> "Revision 1: plug sign-up into the team's provisioning flow" (near the end of this file) first.
+
 # Cohort's new look, sign-up and preview tabs Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
