@@ -1214,43 +1214,38 @@ BEGIN
   WHERE tenant_id = v_tenant_id AND key = 'teaching_assistant';
 
   INSERT INTO public.roles
-    (tenant_id, key, name, description, is_system, role_type, category, is_academic_rank, is_active)
-  SELECT
-    v_tenant_id, seed.key, seed.name, seed.description, true,
-    seed.role_type, seed.category, seed.is_academic_rank, true
+    (tenant_id, key, name, description, is_system, is_active)
+  SELECT v_tenant_id, seed.key, seed.name, seed.description, true, true
   FROM (VALUES
-    ('academic_advisor','Academic Advisor',NULL::text,'system'::text,NULL::text,false),
-    ('assistant_professor','Assistant Professor','Academic rank.','position'::text,'academic'::text,true),
-    ('associate_professor','Associate Professor','Academic rank.','position'::text,'academic'::text,true),
-    ('dean','Dean','Faculty-scoped academic leadership position.','both'::text,'academic'::text,false),
-    ('department_head','Department Head','Department-scoped academic leadership position.','both'::text,'academic'::text,false),
-    ('finance_manager','Finance Manager','Finance management position.','position'::text,'administrative'::text,false),
-    ('finance_officer','Finance Officer','Finance operations position.','position'::text,'administrative'::text,false),
-    ('instructor','Instructor','Teaching role without an academic professorial rank.','both'::text,'academic'::text,false),
-    ('it_administrator','IT Administrator','University technology administration position.','position'::text,'technical'::text,false),
-    ('it_director','IT Director','University technology leadership position.','position'::text,'technical'::text,false),
-    ('it_officer','IT Officer',NULL::text,'system'::text,NULL::text,false),
-    ('lecturer','Lecturer','Academic teaching position.','position'::text,'academic'::text,true),
-    ('librarian','Librarian','Library services position.','position'::text,'support'::text,false),
-    ('president','President','University-wide leadership position.','position'::text,'academic'::text,false),
-    ('professor','Professor','Senior academic rank.','position'::text,'academic'::text,true),
-    ('programme_coordinator','Programme Coordinator','Academic programme coordination position.','position'::text,'academic'::text,false),
-    ('programme_director','Programme Director','Academic programme leadership position.','position'::text,'academic'::text,false),
-    ('undergraduate','Undergraduate',NULL::text,'system'::text,'academic'::text,false),
-    ('graduate','Graduate','Graduate student role.','system'::text,'academic'::text,false),
-    ('postgraduate','Postgraduate','Postgraduate student role.','system'::text,'academic'::text,false),
-    ('student_affairs_officer','Student Affairs Officer','Student affairs administration position.','position'::text,'administrative'::text,false),
-    ('teaching_assistant','Teaching Assistant','Academic teaching support position.','both'::text,'academic'::text,false),
-    ('vice_dean','Vice Dean','Faculty-scoped deputy academic leadership position.','both'::text,'academic'::text,false),
-    ('vice_president','Vice President','University-wide deputy leadership position.','position'::text,'academic'::text,false)
-  ) AS seed(key,name,description,role_type,category,is_academic_rank)
+    ('academic_advisor','Academic Advisor',NULL::text),
+    ('assistant_professor','Assistant Professor','Academic rank.'),
+    ('associate_professor','Associate Professor','Academic rank.'),
+    ('dean','Dean','Faculty-scoped academic leadership position.'),
+    ('department_head','Department Head','Department-scoped academic leadership position.'),
+    ('finance_manager','Finance Manager','Finance management position.'),
+    ('finance_officer','Finance Officer','Finance operations position.'),
+    ('instructor','Instructor','Teaching role without an academic professorial rank.'),
+    ('it_administrator','IT Administrator','University technology administration position.'),
+    ('it_director','IT Director','University technology leadership position.'),
+    ('it_officer','IT Officer',NULL::text),
+    ('lecturer','Lecturer','Academic teaching position.'),
+    ('librarian','Librarian','Library services position.'),
+    ('president','President','University-wide leadership position.'),
+    ('professor','Professor','Senior academic rank.'),
+    ('programme_coordinator','Programme Coordinator','Academic programme coordination position.'),
+    ('programme_director','Programme Director','Academic programme leadership position.'),
+    ('undergraduate','Undergraduate',NULL::text),
+    ('graduate','Graduate','Graduate student role.'),
+    ('postgraduate','Postgraduate','Postgraduate student role.'),
+    ('student_affairs_officer','Student Affairs Officer','Student affairs administration position.'),
+    ('teaching_assistant','Teaching Assistant','Academic teaching support position.'),
+    ('vice_dean','Vice Dean','Faculty-scoped deputy academic leadership position.'),
+    ('vice_president','Vice President','University-wide deputy leadership position.')
+  ) AS seed(key,name,description)
   ON CONFLICT (tenant_id, key) DO UPDATE
   SET name = EXCLUDED.name,
       description = coalesce(EXCLUDED.description, public.roles.description),
       is_system = true,
-      role_type = EXCLUDED.role_type,
-      category = EXCLUDED.category,
-      is_academic_rank = EXCLUDED.is_academic_rank,
       is_active = true;
 
   ALTER TABLE public.roles ENABLE TRIGGER roles_guard_identity_fields;
@@ -1629,16 +1624,14 @@ BEGIN
   END IF;
 
   INSERT INTO public.user_roles
-    (tenant_id,user_id,role_id,appointment_type,scope_type,scope_id,status,appointed_by,notes)
+    (tenant_id,user_id,role_id,scope_type,scope_id,status,notes)
   SELECT
     account.tenant_id,
     account.id,
     role_definition.id,
-    'position',
     'department',
     v_department_id,
     'active',
-    NULL,
     'Initial SET staff directory appointment; seeded from the approved staff directory.'
   FROM public.users account
   JOIN public.person_profiles profile ON profile.user_id = account.id
@@ -1648,7 +1641,6 @@ BEGIN
      WHEN 'Professor' THEN 'professor'
      WHEN 'Teaching Assistant' THEN 'teaching_assistant'
    END
-   AND role_definition.role_type IN ('position','both')
    AND role_definition.is_active
   WHERE account.tenant_id = v_tenant_id
     AND lower(account.email) IN (
@@ -1664,7 +1656,6 @@ BEGIN
       WHERE existing.tenant_id = account.tenant_id
         AND existing.user_id = account.id
         AND existing.role_id = role_definition.id
-        AND existing.appointment_type = 'position'
         AND existing.scope_type = 'department'
         AND existing.scope_id = v_department_id
         AND existing.status = 'active'
@@ -1672,22 +1663,19 @@ BEGIN
 
   -- Rania's Head of SET Department appointment is separate from her Professor role.
   INSERT INTO public.user_roles
-    (tenant_id,user_id,role_id,appointment_type,scope_type,scope_id,status,appointed_by,notes)
+    (tenant_id,user_id,role_id,scope_type,scope_id,status,notes)
   SELECT
     account.tenant_id,
     account.id,
     role_definition.id,
-    'leadership',
     'department',
     v_department_id,
     'active',
-    NULL,
     'Head of SET Department leadership appointment; seeded from the approved staff directory.'
   FROM public.users account
   JOIN public.roles role_definition
     ON role_definition.tenant_id = account.tenant_id
    AND role_definition.key = 'department_head'
-   AND role_definition.role_type IN ('position','both')
    AND role_definition.is_active
   WHERE account.tenant_id = v_tenant_id
     AND lower(account.email) = 'rswief@ecu.edu.eg'
@@ -1697,7 +1685,6 @@ BEGIN
       WHERE existing.tenant_id = account.tenant_id
         AND existing.user_id = account.id
         AND existing.role_id = role_definition.id
-        AND existing.appointment_type = 'leadership'
         AND existing.scope_type = 'department'
         AND existing.scope_id = v_department_id
         AND existing.status = 'active'
