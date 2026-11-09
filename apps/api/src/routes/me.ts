@@ -22,10 +22,21 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
           select: { display_name: true },
         });
         // Like the database's own role checks, skip assignments that have expired.
+        const now = new Date();
         const roles = await tx.roles.findMany({
           where: {
             user_roles: {
-              some: { user_id: sub, OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }] },
+              some: {
+                user_id: sub,
+                assignment_status: "active",
+                status: "active",
+                starts_at: { lte: now },
+                revoked_at: null,
+                AND: [
+                  { OR: [{ expires_at: null }, { expires_at: { gt: now } }] },
+                  { OR: [{ ends_at: null }, { ends_at: { gt: now } }] },
+                ],
+              },
             },
           },
           select: { key: true },
