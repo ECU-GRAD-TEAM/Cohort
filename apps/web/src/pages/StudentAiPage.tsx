@@ -44,12 +44,12 @@ export function StudentAiPage() {
       {busy && <p role="status">Thinking…</p>}
       {error && <p role="alert">{error}</p>}
     </section>
-    <section aria-label="Suggested questions">
+    <section aria-label="Suggested questions" className="student-ai-suggestions">
       <p>Try asking</p>
-      {starters.map(starter => <button key={starter} type="button" disabled={busy} onClick={() => void send(starter)}>{starter}</button>)}
+      {starters.map(starter => <button key={starter} type="button" className="button-secondary" disabled={busy} onClick={() => void send(starter)}>{starter}</button>)}
     </section>
     <form onSubmit={submit}>
-      <textarea value={draft} onChange={event => setDraft(event.target.value)} placeholder="Ask about a course, topic, study strategy or university process…" rows={3} maxLength={12000} />
+      <textarea aria-label="Message" value={draft} onChange={event => setDraft(event.target.value)} placeholder="Ask about a course, topic, study strategy or university process…" rows={3} maxLength={12000} />
       <button type="submit" disabled={busy || !draft.trim()}>{busy ? "Sending…" : "Send"}</button>
     </form>
     <p>AI guidance may be incomplete. Verify important university decisions with the relevant department. The assistant cannot change official records.</p>
