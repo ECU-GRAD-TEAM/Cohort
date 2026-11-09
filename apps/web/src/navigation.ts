@@ -11,7 +11,6 @@ export const navItems: NavItem[] = [
   { to: "/messages", label: "Messages", preview: true },
   { to: "/support", label: "Support", preview: true },
   { to: "/campus", label: "Campus", preview: true },
-  { to: "/assistant", label: "AI assistant", preview: true },
 ];
 
 /** The paths shown in the phone bar; each is looked up in `navItems` for its label. */

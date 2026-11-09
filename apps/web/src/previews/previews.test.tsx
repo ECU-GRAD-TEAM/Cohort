@@ -17,7 +17,7 @@ describe("preview tabs", () => {
     ]);
   });
 
-  it("has the seven preview items in order", () => {
+  it("has the six preview items in order", () => {
     expect(previews.map((item) => item.to)).toEqual([
       "/courses",
       "/schedule",
@@ -25,7 +25,17 @@ describe("preview tabs", () => {
       "/messages",
       "/support",
       "/campus",
-      "/assistant",
+    ]);
+  });
+
+  it("sends the old /assistant address to the Student assistant", async () => {
+    renderApp({ route: "/assistant", auth: createFakeAuth({ session: fakeSession }) });
+    expect(await screen.findByRole("heading", { level: 1, name: "Student assistant" })).toBeInTheDocument();
+  });
+
+  it("has a single assistant in the sidebar", async () => {
+    expect(navItems.filter((item) => /assistant/i.test(item.label)).map((item) => item.to)).toEqual([
+      "/student-assistant",
     ]);
   });
 
@@ -69,7 +79,6 @@ describe("preview tabs", () => {
   it.each([
     ["/messages", "Send"],
     ["/support", "Submit request"],
-    ["/assistant", "Ask"],
   ])("%s's %s button is disabled", async (path, name) => {
     renderApp({ route: path, auth: createFakeAuth({ session: fakeSession }) });
     const button = await screen.findByRole("button", { name });

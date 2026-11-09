@@ -69,7 +69,3 @@ export const samplePlaces: SamplePlace[] = [
   { name: "Sample Health Centre", kind: "Service", note: "Appointments" },
   { name: "Sample Careers Desk", kind: "Service", note: "Advice and events" },
 ];
-
-export const sampleQuestion = "When is the sample essay due?";
-export const sampleAnswer =
-  "This is a sample answer. In the finished product, the assistant would answer from your own courses and deadlines.";

@@ -1,4 +1,4 @@
-import { Route, Routes } from "react-router";
+import { Navigate, Route, Routes } from "react-router";
 import { AppShell } from "./AppShell.tsx";
 import { RequireAuth } from "./auth/RequireAuth.tsx";
 import { DashboardPage } from "./pages/DashboardPage.tsx";
@@ -7,7 +7,6 @@ import { RegistrationPage } from "./pages/RegistrationPage.tsx";
 import { StudentAiPage } from "./pages/StudentAiPage.tsx";
 import { SignUpPage } from "./pages/SignUpPage.tsx";
 import { AssignmentsPreview } from "./previews/AssignmentsPreview.tsx";
-import { AssistantPreview } from "./previews/AssistantPreview.tsx";
 import { CampusPreview } from "./previews/CampusPreview.tsx";
 import { CoursesPreview } from "./previews/CoursesPreview.tsx";
 import { MessagesPreview } from "./previews/MessagesPreview.tsx";
@@ -35,7 +34,7 @@ export function App() {
         <Route path="messages" element={<MessagesPreview />} />
         <Route path="support" element={<SupportPreview />} />
         <Route path="campus" element={<CampusPreview />} />
-        <Route path="assistant" element={<AssistantPreview />} />
+        <Route path="assistant" element={<Navigate to="/student-assistant" replace />} />
       </Route>
     </Routes>
   );
