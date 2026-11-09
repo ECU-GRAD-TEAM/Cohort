@@ -1720,6 +1720,7 @@ BEGIN
   WHERE account.tenant_id = v_tenant_id
     AND lower(account.email) IN (
       'mohamed.mohamed@ecu.edu.eg',
+      'mohamed.taha@ecu.edu.eg',
       'rahma.ali@ecu.edu.eg',
       'amira.ali@ecu.edu.eg',
       'islam.mohammed@ecu.edu.eg'
@@ -1731,9 +1732,9 @@ BEGIN
     RETURN;
   END IF;
 
-  IF v_staff_count <> 4 THEN
+  IF v_staff_count <> 5 THEN
     RAISE EXCEPTION
-      'Fall 2026 section instructor seed requires all 4 confirmed staff accounts; found %',
+      'Fall 2026 section instructor seed requires all 5 confirmed staff accounts; found %',
       v_staff_count;
   END IF;
 
@@ -1742,6 +1743,9 @@ BEGIN
       ('SA-G1-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
       ('SA-G2-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
       ('DMC-G1-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
+      ('SA-G1-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'teaching_assistant'),
+      ('SA-G2-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'teaching_assistant'),
+      ('DMC-G1-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'teaching_assistant'),
       ('SA-G1-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
       ('SA-G2-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
       ('DMC-G1-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
@@ -1755,9 +1759,9 @@ BEGIN
   JOIN public.sections s
     ON s.tenant_id = v_tenant_id AND s.code = a.section_code;
 
-  IF v_section_count <> 10 THEN
+  IF v_section_count <> 13 THEN
     RAISE EXCEPTION
-      'Fall 2026 section instructor seed requires all 10 SET sections; found %',
+      'Fall 2026 section instructor seed requires all 13 SET sections; found %',
       v_section_count;
   END IF;
 
@@ -1766,6 +1770,9 @@ BEGIN
       ('SA-G1-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
       ('SA-G2-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
       ('DMC-G1-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
+      ('SA-G1-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'teaching_assistant'),
+      ('SA-G2-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'teaching_assistant'),
+      ('DMC-G1-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'teaching_assistant'),
       ('SA-G1-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
       ('SA-G2-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
       ('DMC-G1-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
@@ -1789,6 +1796,9 @@ BEGIN
       ('SA-G1-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
       ('SA-G2-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
       ('DMC-G1-SET411-LAB', 'mohamed.mohamed@ecu.edu.eg', 'teaching_assistant'),
+      ('SA-G1-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'teaching_assistant'),
+      ('SA-G2-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'teaching_assistant'),
+      ('DMC-G1-SET413-LAB', 'mohamed.taha@ecu.edu.eg', 'teaching_assistant'),
       ('SA-G1-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
       ('SA-G2-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
       ('DMC-G1-SET412-LAB', 'rahma.ali@ecu.edu.eg', 'teaching_assistant'),
@@ -1810,9 +1820,9 @@ BEGIN
    AND si.user_id = account.id
    AND si.role = a.assignment_role::public.teaching_role;
 
-  IF v_assignment_count <> 10 THEN
+  IF v_assignment_count <> 13 THEN
     RAISE EXCEPTION
-      'Expected 10 verified Fall 2026 section instructor assignments; found %',
+      'Expected 13 verified Fall 2026 section instructor assignments; found %',
       v_assignment_count;
   END IF;
 END
