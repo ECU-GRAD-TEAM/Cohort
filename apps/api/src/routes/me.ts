@@ -21,7 +21,7 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
           where: { user_id: sub },
           select: { display_name: true },
         });
-        // Like the database's own role checks, skip assignments that have expired.
+        // Like the database's own role checks, skip assignments that have ended.
         const now = new Date();
         const roles = await tx.roles.findMany({
           where: {
