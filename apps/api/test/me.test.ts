@@ -82,25 +82,35 @@ it("describes the signed-in student", async () => {
   expect(r.statusCode).toBe(200);
   expect(r.json()).toMatchObject({
     id: u.users.student,
-    userType: "student",
+    userType: "non_staff",
     displayName: "Sara Student",
     tenant: { id: u.tenantId, name: u.tenantName },
     roles: ["student"],
   });
 });
 
-it("leaves out roles that have expired", async () => {
+it("lists only the roles that are active now", async () => {
   // A university of its own, so the extra assignments do not change the student above.
   const v = await seedUniversity();
-  const grant = (roleKey: string, expiresAt: string) =>
+  const grant = (
+    roleKey: string,
+    { starts = "-2 days", expires = null, revokedAt = null, status = "active" }: {
+      starts?: string; expires?: string | null; revokedAt?: string | null; status?: string;
+    } = {},
+  ) =>
     ownerQuery(
-      `insert into public.user_roles (user_id, role_id, tenant_id, expires_at)
-       select $1, r.id, r.tenant_id, now() + $3::interval from public.roles r
-       where r.tenant_id = $2 and r.key = $4`,
-      [v.users.student, v.tenantId, expiresAt, roleKey],
+      `insert into public.user_roles
+         (user_id, role_id, tenant_id, starts_at, expires_at, revoked_at, assignment_status)
+       select $1, r.id, r.tenant_id, now() + $3::interval, now() + $4::interval, now() + $5::interval, $6
+       from public.roles r where r.tenant_id = $2 and r.key = $7`,
+      [v.users.student, v.tenantId, starts, expires, revokedAt, status, roleKey],
     );
-  await grant("advisor", "-1 day");
-  await grant("teaching_assistant", "1 day");
+  // The role keys below come from the tenant's seeded roles.
+  await grant("teaching_assistant", { expires: "1 day" }); // still running: listed
+  await grant("advisor", { expires: "-1 day" }); // expired
+  await grant("dean", { revokedAt: "-1 hour" }); // revoked_at set
+  await grant("department_head", { status: "revoked" }); // status alone, no revoked_at
+  await grant("it_staff", { starts: "1 day" }); // not started yet
 
   const r = await get("/me", await t.tokenFor(v.users.student));
   expect(r.statusCode).toBe(200);

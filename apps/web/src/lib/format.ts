@@ -1,4 +1,4 @@
-import type { EnrollmentStatus, Grade, Meeting } from "@cohort/contracts";
+import type { EnrollmentStatus, Grade, Meeting, MeResponse } from "@cohort/contracts";
 
 const STATUS_LABELS: Record<Exclude<EnrollmentStatus, "waitlisted">, string> = {
   enrolled: "Enrolled",
@@ -43,4 +43,20 @@ export function formatMeeting(meeting: Meeting): string {
 /** Credit hours as "1 credit", "3 credits" or "3.5 credits": the number exactly as it is. */
 export function formatCredits(creditHours: number): string {
   return creditHours === 1 ? "1 credit" : `${creditHours} credits`;
+}
+
+/** The sidebar's label for the caller: "Student" with the student role, else "Staff" or "Non-staff". */
+export function formatRole(me: Pick<MeResponse, "userType" | "roles">): string {
+  if (me.roles.includes("student")) return "Student";
+  return me.userType === "staff" ? "Staff" : "Non-staff";
+}
+
+/** The first letters of the first and last words of a name, upper-cased; "?" for an empty name. */
+export function initials(displayName: string): string {
+  const words = displayName.split(/\s+/).filter((word) => word !== "");
+  const first = words[0];
+  const last = words[words.length - 1];
+  if (first === undefined || last === undefined) return "?";
+  const letters = words.length === 1 ? [first] : [first, last];
+  return letters.map((word) => Array.from(word)[0] ?? "").join("").toUpperCase();
 }

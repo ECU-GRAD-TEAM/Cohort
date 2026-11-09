@@ -13,15 +13,15 @@ export const catalogueRoutes: FastifyPluginAsync = async (app) => {
   api.get("/terms", { schema: { response: { 200: TermsResponse } } }, async (request) => {
     // Row-level security leaves only the caller's university, so there is no tenant filter here.
     const terms = await request.withDb((tx) =>
-      tx.terms.findMany({ orderBy: [{ starts_on: "desc" }, { code: "asc" }] }),
+      tx.terms.findMany({ orderBy: [{ starts_on: { sort: "desc", nulls: "last" } }, { code: "asc" }] }),
     );
     return {
       terms: terms.map((term) => ({
         id: term.id,
         code: term.code,
         name: term.name,
-        startsOn: toIsoDate(term.starts_on),
-        endsOn: toIsoDate(term.ends_on),
+        startsOn: term.starts_on ? toIsoDate(term.starts_on) : null,
+        endsOn: term.ends_on ? toIsoDate(term.ends_on) : null,
         registrationOpensAt: toIsoTimestamp(term.registration_opens_at),
         registrationClosesAt: toIsoTimestamp(term.registration_closes_at),
         addDropEndsAt: toIsoTimestamp(term.add_drop_ends_at),

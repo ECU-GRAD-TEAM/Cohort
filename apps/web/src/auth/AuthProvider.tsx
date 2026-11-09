@@ -5,7 +5,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 /** The part of Supabase's auth client the app uses, so tests can supply a fake. */
 export type AuthClientLike = Pick<
   SupabaseClient["auth"],
-  "getSession" | "onAuthStateChange" | "signInWithPassword" | "signOut"
+  "getSession" | "onAuthStateChange" | "signInWithPassword" | "signOut" | "signUp"
 >;
 
 type AuthValue = {
@@ -13,6 +13,11 @@ type AuthValue = {
   /** True until the stored session (if any) has been read. */
   loading: boolean;
   signIn(email: string, password: string): Promise<void>;
+  /**
+   * Creates the login only. The university links the account later (its trusted server step sets the
+   * account's university and roles). `needsConfirmation` is true when the email must be confirmed first.
+   */
+  signUp(fullName: string, email: string, password: string): Promise<{ needsConfirmation: boolean }>;
   signOut(): Promise<void>;
 };
 
@@ -59,6 +64,16 @@ export function AuthProvider({ auth, children }: { auth: AuthClientLike; childre
       async signIn(email, password) {
         const { error } = await auth.signInWithPassword({ email, password });
         if (error) throw new Error(error.message);
+      },
+      async signUp(fullName, email, password) {
+        const { data, error } = await auth.signUp({
+          email,
+          password,
+          options: { data: { full_name: fullName }, emailRedirectTo: `${window.location.origin}/` },
+        });
+        if (error) throw new Error(error.message);
+        // A session arrives through onAuthStateChange; here we only report whether one exists.
+        return { needsConfirmation: data.session === null };
       },
       async signOut() {
         await auth.signOut();

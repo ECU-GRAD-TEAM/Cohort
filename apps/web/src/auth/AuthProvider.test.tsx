@@ -53,4 +53,27 @@ describe("AuthProvider", () => {
       consoleError.mockRestore();
     }
   });
+
+  it("signUp reports when confirmation is needed", async () => {
+    let signUp: ReturnType<typeof useAuth>["signUp"] | undefined;
+    function Capture() {
+      signUp = useAuth().signUp;
+      return null;
+    }
+    const renderCapture = (auth: AuthClientLike) =>
+      render(
+        <QueryClientProvider client={new QueryClient()}>
+          <AuthProvider auth={auth}>
+            <Capture />
+          </AuthProvider>
+        </QueryClientProvider>,
+      );
+
+    const first = renderCapture(createFakeAuth());
+    await expect(signUp!("Nadia New", "nadia@x.test", "secret-pass")).resolves.toEqual({ needsConfirmation: true });
+    first.unmount();
+
+    renderCapture(createFakeAuth({ signUpSession: true }));
+    await expect(signUp!("Nadia New", "nadia@x.test", "secret-pass")).resolves.toEqual({ needsConfirmation: false });
+  });
 });

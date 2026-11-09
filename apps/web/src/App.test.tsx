@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
@@ -18,7 +18,7 @@ describe("sign-in", () => {
     await userEvent.type(screen.getByLabelText("Password"), "secret-pass");
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
     expect(auth.signInWithPassword).toHaveBeenCalledWith({ email: "sara@a.test", password: "secret-pass" });
-    expect(await screen.findByText("Sara Student · Smoke University A")).toBeInTheDocument();
+    expect(await within(await screen.findByRole("banner")).findByText("Sara Student")).toBeInTheDocument();
   });
 
   it("shows why sign-in failed", async () => {

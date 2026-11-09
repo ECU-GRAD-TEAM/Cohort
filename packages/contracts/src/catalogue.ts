@@ -4,8 +4,9 @@ export const Term = z.object({
   id: z.uuid(),
   code: z.string(),
   name: z.string(),
-  startsOn: z.iso.date(),
-  endsOn: z.iso.date(),
+  // A term whose calendar is not set yet has no dates.
+  startsOn: z.iso.date().nullable(),
+  endsOn: z.iso.date().nullable(),
   registrationOpensAt: z.iso.datetime().nullable(),
   registrationClosesAt: z.iso.datetime().nullable(),
   addDropEndsAt: z.iso.datetime().nullable(),
