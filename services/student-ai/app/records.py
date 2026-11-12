@@ -69,12 +69,12 @@ class StudentRecordRetriever:
 
             if intent == "attendance":
                 rows = await self._get(client, access_token, "attendance_records", {
-                    "select": "status,confirmation,checked_in_at,attendance_sessions!inner(starts_at,ends_at,section_id)",
+                    "select": "status,confirmation,checked_in_at,attendance_sessions!inner(starts_at,ends_at,sections!inner(code,course_offerings!inner(courses(code,title))))",
                     "student_id": f"eq.{student_id}",
                     "order": "checked_in_at.desc.nullslast",
                     "limit": "200",
                 })
-                return ("Student attendance records (up to 200 recent records): " + _json(rows), ["attendance_records", "attendance_sessions"])
+                return ("Student attendance records (up to 200 recent records): " + _json(rows), ["attendance_records", "attendance_sessions", "sections", "course_offerings", "courses"])
 
             if intent == "grades":
                 rows = await self._get(client, access_token, "published_grades", {
