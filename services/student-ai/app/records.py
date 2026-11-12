@@ -19,10 +19,10 @@ class RecordRetrievalError(RuntimeError):
 class StudentRecordRetriever:
     def __init__(self) -> None:
         self.base_url = os.getenv("SUPABASE_URL", "").rstrip("/")
-        self.anon_key = os.getenv("SUPABASE_ANON_KEY", "")
+        self.api_key = os.getenv("SUPABASE_PUBLISHABLE_KEY") or os.getenv("SUPABASE_ANON_KEY", "")
 
     def configured(self) -> bool:
-        return bool(self.base_url and self.anon_key)
+        return bool(self.base_url and self.api_key)
 
     async def _get(
         self,
@@ -35,7 +35,7 @@ class StudentRecordRetriever:
             f"{self.base_url}/rest/v1/{quote(table, safe='')}",
             params=params,
             headers={
-                "apikey": self.anon_key,
+                "apikey": self.api_key,
                 "Authorization": f"Bearer {token}",
                 "Accept": "application/json",
             },
