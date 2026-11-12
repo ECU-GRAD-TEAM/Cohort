@@ -56,7 +56,6 @@ class StudentRecordRetriever:
         if not self.configured():
             raise RecordRetrievalError("Student record retrieval is not configured.")
 
-        headers = {"Authorization": f"Bearer {access_token}"}
         timeout = httpx.Timeout(15.0, connect=5.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
             if intent == "gpa":
@@ -97,8 +96,7 @@ class StudentRecordRetriever:
 
             if intent == "timetable":
                 rows = await self._get(client, access_token, "student_meetings", {
-                    "select": "assigned_at,section_meetings!inner(day_of_week,starts_at,ends_at,meeting_type,notes,rooms(code,name),sections(code),course_offerings(courses(code,title)))",
-                    "enrollments!inner": "student_id",
+                    "select": "assigned_at,enrollments!inner(student_id),section_meetings!inner(day_of_week,starts_at,ends_at,meeting_type,rooms(code,name),sections(code),course_offerings(courses(code,title)))",
                     "enrollments.student_id": f"eq.{student_id}",
                     "order": "assigned_at.desc",
                     "limit": "200",
