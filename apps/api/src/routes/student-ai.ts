@@ -20,7 +20,7 @@ export const studentAiRoutes: FastifyPluginAsync = async (app) => {
     // The API has already verified this Supabase access token. Forward it only over the
     // private service-to-service channel so Python can call the Data API as this student;
     // PostgreSQL RLS remains responsible for row authorization.
-    const accessToken = /^Bearer\\s+(\\S+)$/i.exec(request.headers.authorization ?? "")?.[1];
+    const accessToken = /^Bearer\s+(\S+)$/i.exec(request.headers.authorization ?? "")?.[1];
     if (!accessToken) throw new ApiError(401, "unauthorized", "Sign in to continue.");
     let upstream: globalThis.Response;
     try {
