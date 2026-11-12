@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useApi } from "../lib/ApiContext.tsx";
 
-type Message = { role: "user" | "assistant"; content: string; limitations?: string[] };
+type Message = { role: "user" | "assistant"; content: string; limitations?: string[]; sources?: string[] };
 const starters = ["Explain a difficult topic", "Create a quick practice quiz", "Help me plan my study week", "Explain a university procedure"];
 
 export function StudentAiPage() {
@@ -20,7 +20,7 @@ export function StudentAiPage() {
     setDraft(""); setBusy(true); setError("");
     try {
       const result = await api.chatWithStudentAssistant({ message, history, language });
-      setMessages(current => [...current, { role: "assistant", content: result.answer, limitations: result.limitations }]);
+      setMessages(current => [...current, { role: "assistant", content: result.answer, limitations: result.limitations, sources: result.sources }]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The assistant is unavailable. Please try again.");
     } finally { setBusy(false); }
@@ -39,7 +39,7 @@ export function StudentAiPage() {
       {messages.map((message, index) => <article key={index} data-role={message.role}>
         <strong>{message.role === "user" ? "You" : "Cohort assistant"}</strong>
         <p dir="auto">{message.content}</p>
-        {message.limitations?.map((limitation, i) => <small key={i}>{limitation}</small>)}
+        {message.sources?.length ? <small>Sources: {message.sources.join(" · ")}</small> : null}\n        {message.limitations?.map((limitation, i) => <small key={i}>{limitation}</small>)}
       </article>)}
       {busy && <p role="status">Thinking…</p>}
       {error && <p role="alert">{error}</p>}
