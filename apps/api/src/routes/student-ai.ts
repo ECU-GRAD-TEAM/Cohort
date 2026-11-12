@@ -17,12 +17,21 @@ export const studentAiRoutes: FastifyPluginAsync = async (app) => {
     const serviceUrl = process.env.STUDENT_AI_SERVICE_URL;
     const internalKey = process.env.STUDENT_AI_INTERNAL_KEY;
     if (!serviceUrl || !internalKey) throw new ApiError(503, "internal", "The student assistant is not configured.");
-    // Identity is verified here. No client-supplied user/tenant id is forwarded or trusted.
-    // Record/document retrieval is deliberately not wired until its access-scoped tools are implemented.
+    // The API has already verified this Supabase access token. Forward it only over the
+    // private service-to-service channel so Python can call the Data API as this student;
+    // PostgreSQL RLS remains responsible for row authorization.
+    const accessToken = /^Bearer\\s+(\\S+)$/i.exec(request.headers.authorization ?? "")?.[1];
+    if (!accessToken) throw new ApiError(401, "unauthorized", "Sign in to continue.");
     let upstream: globalThis.Response;
     try {
       upstream = await fetch(new URL("/v1/chat", serviceUrl), {
-        method: "POST", headers: { "content-type": "application/json", "x-cohort-internal-key": internalKey },
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-cohort-internal-key": internalKey,
+          "x-cohort-student-access-token": accessToken,
+          "x-cohort-student-id": request.user.sub,
+        },
         body: JSON.stringify({ message: request.body.message, history: request.body.history, language: request.body.language, context: [] }),
         signal: AbortSignal.timeout(50_000),
       });
