@@ -2,7 +2,7 @@ import type { Enrollment, Grade } from "@cohort/contracts";
 import { screen, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
-import { API, server } from "../../test/server.ts";
+import { API, defaultMe, server } from "../../test/server.ts";
 import { createFakeAuth, fakeSession, renderApp } from "../../test/render.tsx";
 
 const TERM_ID = "c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f";
@@ -75,6 +75,18 @@ function renderDashboard() {
 }
 
 describe("DashboardPage", () => {
+  it("shows the UniFlow teaching workspace to a teaching assistant", async () => {
+    server.use(
+      http.get(`${API}/me`, () => HttpResponse.json({ ...defaultMe, userType: "staff", roles: ["teaching_assistant"], displayName: "Mona Hassan" })),
+    );
+    renderDashboard();
+    expect(await screen.findByRole("heading", { name: "Teaching Assistant" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Welcome back, Mona." })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Explore courses/ })).toHaveAttribute("href", "/courses");
+    expect(screen.getByRole("link", { name: /Teaching schedule/ })).toHaveAttribute("href", "/schedule");
+    expect(screen.queryByRole("heading", { name: "Published grades" })).not.toBeInTheDocument();
+  });
+
   it("lists current courses and published grades", async () => {
     server.use(
       http.get(`${API}/me/enrollments`, () => HttpResponse.json({ enrollments: [cs101, ma201, cs201] })),
