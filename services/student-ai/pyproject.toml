@@ -1,7 +1,7 @@
 [project]
 name = "cohort-student-ai"
-version = "0.1.0"
-description = "Python AI orchestration service for Cohort's student assistant"
+version = "0.2.0"
+description = "Python AI orchestration and RLS-scoped retrieval for Cohort's student assistant"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi==0.115.12",
@@ -9,6 +9,7 @@ dependencies = [
     "pydantic==2.11.4",
     "python-dotenv>=1.0.1,<2.0.0",
     "google-genai>=2.3.0,<3.0.0",
+    "httpx>=0.27,<1.0",
 ]
 
 [project.optional-dependencies]
