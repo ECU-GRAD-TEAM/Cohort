@@ -19,7 +19,7 @@ pip install -e .
 cp .env.example .env
 ```
 
-Edit `.env` and set `GEMINI_API_KEY` and `COHORT_AI_INTERNAL_KEY`.
+Edit `.env` and set `GEMINI_API_KEY`, `COHORT_AI_INTERNAL_KEY`, `SUPABASE_URL`, and `SUPABASE_PUBLISHABLE_KEY`. The Supabase key must be a publishable key (or legacy anon key), never a secret/service-role key.
 
 Run the Python service:
 
@@ -75,6 +75,15 @@ See `.env.example` for the complete template.
 - `STUDENT_AI_RELOAD`: enable Uvicorn reload for local development only.
 - `STUDENT_AI_MAX_MESSAGE_CHARS`, `STUDENT_AI_MAX_HISTORY_MESSAGES`,
   `STUDENT_AI_MAX_CONTEXT_ITEMS`: request-size limits.
+
+### Supabase record retrieval
+
+- `SUPABASE_URL`: your Supabase project URL.
+- `SUPABASE_PUBLISHABLE_KEY`: publishable key for the project (legacy `anon` key is accepted as a fallback).
+- Fastify forwards the access token it has already verified, together with the verified user ID, over the private service-to-service request.
+- Python uses the Data API with that user's JWT. The database evaluates the existing `authenticated` grants and RLS policies for every request; the AI service never uses a service-role or secret key.
+- The first supported record intents are GPA/CGPA, attendance, published grades, course enrollments, and the student's assigned timetable.
+- The classifier can only select an allow-listed intent. Python chooses fixed table/column selections; Gemini never generates SQL or arbitrary table names.
 
 ### Gemini
 
