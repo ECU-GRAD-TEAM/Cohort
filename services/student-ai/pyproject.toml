@@ -19,7 +19,7 @@ playground = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["app*", "playground*"]
+include = ["app*", "playground*", "tests*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
