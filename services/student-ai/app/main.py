@@ -1,7 +1,8 @@
-"""Cohort student assistant orchestration service.
+"""Cohort Student AI orchestration and authenticated, read-only student record retrieval.
 
-This service deliberately has no database credentials. Cohort's authenticated Fastify API
-owns identity, authorization, and retrieval; this service only orchestrates Gemini requests.
+Fastify verifies the Supabase user token and forwards it over the private service channel.
+This service uses the publishable Data API key plus that user token; PostgreSQL RLS enforces
+row access. No Supabase secret or service-role key is used.
 """
 from __future__ import annotations
 
