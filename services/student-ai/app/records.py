@@ -78,12 +78,33 @@ class StudentRecordRetriever:
 
             if intent == "grades":
                 rows = await self._get(client, access_token, "published_grades", {
-                    "select": "offering_id,component_id,score,max_score,published_at,course_offerings(courses(code,title)),grade_components(name)",
+                    "select": "id,offering_id,component_id,score,max_score,published_at",
                     "student_id": f"eq.{student_id}",
                     "order": "published_at.desc",
                     "limit": "200",
                 })
-                return ("Student published grades (up to 200 records): " + _json(rows), ["published_grades"])
+                offering_ids = sorted({str(row["offering_id"]) for row in rows if row.get("offering_id")})
+                component_ids = sorted({str(row["component_id"]) for row in rows if row.get("component_id")})
+                offerings: list[dict[str, Any]] = []
+                components: list[dict[str, Any]] = []
+                if offering_ids:
+                    offerings = await self._get(client, access_token, "course_offerings", {
+                        "select": "id,courses(code,title)",
+                        "id": _uuid_in_filter(offering_ids),
+                    })
+                if component_ids:
+                    components = await self._get(client, access_token, "grade_components", {
+                        "select": "id,name",
+                        "id": _uuid_in_filter(component_ids),
+                    })
+                return (
+                    "Student published grades: " + _json({
+                        "grades": rows,
+                        "course_offerings": offerings,
+                        "grade_components": components,
+                    }),
+                    ["published_grades", "course_offerings", "courses", "grade_components"],
+                )
 
             if intent == "enrollments":
                 rows = await self._get(client, access_token, "enrollments", {
@@ -104,6 +125,13 @@ class StudentRecordRetriever:
                 return ("Student's assigned timetable meetings: " + _json(rows), ["student_meetings", "section_meetings", "rooms"])
 
         return ("No personal record lookup was required for this prompt.", [])
+
+def _uuid_in_filter(values: list[str]) -> str:
+    # IDs came from our own database response; validate before interpolating into PostgREST's
+    # comma-delimited IN filter so values cannot alter the filter expression.
+    from uuid import UUID
+    safe = [str(UUID(value)) for value in values]
+    return "in.(" + ",".join(safe) + ")"
 
 def _json(value: Any) -> str:
     import json
