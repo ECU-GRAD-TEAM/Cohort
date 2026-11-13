@@ -93,6 +93,7 @@ describe("formatRole", () => {
   it("labels the student role, staff and non-staff", () => {
     expect(formatRole({ userType: "non_staff", roles: ["student"] })).toBe("Student");
     expect(formatRole({ userType: "staff", roles: ["instructor"] })).toBe("Staff");
+    expect(formatRole({ userType: "staff", roles: ["teaching_assistant"] })).toBe("Teaching Assistant");
     expect(formatRole({ userType: "non_staff", roles: [] })).toBe("Non-staff");
   });
 
