@@ -8,7 +8,7 @@ import "../styles/teaching-assistant-dashboard.css";
 
 function TeachingAssistantDashboard({ displayName }: { displayName: string }) {
   const workspaces = [
-    { to: "/courses", number: "01", title: "Courses & sections", detail: "Open your course spaces and find the information you need for each section.", action: "Explore courses" },
+    { to: "/courses", number: "01", title: "Courses & sections", detail: "Open your course spaces and find the information you need for each section.", action: "Open courses" },
     { to: "/assignments", number: "02", title: "Assignments", detail: "Keep assignment information and student work within easy reach.", action: "Open assignments" },
     { to: "/schedule", number: "03", title: "Teaching schedule", detail: "Review your teaching timetable and upcoming sessions.", action: "View schedule" },
     { to: "/messages", number: "04", title: "Student communication", detail: "Continue course-related conversations and keep in touch.", action: "Open messages" },
