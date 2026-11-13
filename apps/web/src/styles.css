@@ -1,4 +1,5 @@
-/* Cohort: one global stylesheet. Tokens first, then base, shell, auth card, phone layout. */
+/* Cohort: global design system. */
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap");
 :root {
   --brand: #b81104;
   --brand-hover: #8f0d03;
@@ -12,7 +13,8 @@
   --radius: 12px;
   --shadow: 0 1px 2px rgb(31 27 26 / 8%), 0 8px 24px rgb(31 27 26 / 8%);
   --sidebar-width: 264px;
-  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font: "DM Sans", "Segoe UI", Arial, sans-serif;
+  --font-display: "Playfair Display", Georgia, serif;
 }
 
 *,
@@ -25,7 +27,8 @@ body {
   margin: 0;
   font-family: var(--font);
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.55;
+  font-family: var(--font);
   color: var(--text);
   background: var(--surface-alt);
 }
@@ -34,6 +37,7 @@ h1,
 h2,
 h3 {
   line-height: 1.25;
+  letter-spacing: -0.025em;
 }
 
 a {
