@@ -1,25 +1,10 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { createTestApp } from "./support/app.ts";
-import { closeOwnerPool, ownerQuery, seedUniversity, type University } from "./support/db.ts";
+import { closeOwnerPool, enrol, ownerQuery, seedUniversity, type University } from "./support/db.ts";
 
 let t: Awaited<ReturnType<typeof createTestApp>>;
 let u: University;
 let midtermId: string;
-
-const enrol = async (v: University, sub: string, key: "cs101" | "ma101") =>
-  (await ownerQuery<{ id: string }>(
-    `insert into public.enrollments (tenant_id, student_id, section_id, offering_id, status)
-     values ($1, $2, $3, $4, 'enrolled') returning id`,
-    [v.tenantId, sub, v.sections[key], v.offerings[key]],
-  ))[0]!.id;
-
-/** A grading component; students can see it only once it is published. */
-const component = async (v: University, key: "cs101" | "ma101", name: string, weight: number, published = true) =>
-  (await ownerQuery<{ id: string }>(
-    `insert into public.grade_components (tenant_id, offering_id, name, category, weight, published_at)
-     values ($1, $2, $3, 'midterm', $4, case when $5::boolean then now() end) returning id`,
-    [v.tenantId, v.offerings[key], name, weight, published],
-  ))[0]!.id;
 
 /** A grade entry out of 100, as the owner. Publishing sets `published_at`, so a later insert is a later grade. */
 const entry = async (
@@ -37,7 +22,7 @@ const entry = async (
 beforeAll(async () => {
   [t, u] = await Promise.all([createTestApp(), seedUniversity()]);
   const enrollment = await enrol(u, u.users.student, "cs101");
-  midtermId = await component(u, "cs101", "Midterm", 30);
+  midtermId = u.components.cs101.midterm; // published
   const grade = { enrollment, sub: u.users.student, key: "cs101", component: midtermId } as const;
   await entry(u, { ...grade, score: 50, status: "draft" });
   const first = await entry(u, { ...grade, score: 70, status: "published" });
@@ -69,7 +54,7 @@ it("names the component of a grade whose component the student cannot see yet", 
   const v = await seedUniversity();
   const sub = v.users.student;
   const enrollment = await enrol(v, sub, "cs101");
-  const hidden = await component(v, "cs101", "Final", 40, false);
+  const hidden = v.components.cs101.final; // not published yet
   await entry(v, { enrollment, sub, key: "cs101", component: hidden, score: 64, status: "published" });
 
   const r = await get("/me/grades", await t.tokenFor(sub));
@@ -89,8 +74,8 @@ it("lists grades by course code then publication, with no item for an entry with
   const v = await seedUniversity();
   const sub = v.users.student;
   const [cs101, ma101] = [await enrol(v, sub, "cs101"), await enrol(v, sub, "ma101")];
-  const quiz = await component(v, "cs101", "Quiz", 10);
-  // MA101 is published first, and "Quiz" before the whole-course grade, so neither the order of
+  const quiz = v.components.cs101.midterm;
+  // MA101 is published first, and the midterm before the whole-course grade, so neither the order of
   // insertion nor the alphabet gives the expected order.
   await entry(v, { enrollment: ma101, sub, key: "ma101", component: null, score: 88, status: "published" });
   await entry(v, { enrollment: cs101, sub, key: "cs101", component: quiz, score: 9, status: "published" });
@@ -103,7 +88,7 @@ it("lists grades by course code then publication, with no item for an entry with
       g.course.code, g.item, g.componentId, g.score,
     ]),
   ).toEqual([
-    ["CS101", "Quiz", quiz, 9],
+    ["CS101", "Midterm", quiz, 9],
     ["CS101", null, null, 90],
     ["MA101", null, null, 88],
   ]);

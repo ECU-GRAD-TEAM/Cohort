@@ -76,17 +76,19 @@ it("lists published sections with exact credits and meeting times", async () => 
     meetings: [{ weekday: 7, startsAt: "09:05", endsAt: "10:30", room: "101" }] });
 });
 
-it("orders sections by course then section code, and meetings by weekday then start", async () => {
+it("orders sections by course then section code, and meetings by weekday (Sunday last) then start", async () => {
   const v = await seedUniversity();
   // A second CS101 section, added out of order, with its meetings out of order too.
   const second = randomUUID();
   await ownerQuery(`insert into public.sections (id, tenant_id, offering_id, code, kind) values ($1, $2, $3, 'A1', 'lab')`, [second, v.tenantId, v.offerings.cs101]);
+  // `weekday` is ISO (Monday 1 to Sunday 7); the database counts from Sunday (0) to Saturday (6).
   const meet = (sectionId: string, weekday: number, startsAt: string, endsAt: string, withRoom: boolean) =>
     ownerQuery(
-      `insert into public.timetable_entries (tenant_id, section_id, room_id, weekday, starts_at, ends_at, valid_from, valid_until)
-       values ($1, $2, ${withRoom ? "(select id from public.rooms where tenant_id = $1)" : "null"}, $3, $4, $5, current_date, current_date + 30)`,
-      [v.tenantId, sectionId, weekday, startsAt, endsAt],
+      `insert into public.section_meetings (tenant_id, section_id, offering_id, room_id, day_of_week, starts_at, ends_at, meeting_type)
+       values ($1, $2, $3, ${withRoom ? "(select id from public.rooms where tenant_id = $1)" : "null"}, $4, $5, $6, 'lab')`,
+      [v.tenantId, sectionId, v.offerings.cs101, weekday % 7, startsAt, endsAt],
     );
+  await meet(second, 7, "08:00", "09:00", false);
   await meet(second, 3, "14:00", "15:30", false);
   await meet(second, 1, "13:15", "14:00", true);
   await meet(second, 1, "08:00", "09:00", true);
@@ -100,6 +102,7 @@ it("orders sections by course then section code, and meetings by weekday then st
     { weekday: 1, startsAt: "08:00", endsAt: "09:00", room: "101" },
     { weekday: 1, startsAt: "13:15", endsAt: "14:00", room: "101" },
     { weekday: 3, startsAt: "14:00", endsAt: "15:30", room: null },
+    { weekday: 7, startsAt: "08:00", endsAt: "09:00", room: null },
   ]);
   expect(sections[2].meetings).toEqual([]);
 });
