@@ -1,0 +1,5 @@
+-- Historical migration placeholder.
+-- The ten confirmed Fall 2026 section instructor records are now maintained
+-- by supabase/seeds/tenant.sql so they are loaded as seed data on db reset.
+-- This migration remains as a no-op to preserve the already-published
+-- migration version in Supabase migration history.

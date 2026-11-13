@@ -7,6 +7,7 @@ import {
   formatMeeting,
   formatRole,
   formatScore,
+  formatSections,
   initials,
 } from "./format.ts";
 
@@ -91,14 +92,23 @@ describe("formatCredits", () => {
 
 describe("formatRole", () => {
   it("labels the student role, staff and non-staff", () => {
-    expect(formatRole({ userType: "non_staff", roles: ["student"] })).toBe("Student");
+    expect(formatRole({ userType: "non_staff", roles: ["undergraduate"] })).toBe("Student");
+    expect(formatRole({ userType: "non_staff", roles: ["postgraduate"] })).toBe("Student");
     expect(formatRole({ userType: "staff", roles: ["instructor"] })).toBe("Staff");
     expect(formatRole({ userType: "staff", roles: ["teaching_assistant"] })).toBe("Teaching Assistant");
     expect(formatRole({ userType: "non_staff", roles: [] })).toBe("Non-staff");
   });
 
   it("shows Student whenever the student role is held", () => {
-    expect(formatRole({ userType: "staff", roles: ["student", "instructor"] })).toBe("Student");
+    expect(formatRole({ userType: "staff", roles: ["undergraduate", "instructor"] })).toBe("Student");
+  });
+});
+
+describe("formatSections", () => {
+  it("names one section, several, or none yet", () => {
+    expect(formatSections([{ code: "L1" }])).toBe("Section L1");
+    expect(formatSections([{ code: "L1" }, { code: "B2" }])).toBe("Sections L1, B2");
+    expect(formatSections([])).toBe("No section assigned yet");
   });
 });
 

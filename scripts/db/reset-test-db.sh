@@ -30,12 +30,30 @@ psql -X -q "$test_url" -v ON_ERROR_STOP=1 -1 -f "$repo_root/scripts/db/supabase-
 
 # GradProj has a little state that no migration creates. A file in scripts/db/pre-migration with
 # a migration's name runs just before that migration, to recreate it.
+# Some migrations only rework GradProj's real records (named staff, transcripts, the approved
+# timetable) and stop when those records are missing, which they always are in an empty test
+# database. Two lists in scripts/db handle them:
+# - data-only-migrations.txt: migrations with no structural change; the test build skips them.
+# - data-check-migrations.txt: migrations that also change structure; the test build runs them
+#   without their top-level DO $$ ... END $$; blocks, which check or move those records.
+skip_list="$repo_root/scripts/db/data-only-migrations.txt"
+check_list="$repo_root/scripts/db/data-check-migrations.txt"
+listed() { [[ -f "$1" ]] && grep -qxF "$2" "$1"; }
 for migration in "$repo_root"/supabase/migrations/*.sql; do
-  pre="$repo_root/scripts/db/pre-migration/$(basename "$migration")"
+  name="$(basename "$migration" .sql)"
+  if listed "$skip_list" "$name"; then
+    continue
+  fi
+  pre="$repo_root/scripts/db/pre-migration/$name.sql"
   if [[ -f "$pre" ]]; then
     psql -X -q "$test_url" -v ON_ERROR_STOP=1 -1 -f "$pre"
   fi
-  psql -X -q "$test_url" -v ON_ERROR_STOP=1 -1 -f "$migration"
+  if listed "$check_list" "$name"; then
+    awk '/^DO \$\$/ { skip = 1 } !skip { print } skip && /^END \$\$/ { skip = 0 }' "$migration" |
+      psql -X -q "$test_url" -v ON_ERROR_STOP=1 -1 -f -
+  else
+    psql -X -q "$test_url" -v ON_ERROR_STOP=1 -1 -f "$migration"
+  fi
 done
 
 echo "$db_name ready"

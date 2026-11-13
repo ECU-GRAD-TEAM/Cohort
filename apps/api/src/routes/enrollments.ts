@@ -1,111 +1,70 @@
-import {
-  EnrollmentChange,
-  EnrollmentsResponse,
-  EnrollRequest,
-  type EnrollmentStatus,
-  SectionParams,
-} from "@cohort/contracts";
+import { EnrollmentsResponse } from "@cohort/contracts";
 import type { FastifyPluginAsync } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { toNumber } from "../format.ts";
 
-/** What `enroll_in_section` and `drop_section` return: the enrolment they changed. */
-type ChangedRow = {
-  id: string;
-  section_id: string;
-  status: EnrollmentStatus;
-  waitlist_position: number | null;
-};
-
 /**
- * The database's registration functions decide every rule: prerequisites, credit limit, clashes,
- * capacity, waiting list and registration window. They refuse with an error the app's error
- * handler turns into a response, so these routes only call them and report the result.
+ * A student's enrolments. Enrolment is per course offering, and registrars create it and assign the
+ * student to class meetings, so the API only reads it. A historical transcript record has a course
+ * and a term but no offering.
  */
 export const enrollmentRoutes: FastifyPluginAsync = async (app) => {
-  const api = app.withTypeProvider<ZodTypeProvider>();
-
-  const toChange = ([row]: ChangedRow[]): EnrollmentChange => {
-    // Both functions return the changed row or raise, so a missing row is a bug, not a refusal.
-    if (!row) throw new Error("The registration function returned no enrolment");
-    return {
-      enrollment: {
-        id: row.id,
-        sectionId: row.section_id,
-        status: row.status,
-        waitlistPosition: row.waitlist_position,
-      },
-    };
-  };
-
-  api.get("/me/enrollments", { schema: { response: { 200: EnrollmentsResponse } } }, async (request) => {
-    // The caller's own rows. This is not an access rule: row-level security may let some callers
-    // read other students' enrolments, and this list is only ever the caller's.
-    const enrollments = await request.withDb((tx) =>
-      tx.enrollments.findMany({
-        where: { student_id: request.user.sub },
-        orderBy: [{ sections: { course_offerings: { courses: { code: "asc" } } } }, { sections: { code: "asc" } }, { id: "asc" }],
-        select: {
-          id: true,
-          section_id: true,
-          status: true,
-          waitlist_position: true,
-          sections: {
-            select: {
-              code: true,
-              course_offerings: {
-                select: { term_id: true, courses: { select: { code: true, title: true, credit_hours: true } } },
-              },
-            },
-          },
-        },
-      }),
-    );
-    return {
-      enrollments: enrollments.map((enrollment) => {
-        const { code: sectionCode, course_offerings: offering } = enrollment.sections;
-        return {
-          id: enrollment.id,
-          sectionId: enrollment.section_id,
-          sectionCode,
-          termId: offering.term_id,
-          status: enrollment.status,
-          waitlistPosition: enrollment.waitlist_position,
-          course: {
-            code: offering.courses.code,
-            title: offering.courses.title,
-            creditHours: toNumber(offering.courses.credit_hours),
-          },
-        };
-      }),
-    };
-  });
-
-  api.post(
-    "/enrollments",
-    { schema: { body: EnrollRequest, response: { 201: EnrollmentChange } } },
-    async (request, reply) => {
-      const { sectionId } = request.body;
-      const rows = await request.withDb((tx) =>
-        tx.$queryRaw<ChangedRow[]>`
-          select id, section_id, status::text as status, waitlist_position
-          from public.enroll_in_section(${sectionId}::uuid)`,
-      );
-      return reply.code(201).send(toChange(rows));
-    },
-  );
-
-  api.delete(
-    "/enrollments/:sectionId",
-    { schema: { params: SectionParams, response: { 200: EnrollmentChange } } },
+  app.withTypeProvider<ZodTypeProvider>().get(
+    "/me/enrollments",
+    { schema: { response: { 200: EnrollmentsResponse } } },
     async (request) => {
-      const { sectionId } = request.params;
-      const rows = await request.withDb((tx) =>
-        tx.$queryRaw<ChangedRow[]>`
-          select id, section_id, status::text as status, waitlist_position
-          from public.drop_section(${sectionId}::uuid)`,
-      );
-      return toChange(rows);
+      const course = { select: { code: true, title: true, credit_hours: true } } as const;
+      // The caller's own rows. This is not an access rule: row-level security may let some callers
+      // read other students' enrolments, and this list is only ever the caller's. One query at a
+      // time: a transaction has a single connection (see `withDb`), so the assigned meetings are a
+      // second query rather than a relation of the first.
+      const { rows, meetings } = await request.withDb(async (tx) => {
+        const rows = await tx.enrollments.findMany({
+          where: { student_id: request.user.sub },
+          select: {
+            id: true,
+            status: true,
+            waitlist_position: true,
+            term_id: true,
+            courses: course,
+            course_offerings: { select: { term_id: true, courses: course } },
+          },
+        });
+        const meetings = await tx.student_meetings.findMany({
+          where: { enrollment_id: { in: rows.map((row) => row.id) } },
+          select: { enrollment_id: true, section_meetings: { select: { sections: { select: { id: true, code: true } } } } },
+        });
+        return { rows, meetings };
+      });
+
+      const sectionsByEnrollment = new Map<string, Map<string, string>>();
+      for (const meeting of meetings) {
+        const sections = sectionsByEnrollment.get(meeting.enrollment_id) ?? new Map<string, string>();
+        sections.set(meeting.section_meetings.sections.id, meeting.section_meetings.sections.code);
+        sectionsByEnrollment.set(meeting.enrollment_id, sections);
+      }
+
+      const enrollments = rows.flatMap((row) => {
+        const found = row.course_offerings?.courses ?? row.courses;
+        const termId = row.course_offerings?.term_id ?? row.term_id;
+        // The database requires one of the two shapes, so neither is missing in practice.
+        if (!found || !termId) return [];
+        const sections = sectionsByEnrollment.get(row.id) ?? new Map<string, string>();
+        return [
+          {
+            id: row.id,
+            termId,
+            status: row.status,
+            waitlistPosition: row.waitlist_position,
+            course: { code: found.code, title: found.title, creditHours: toNumber(found.credit_hours) },
+            sections: [...sections]
+              .map(([id, code]) => ({ id, code }))
+              .sort((a, b) => a.code.localeCompare(b.code)),
+          },
+        ];
+      });
+      enrollments.sort((a, b) => a.course.code.localeCompare(b.course.code) || a.id.localeCompare(b.id));
+      return { enrollments };
     },
   );
 };
