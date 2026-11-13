@@ -10,7 +10,8 @@ changes are written to an immutable audit log.
 
 ## Status
 
-Every migration in `supabase/migrations` is applied in GradProj, and the folder mirrors GradProj.
+Every migration in `supabase/migrations` but the last is applied in GradProj, and the folder
+mirrors GradProj.
 The source of truth is the `supabase_migrations` schema on GradProj
 (`select version, name from supabase_migrations.schema_migrations order by version`). When the
 folder and GradProj disagree, GradProj is right.
@@ -21,7 +22,24 @@ folder and GradProj disagree, GradProj is right.
 | `20261022150000_builtin_time_ranges` | Applied |
 | `20261025120000_prisma_compat` | Applied |
 | `20261025120100_api_role` | Applied |
-| Every later migration in `supabase/migrations` (through `20261108195715`) | Applied |
+| Every later migration in `supabase/migrations` (through `20261113124137`) | Applied |
+| `20261113131803_repoint_functions_after_profile_and_enrolment_changes` | **Not yet applied** |
+
+`20261113131803` repairs what three of the team's 10–12 November migrations left behind:
+
+- `20261110212400` renamed `person_profiles` to `user_profiles`, but five functions still named the
+  old table. Creating a user and linking an Auth account to a university (`on_user_created`,
+  `provision_auth_user_account`) failed, as did `has_permission_for_student`, `in_department` and
+  `directory_search`.
+- `20261112185500` dropped `enrollments.section_id`, but `enrolled_in_section`, `teaches_student` and
+  the `enforce_ecu_repeat_course_policy` trigger still read it, so policies that call the first two
+  failed and no enrolment could be inserted.
+- The same migration made the enrolment read policy and the `student_meetings` read policy refer to
+  each other, which Postgres refuses ("infinite recursion detected in policy"), so every enrolment
+  read by a student or teacher failed. A `SECURITY DEFINER` helper, `teaches_enrollment`, breaks the
+  loop; who may read what is unchanged.
+
+Apply it with `npx supabase db push` (below), which applies only that migration.
 
 `api_role` creates `cohort_api` without a password; set one in GradProj with
 `alter role cohort_api with password '...'`.
@@ -41,8 +59,10 @@ and checks what they can and cannot see or change. It runs in one transaction an
 It also runs with plain `psql -f` against any database built from these migrations.
 
 A fresh local stack (`npx supabase start`) cannot replay the migrations on its own: GradProj has
-state that no migration creates, which the files in `scripts/db/pre-migration` recreate. To build a
-database the migrations apply to, run `npm run db:test:reset` (see the root README, step 2).
+state that no migration creates, which the files in `scripts/db/pre-migration` recreate, and some
+migrations only rework GradProj's real records, which `scripts/db/data-only-migrations.txt` and
+`scripts/db/data-check-migrations.txt` handle. To build a database the migrations apply to, run
+`npm run db:test:reset` (see the root README, step 2).
 
 **Known problem:** `tests/rls_smoke_test.sql` still seeds the old user types (`student`,
 `teaching_staff`, ...), so it fails against the current schema, where `user_type` is `staff` or
@@ -79,8 +99,9 @@ creates one that way) and then stays unlinked: it has no `users` row and no univ
 team's trusted server step sets `app_metadata = {"tenant_id", "user_type", "institutional_id"}`
 (`user_type` is `staff` or `non_staff`), either when it creates the account or later through the Admin
 API's `updateUserById`. The triggers then create the `users` row and the profile. No role is granted
-automatically: the trusted step must grant roles explicitly, and a student needs the `student` role to
-register for courses. The account stays `invited` until its email is confirmed, then becomes `active`.
+automatically: the trusted step must grant roles explicitly. Students hold the `undergraduate` or
+`postgraduate` role. Registrars enrol students in course offerings and assign them to class meetings
+(`student_meetings`); students do not register themselves. The account stays `invited` until its email is confirmed, then becomes `active`.
 `app_metadata` is only writable with the service role; the user-editable `user_metadata` supplies the
 display name only.
 
@@ -119,7 +140,7 @@ service role, which bypasses row-level security. Signed-in clients use the `auth
 
 | Function | Who | What |
 | --- | --- | --- |
-| `enroll_in_section`, `drop_section` | Students | Registration with prerequisite, credit-limit, clash and capacity checks; waiting list |
+| `enroll_in_section`, `drop_section` | Students | Self-registration by section. Since `20261112185500` they fail (they still use the removed `enrollments.section_id`), and nothing in Cohort calls them: registrars now enrol students |
 | `start_attempt`, `submit_attempt` | Students | Server-timed attempts; deterministic questions scored on submission |
 | `check_in` | Students | Attendance by QR code, or name entry for the teacher to confirm |
 | `attendance_qr_token` | Teachers | The current QR code for a session |
