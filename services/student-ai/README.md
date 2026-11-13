@@ -6,115 +6,93 @@ Gemini Interactions API. The service and local playground use **Gemini 3.5 Flash
 ## Setup
 
 ```bash
-# Move first to this directory:
 cd services/student-ai
-
-# Create a virtual environment and install the service dependencies:
 python -m venv .venv
 .venv/Scripts/activate  # Windows
-or
-source .venv/bin/activate  # macOS/Linux and on github codespaces
+# or: source .venv/bin/activate  # macOS/Linux and GitHub Codespaces
 pip install -e .
-# Copy the example environment file to `.env`:
 cp .env.example .env
 ```
 
-Edit `.env` and set `GEMINI_API_KEY`, `COHORT_AI_INTERNAL_KEY`, `SUPABASE_URL`, and `SUPABASE_PUBLISHABLE_KEY`. The Supabase key must be a publishable key (or legacy anon key), never a secret/service-role key.
+Set `GEMINI_API_KEY`, `COHORT_AI_INTERNAL_KEY`, `SUPABASE_URL`, and
+`SUPABASE_PUBLISHABLE_KEY` in `.env`. The Supabase key must be a publishable key
+(or legacy anon key), never a secret/service-role key.
 
-Run the Python service:
-
-```bash
-python -m app.main
-```
-
-The service loads its local `.env` automatically. Variables injected by the deployment
-environment take precedence over values in `.env`.
+Run the service with `python -m app.main`.
 
 ## Local Gemini playground
 
-A separate Streamlit developer interface lets you experiment without waiting for the Cohort React
-frontend. It calls Gemini directly through the official SDK; it does not call the student-facing
-FastAPI endpoint and does not require the Fastify API or Supabase to be running.
-
-Install and start the UI from this directory:
+The optional Streamlit developer interface calls Gemini directly; it does not call the
+student-facing FastAPI endpoint and does not require Fastify or Supabase.
 
 ```bash
-# Install the playground dependencies:
 pip install -e ".[playground]"
-# Start the Streamlit playground:
 streamlit run playground/ui.py
 ```
 
-Open `http://localhost:8501`. The Streamlit server binds to `127.0.0.1` only. Do not expose
-this developer playground publicly: it has no user authentication and can incur API charges using
-the configured Gemini API key.
+Open `http://localhost:8501`. The playground binds to localhost only. Do not expose it
+publicly: it has no user authentication and can incur API charges.
 
-The playground includes:
-- Gemini 3.5 Flash-Lite chat.
-- Editable system prompt and model ID.
-- Thinking-level and maximum-output-token controls.
-- Conversation history and reset.
-- Best-effort token usage, latency, and optional estimated-cost display.
-
-The playground uses synchronous SDK calls because Streamlit runs a synchronous rerun-based UI.
-The production FastAPI service uses the asynchronous Gemini SDK. The Interactions API is documented
-as preview for this model; verify availability and behavior for your Google AI API project.
-Gemini 3.5 Flash-Lite ignores custom temperature values, so the playground does not expose a
-temperature setting. Token usage fields are best-effort. Estimated cost remains unavailable or
-zero until you configure the current per-million-token rates in your local `.env`.
+Features include Gemini chat, editable system prompt/model ID, thinking and output-token
+controls, conversation history/reset, and best-effort token/cost estimates. The playground
+uses synchronous SDK calls; production FastAPI uses asynchronous calls. The Interactions
+API is documented as preview for this model, so verify availability in your Google AI
+project. Temperature is not configurable for this model.
 
 ## Environment configuration
 
 See `.env.example` for the complete template.
 
-### Service
-
-- `COHORT_AI_INTERNAL_KEY`: private service-to-service secret used by Fastify.
+- `COHORT_AI_INTERNAL_KEY`: private service-to-service secret shared with Fastify.
 - `STUDENT_AI_TITLE`, `STUDENT_AI_VERSION`: FastAPI metadata.
-- `STUDENT_AI_HOST`, `STUDENT_AI_PORT`: bind address and port.
-- `STUDENT_AI_RELOAD`: enable Uvicorn reload for local development only.
+- `STUDENT_AI_HOST`, `STUDENT_AI_PORT`, `STUDENT_AI_RELOAD`: server settings.
 - `STUDENT_AI_MAX_MESSAGE_CHARS`, `STUDENT_AI_MAX_HISTORY_MESSAGES`,
-  `STUDENT_AI_MAX_CONTEXT_ITEMS`: request-size limits.
-
-### Supabase record retrieval
-
-- `SUPABASE_URL`: your Supabase project URL.
-- `SUPABASE_PUBLISHABLE_KEY`: publishable key for the project (legacy `anon` key is accepted as a fallback).
-- Fastify forwards the access token it has already verified, together with the verified user ID, over the private service-to-service request.
-- Python uses the Data API with that user's JWT. The database evaluates the existing `authenticated` grants and RLS policies for every request; the AI service never uses a service-role or secret key.
-- The first supported record intents are GPA/CGPA, attendance, published grades, course enrollments, and the student's assigned timetable.
-- The classifier can only select an allow-listed intent. Python chooses fixed table/column selections; Gemini never generates SQL or arbitrary table names.
-
-### Gemini
-
-- `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_API_VERSION`
-- `GEMINI_THINKING_LEVEL`, `GEMINI_MAX_OUTPUT_TOKENS`
-
-### Playground
-
-- `PLAYGROUND_SYSTEM_PROMPT`, `PLAYGROUND_GEMINI_MODEL`
+  `STUDENT_AI_MAX_CONTEXT_ITEMS`: request limits.
+- `SUPABASE_URL`: Supabase project URL.
+- `SUPABASE_PUBLISHABLE_KEY`: publishable key (legacy `SUPABASE_ANON_KEY` fallback accepted).
+- `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_API_VERSION`: Gemini configuration.
+- `GEMINI_THINKING_LEVEL`, `GEMINI_MAX_OUTPUT_TOKENS`: generation configuration.
+- `PLAYGROUND_SYSTEM_PROMPT`, `PLAYGROUND_GEMINI_MODEL`: playground configuration.
 - `PLAYGROUND_GEMINI_INPUT_USD_PER_MILLION`,
-  `PLAYGROUND_GEMINI_OUTPUT_USD_PER_MILLION`
+  `PLAYGROUND_GEMINI_OUTPUT_USD_PER_MILLION`: optional local cost estimates.
 
-The model defaults to `gemini-3.5-flash-lite`. Thinking level defaults to `minimal`, which is
-the model's low-latency default; raise it to `low`, `medium`, or `high` when the task needs
-more reasoning. Custom temperature values are not supported by this model and are ignored.
+## Student-record retrieval and authorization
 
-## Data handling
+The production FastAPI service **does connect to the Supabase Data API**. It holds the
+project URL and a publishable/legacy anon key, but never a Supabase secret or service-role
+key. For each authenticated chat request:
 
-Gemini Interactions requests use `store=False`. Cohort sends its own recent conversation history
-with each request rather than depending on provider-side conversation storage. This does not replace
-a review of Google's data handling and retention terms.
+1. Fastify authenticates the student and verifies the Supabase access token.
+2. Fastify sends the verified student's access token and user ID to FastAPI over the
+   private service-to-service channel, protected by `COHORT_AI_INTERNAL_KEY`.
+3. FastAPI uses the publishable key plus that student's JWT to query the Supabase Data API.
+   PostgreSQL grants and RLS policies remain the row-level authorization boundary.
+4. Python uses fixed, allow-listed table and column selections. Gemini classifies the
+   message into zero or more supported record intents; it never generates SQL, table names,
+   IDs, or filters.
+5. Python retrieves each selected record category and passes the resulting context to
+   Gemini to compose the answer.
 
-## Architecture and security
+Supported personal record intents: GPA/CGPA, attendance, published grades, course
+enrollments, and the student's assigned timetable. Multiple categories can be retrieved
+for one message. Classification is performed by Gemini only; there is no local keyword
+or regex intent shortcut. Invalid or malformed classifier output fails closed to no
+record lookup.
 
-The production AI service has no Supabase/database credentials. The Fastify API must authenticate
-the student, apply tenant/course/document permissions, retrieve only relevant records, and pass
-minimized context. The internal key must never be exposed to the browser.
+The Fastify-to-FastAPI identity forwarding contract and the database RLS policies must
+be verified in the deployed environment. The internal key must never be exposed to the
+browser. Do not treat a forwarded user ID alone as authorization.
 
-The FastAPI `/v1/chat` endpoint returns one complete JSON response. Provider requests are
-asynchronous, but token-by-token streaming is not yet exposed to Fastify or React.
+## Data handling and API behavior
 
-Current scope: conversational tutoring and orchestration only. Personal record retrieval, official
-RAG citations, conversation persistence, selective memory, budgets, audit persistence, and provider
-privacy controls are subsequent integration work.
+Gemini Interactions requests use `store=False`. Cohort sends its recent conversation
+history with each request rather than relying on provider-side conversation storage.
+This does not replace a review of Google's data handling and retention terms.
+
+The FastAPI `/v1/chat` endpoint returns one complete JSON response. Provider requests
+are asynchronous, but token-by-token streaming is not exposed to Fastify or React.
+
+Current scope includes conversational tutoring and read-only retrieval of the five
+personal record categories above. Official-document RAG citations, conversation
+persistence, selective memory, budgets, audit persistence, and provider privacy controls
+remain outside this service's current implementation.
