@@ -11,10 +11,12 @@ export const EnrollmentStatus = z.enum([
 ]);
 export type EnrollmentStatus = z.infer<typeof EnrollmentStatus>;
 
+/**
+ * One course a student is enrolled in. Enrolment is per course; a registrar assigns the student to
+ * class meetings, and `sections` are the sections those meetings belong to (empty until then).
+ */
 export const Enrollment = z.object({
   id: z.uuid(),
-  sectionId: z.uuid(),
-  sectionCode: z.string(),
   termId: z.uuid(),
   status: EnrollmentStatus,
   waitlistPosition: z.int().nullable(),
@@ -23,24 +25,9 @@ export const Enrollment = z.object({
     title: z.string(),
     creditHours: z.number(),
   }),
+  sections: z.array(z.object({ id: z.uuid(), code: z.string() })),
 });
 export type Enrollment = z.infer<typeof Enrollment>;
 
 export const EnrollmentsResponse = z.object({ enrollments: z.array(Enrollment) });
 export type EnrollmentsResponse = z.infer<typeof EnrollmentsResponse>;
-
-export const EnrollRequest = z.object({ sectionId: z.uuid() });
-export type EnrollRequest = z.infer<typeof EnrollRequest>;
-
-export const SectionParams = z.object({ sectionId: z.uuid() });
-export type SectionParams = z.infer<typeof SectionParams>;
-
-export const EnrollmentChange = z.object({
-  enrollment: z.object({
-    id: z.uuid(),
-    sectionId: z.uuid(),
-    status: EnrollmentStatus,
-    waitlistPosition: z.int().nullable(),
-  }),
-});
-export type EnrollmentChange = z.infer<typeof EnrollmentChange>;

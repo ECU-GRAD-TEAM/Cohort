@@ -41,13 +41,15 @@ export type University = {
   courses: { cs101: string; cs201: string; ma101: string };
   offerings: { cs101: string; cs201: string; ma101: string };
   sections: { cs101: string; cs201: string; ma101: string };
+  /** Each course's grading: a published 30% midterm and an unpublished 70% final. */
+  components: Record<"cs101" | "cs201" | "ma101", { midterm: string; final: string }>;
 };
 
 type SeedOptions = {
   cs101Capacity?: number;
   cs101Waitlist?: number;
   registrationOpen?: boolean;
-  /** False seeds the three students as `non_staff` accounts with no `student` role. */
+  /** False seeds the three students as `non_staff` accounts with no `undergraduate` role. */
   studentRoles?: boolean;
 };
 
@@ -76,13 +78,15 @@ export async function seedUniversity(options: SeedOptions = {}): Promise<Univers
   const courses = { cs101: randomUUID(), cs201: randomUUID(), ma101: randomUUID() };
   const offerings = { cs101: randomUUID(), cs201: randomUUID(), ma101: randomUUID() };
   const sections = { cs101: randomUUID(), cs201: randomUUID(), ma101: randomUUID() };
+  const component = () => ({ midterm: randomUUID(), final: randomUUID() });
+  const components = { cs101: component(), cs201: component(), ma101: component() };
 
   const accounts = [
-    { key: "student", name: "Sara Student", type: "non_staff", role: "student" },
-    { key: "classmate", name: "Samir Student", type: "non_staff", role: "student" },
-    { key: "latecomer", name: "Laila Late", type: "non_staff", role: "student" },
+    { key: "student", name: "Sara Student", type: "non_staff", role: "undergraduate" },
+    { key: "classmate", name: "Samir Student", type: "non_staff", role: "undergraduate" },
+    { key: "latecomer", name: "Laila Late", type: "non_staff", role: "undergraduate" },
     { key: "teacher", name: "Tariq Teacher", type: "staff", role: "instructor" },
-    { key: "admin", name: "Ada Admin", type: "staff", role: "administrator" },
+    { key: "admin", name: "Ada Admin", type: "staff", role: "it_administrator" },
   ] as const;
   const catalogue = [
     { key: "cs101", code: "CS101", title: "Programming I", credits: 3.5, status: "published", capacity: cs101Capacity, waitlist: cs101Waitlist },
@@ -113,7 +117,7 @@ export async function seedUniversity(options: SeedOptions = {}): Promise<Univers
           JSON.stringify({ full_name: account.name }),
         ],
       );
-      if (account.role === "student" && !studentRoles) continue;
+      if (account.role === "undergraduate" && !studentRoles) continue;
       await client.query(
         `insert into public.user_roles
            (user_id, role_id, tenant_id, assignment_status, starts_at)
@@ -167,11 +171,22 @@ export async function seedUniversity(options: SeedOptions = {}): Promise<Univers
          values ($1, $2, $3, $4, $5, $6)`,
         [courses[course.key], tenantId, departmentId, course.code, course.title, course.credits],
       );
+      // An offering is published only once its grading components total 100 percent, so it starts
+      // as a draft, gets a midterm and a final, and is then given its status.
       await client.query(
         `insert into public.course_offerings (id, tenant_id, course_id, term_id, status)
-         values ($1, $2, $3, $4, $5)`,
-        [offerings[course.key], tenantId, courses[course.key], termId, course.status],
+         values ($1, $2, $3, $4, 'draft')`,
+        [offerings[course.key], tenantId, courses[course.key], termId],
       );
+      await client.query(
+        `insert into public.grade_components (id, tenant_id, offering_id, name, category, weight, published_at)
+         values ($1, $3, $4, 'Midterm', 'midterm', 30, now()), ($2, $3, $4, 'Final', 'final_exam', 70, null)`,
+        [components[course.key].midterm, components[course.key].final, tenantId, offerings[course.key]],
+      );
+      await client.query(`update public.course_offerings set status = $2 where id = $1`, [
+        offerings[course.key],
+        course.status,
+      ]);
       await client.query(
         `insert into public.sections (id, tenant_id, offering_id, code, capacity, waitlist_capacity)
          values ($1, $2, $3, 'L1', $4, $5)`,
@@ -188,12 +203,12 @@ export async function seedUniversity(options: SeedOptions = {}): Promise<Univers
       `insert into public.section_instructors (section_id, user_id, tenant_id) values ($1, $2, $3)`,
       [sections.cs101, users.teacher, tenantId],
     );
-    // Weekday 7 (Sunday), 09:05 to 10:30.
+    // Sunday (day 0), 09:05 to 10:30.
     await client.query(
-      `insert into public.timetable_entries
-         (tenant_id, section_id, room_id, weekday, starts_at, ends_at, valid_from, valid_until)
-       values ($1, $2, $3, 7, '09:05', '10:30', current_date - 7, current_date + 90)`,
-      [tenantId, sections.cs101, roomId],
+      `insert into public.section_meetings
+         (tenant_id, section_id, offering_id, room_id, day_of_week, starts_at, ends_at, meeting_type)
+       values ($1, $2, $3, $4, 0, '09:05', '10:30', 'lecture')`,
+      [tenantId, sections.cs101, offerings.cs101, roomId],
     );
 
     await client.query("commit");
@@ -204,5 +219,31 @@ export async function seedUniversity(options: SeedOptions = {}): Promise<Univers
     client.release();
   }
 
-  return { tenantId, tenantName, termId, users, courses, offerings, sections };
+  return { tenantId, tenantName, termId, users, courses, offerings, sections, components };
+}
+
+/**
+ * Enrols a student in a course the way a registrar does: an enrolment for the course's offering and,
+ * unless `meetings` is false, an assignment to every meeting of its L1 section.
+ */
+export async function enrol(
+  v: University,
+  sub: string,
+  key: "cs101" | "cs201" | "ma101",
+  { status = "enrolled", meetings = true }: { status?: string; meetings?: boolean } = {},
+): Promise<string> {
+  const [row] = await ownerQuery<{ id: string }>(
+    `insert into public.enrollments (tenant_id, student_id, offering_id, status, waitlist_position)
+     values ($1, $2, $3, $4::public.enrollment_status, case when $4 = 'waitlisted' then 1 end) returning id`,
+    [v.tenantId, sub, v.offerings[key], status],
+  );
+  const id = row!.id;
+  if (meetings) {
+    await ownerQuery(
+      `insert into public.student_meetings (tenant_id, enrollment_id, meeting_id)
+       select m.tenant_id, $1, m.id from public.section_meetings m where m.section_id = $2`,
+      [id, v.sections[key]],
+    );
+  }
+  return id;
 }

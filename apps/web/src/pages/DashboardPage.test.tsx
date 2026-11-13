@@ -7,12 +7,16 @@ import { createFakeAuth, fakeSession, renderApp } from "../../test/render.tsx";
 
 const TERM_ID = "c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f";
 
-function enrollment(overrides: Partial<Enrollment> & Pick<Enrollment, "id" | "sectionCode" | "course">): Enrollment {
+/** An enrolment in one section, `sectionCode`, or in none when it is null. */
+function enrollment({
+  sectionCode,
+  ...overrides
+}: Partial<Enrollment> & Pick<Enrollment, "id" | "course"> & { sectionCode: string | null }): Enrollment {
   return {
-    sectionId: "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
     termId: TERM_ID,
     status: "enrolled",
     waitlistPosition: null,
+    sections: sectionCode === null ? [] : [{ id: "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a", code: sectionCode }],
     ...overrides,
   };
 }
@@ -75,7 +79,7 @@ function renderDashboard() {
 }
 
 describe("DashboardPage", () => {
-  it("shows the UniFlow teaching workspace to a teaching assistant", async () => {
+  it("shows the teaching workspace to a teaching assistant", async () => {
     server.use(
       http.get(`${API}/me`, () => HttpResponse.json({ ...defaultMe, userType: "staff", roles: ["teaching_assistant"], displayName: "Mona Hassan" })),
     );

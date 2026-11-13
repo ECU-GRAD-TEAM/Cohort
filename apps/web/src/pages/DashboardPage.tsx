@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { useApi } from "../lib/ApiContext.tsx";
-import { formatEnrollmentStatus, formatGradeItem, formatScore } from "../lib/format.ts";
+import { formatEnrollmentStatus, formatSections, formatGradeItem, formatScore } from "../lib/format.ts";
 import { queryKeys } from "../lib/queryKeys.ts";
 import "../styles/teaching-assistant-dashboard.css";
 
@@ -93,7 +93,7 @@ function CoursesSection() {
         <ul className="card-list">
           {current.map((enrollment) => (
             <li key={enrollment.id}>
-              {`${enrollment.course.code} ${enrollment.course.title} · Section ${enrollment.sectionCode} · ${formatEnrollmentStatus(enrollment.status, enrollment.waitlistPosition)}`}
+              {`${enrollment.course.code} ${enrollment.course.title} · ${formatSections(enrollment.sections)} · ${formatEnrollmentStatus(enrollment.status, enrollment.waitlistPosition)}`}
             </li>
           ))}
         </ul>

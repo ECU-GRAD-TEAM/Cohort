@@ -55,12 +55,11 @@ export const catalogueRoutes: FastifyPluginAsync = async (app) => {
             },
           },
         });
-        const entries = await tx.timetable_entries.findMany({
+        const entries = await tx.section_meetings.findMany({
           where: { sections: published },
-          orderBy: [{ weekday: "asc" }, { starts_at: "asc" }, { ends_at: "asc" }],
           select: {
             section_id: true,
-            weekday: true,
+            day_of_week: true,
             starts_at: true,
             ends_at: true,
             rooms: { select: { code: true } },
@@ -70,8 +69,16 @@ export const catalogueRoutes: FastifyPluginAsync = async (app) => {
       });
       if (!found) throw new ApiError(404, "not_found", "Term not found.");
 
+      // Meetings by ISO weekday (Monday 1 to Sunday 7), then start and end time.
       const meetingsBySection = new Map<string, SectionsResponse["sections"][number]["meetings"]>();
-      for (const entry of found.entries) {
+      const timetable = found.entries.map((entry) => ({ ...entry, weekday: isoWeekday(entry.day_of_week) }));
+      timetable.sort(
+        (a, b) =>
+          a.weekday - b.weekday ||
+          a.starts_at.getTime() - b.starts_at.getTime() ||
+          a.ends_at.getTime() - b.ends_at.getTime(),
+      );
+      for (const entry of timetable) {
         const meetings = meetingsBySection.get(entry.section_id) ?? [];
         meetings.push({
           weekday: entry.weekday,
@@ -103,3 +110,8 @@ export const catalogueRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 };
+
+/** `section_meetings.day_of_week` counts from Sunday (0) to Saturday (6), as Postgres does. */
+export function isoWeekday(dayOfWeek: number): number {
+  return dayOfWeek === 0 ? 7 : dayOfWeek;
+}

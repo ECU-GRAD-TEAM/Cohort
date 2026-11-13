@@ -10,7 +10,7 @@ export const defaultMe: MeResponse = {
   userType: "non_staff",
   displayName: "Sara Student",
   tenant: { id: "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d", name: "Smoke University A" },
-  roles: ["student"],
+  roles: ["undergraduate"],
 };
 
 // Every page the app can reach is covered, so tests that render the whole app run with strict

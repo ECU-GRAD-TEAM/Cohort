@@ -17,21 +17,22 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
           select: { id: true, email: true, user_type: true, tenants: { select: { id: true, name: true } } },
         });
         if (!user) return null;
-        const profile = await tx.person_profiles.findUnique({
+        const profile = await tx.user_profiles.findUnique({
           where: { user_id: sub },
           select: { display_name: true },
         });
-        // Like `private.has_role`, count only assignments that are active now.
+        // Like `private.has_role`, count only assignments that are active now. `status` is the
+        // assignment's lifecycle; the database keeps `assignment_status` and `revoked_at` in step with it.
         const now = new Date();
         const roles = await tx.roles.findMany({
           where: {
             user_roles: {
               some: {
                 user_id: sub,
-                assignment_status: "active",
+                status: "active",
                 starts_at: { lte: now },
                 revoked_at: null,
-                OR: [{ expires_at: null }, { expires_at: { gt: now } }],
+                OR: [{ ends_at: null }, { ends_at: { gt: now } }],
               },
             },
           },
