@@ -1,7 +1,7 @@
 import type { CatalogueSection, Enrollment, Term } from "@cohort/contracts";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { delay, http, HttpResponse } from "msw";
+import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import { API, server } from "../../test/server.ts";
 import { createFakeAuth, fakeSession, renderApp } from "../../test/render.tsx";
@@ -58,22 +58,13 @@ const serverError = { error: { code: "internal", message: "Something went wrong.
 function enrollmentIn(section: CatalogueSection, overrides: Partial<Enrollment> = {}): Enrollment {
   return {
     id: enrollmentId,
-    sectionId: section.id,
-    sectionCode: section.code,
     termId: openTermId,
     status: "enrolled",
     waitlistPosition: null,
     course: { code: section.course.code, title: section.course.title, creditHours: section.course.creditHours },
+    sections: [{ id: section.id, code: section.code }],
     ...overrides,
   };
-}
-
-function change(
-  sectionId: string,
-  status: "enrolled" | "waitlisted" | "dropped",
-  waitlistPosition: number | null = null,
-) {
-  return { enrollment: { id: enrollmentId, sectionId, status, waitlistPosition } };
 }
 
 /** A promise a test settles itself, so a request can be held open and then released. */
@@ -85,32 +76,18 @@ function gate() {
   return { opened, open };
 }
 
-// The sections the student holds, and how often the page has asked for them.
-const enrolled = new Set<string>();
-let enrollmentReads = 0;
-
 beforeEach(() => {
-  enrolled.clear();
-  enrollmentReads = 0;
   server.use(
     http.get(`${API}/terms`, () => HttpResponse.json({ terms: [openTerm] })),
     http.get(`${API}/terms/:termId/sections`, () => HttpResponse.json({ sections })),
-    http.get(`${API}/me/enrollments`, () => {
-      enrollmentReads += 1;
-      return HttpResponse.json({ enrollments: sections.filter((s) => enrolled.has(s.id)).map((s) => enrollmentIn(s)) });
-    }),
-    http.post(`${API}/enrollments`, async ({ request }) => {
-      const { sectionId } = (await request.json()) as { sectionId: string };
-      enrolled.add(sectionId);
-      return HttpResponse.json(change(sectionId, "enrolled"), { status: 201 });
-    }),
-    http.delete(`${API}/enrollments/:sectionId`, ({ params }) => {
-      const sectionId = String(params.sectionId);
-      enrolled.delete(sectionId);
-      return HttpResponse.json(change(sectionId, "dropped"));
-    }),
+    http.get(`${API}/me/enrollments`, () => HttpResponse.json({ enrollments: [] })),
   );
 });
+
+/** The list item of a section, found by its course code. */
+function rowOf(courseCode: string) {
+  return screen.getByText(new RegExp(`^${courseCode} `)).closest("li")!;
+}
 
 function renderRegistration() {
   return renderApp({ route: "/register", auth: createFakeAuth({ session: fakeSession }) });
@@ -132,7 +109,7 @@ describe("RegistrationPage", () => {
       expect(screen.getByText("Wed 09:00–10:30")).toBeInTheDocument();
     });
 
-    it("offers Drop for an enrolled or waitlisted section and Register otherwise", async () => {
+    it("marks the sections the student is assigned to, enrolled or waitlisted, and no others", async () => {
       server.use(
         http.get(`${API}/me/enrollments`, () =>
           HttpResponse.json({
@@ -144,14 +121,22 @@ describe("RegistrationPage", () => {
         ),
       );
       renderRegistration();
-      expect(await screen.findByRole("button", { name: "Drop CS101 L1" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Register for CS201 L1" })).toBeInTheDocument();
+      await screen.findByText("CS101 Programming I · Section L1 · 3.5 credits");
+      expect(within(rowOf("CS101")).getByText("Your section")).toBeInTheDocument();
+      expect(within(rowOf("CS201")).queryByText("Your section")).not.toBeInTheDocument();
     });
 
-    it("says when a term has no open sections", async () => {
+    it("explains that the registrar enrols students, and offers no register or drop buttons", async () => {
+      renderRegistration();
+      expect(await screen.findByText(/Your registrar enrols you in courses and assigns your class meetings/)).toBeInTheDocument();
+      await screen.findByText("CS101 Programming I · Section L1 · 3.5 credits");
+      expect(within(screen.getByRole("main")).queryByRole("button")).toBeNull();
+    });
+
+    it("says when a term has no published sections", async () => {
       server.use(http.get(`${API}/terms/:termId/sections`, () => HttpResponse.json({ sections: [] })));
       renderRegistration();
-      expect(await screen.findByText("No sections are open for registration in this term.")).toBeInTheDocument();
+      expect(await screen.findByText("No sections are published for this term yet.")).toBeInTheDocument();
     });
   });
 
@@ -234,10 +219,10 @@ describe("RegistrationPage", () => {
       renderRegistration();
       expect(await screen.findByRole("combobox", { name: "Term" })).toBeInTheDocument();
       expect(screen.getByText("Loading…")).toBeInTheDocument();
-      expect(screen.queryByText("No sections are open for registration in this term.")).not.toBeInTheDocument();
+      expect(screen.queryByText("No sections are published for this term yet.")).not.toBeInTheDocument();
 
       list.open();
-      expect(await screen.findByText("No sections are open for registration in this term.")).toBeInTheDocument();
+      expect(await screen.findByText("No sections are published for this term yet.")).toBeInTheDocument();
       expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
     });
 
@@ -246,10 +231,10 @@ describe("RegistrationPage", () => {
       renderRegistration();
       expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong. Please try again.");
       expect(screen.getByRole("combobox", { name: "Term" })).toBeInTheDocument();
-      expect(screen.queryByText("No sections are open for registration in this term.")).not.toBeInTheDocument();
+      expect(screen.queryByText("No sections are published for this term yet.")).not.toBeInTheDocument();
     });
 
-    it("offers no buttons until the student's enrolments arrive", async () => {
+    it("lists nothing until the student's enrolments arrive", async () => {
       const mine = gate();
       server.use(
         http.get(`${API}/me/enrollments`, async () => {
@@ -260,11 +245,11 @@ describe("RegistrationPage", () => {
       renderRegistration();
       expect(await screen.findByRole("combobox", { name: "Term" })).toBeInTheDocument();
       expect(await screen.findByText("Loading…")).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: /^Register for / })).not.toBeInTheDocument();
+      expect(screen.queryByText(/^CS101 /)).not.toBeInTheDocument();
 
       mine.open();
-      expect(await screen.findByRole("button", { name: "Drop CS101 L1" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Register for CS201 L1" })).toBeInTheDocument();
+      await screen.findByText("CS101 Programming I · Section L1 · 3.5 credits");
+      expect(within(rowOf("CS101")).getByText("Your section")).toBeInTheDocument();
       expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
     });
 
@@ -272,127 +257,8 @@ describe("RegistrationPage", () => {
       server.use(http.get(`${API}/me/enrollments`, () => HttpResponse.json(serverError, { status: 500 })));
       renderRegistration();
       expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong. Please try again.");
-      expect(screen.queryByRole("button", { name: /^(Register for|Drop) / })).not.toBeInTheDocument();
-      expect(screen.queryByText("No sections are open for registration in this term.")).not.toBeInTheDocument();
-    });
-  });
-
-  describe("registering and dropping", () => {
-    it("registers, then offers to drop", async () => {
-      renderRegistration();
-      await userEvent.click(await screen.findByRole("button", { name: "Register for CS101 L1" }));
-      expect(await screen.findByRole("status")).toHaveTextContent("Registered for CS101 L1.");
-      expect(await screen.findByRole("button", { name: "Drop CS101 L1" })).toBeInTheDocument();
-      expect(enrollmentReads).toBe(2);
-    });
-
-    it("tells the student they are on the waiting list", async () => {
-      server.use(
-        http.post(`${API}/enrollments`, () => HttpResponse.json(change(cs101, "waitlisted", 1), { status: 201 })),
-      );
-      renderRegistration();
-      await userEvent.click(await screen.findByRole("button", { name: "Register for CS101 L1" }));
-      expect(await screen.findByRole("status")).toHaveTextContent(
-        "Added to the waiting list for CS101 L1 (position 1).",
-      );
-    });
-
-    it("tells the student they are on the waiting list when there is no position", async () => {
-      server.use(
-        http.post(`${API}/enrollments`, () => HttpResponse.json(change(cs101, "waitlisted", null), { status: 201 })),
-      );
-      renderRegistration();
-      await userEvent.click(await screen.findByRole("button", { name: "Register for CS101 L1" }));
-      const status = await screen.findByRole("status");
-      expect(status).toHaveTextContent(/^Added to the waiting list for CS101 L1\.$/);
-    });
-
-    it("drops a section, then offers to register again", async () => {
-      enrolled.add(cs101);
-      renderRegistration();
-      await userEvent.click(await screen.findByRole("button", { name: "Drop CS101 L1" }));
-      expect(await screen.findByRole("status")).toHaveTextContent("Dropped CS101 L1.");
-      expect(await screen.findByRole("button", { name: "Register for CS101 L1" })).toBeInTheDocument();
-    });
-
-    it("shows the database's reason when registration is refused, and changes nothing else", async () => {
-      server.use(
-        http.post(`${API}/enrollments`, () =>
-          HttpResponse.json(
-            { error: { code: "rule_violation", message: "Prerequisites for CS201 are not met" } },
-            { status: 422 },
-          ),
-        ),
-      );
-      const { queryClient } = renderRegistration();
-      await userEvent.click(await screen.findByRole("button", { name: "Register for CS201 L1" }));
-      expect(await screen.findByRole("alert")).toHaveTextContent("Prerequisites for CS201 are not met");
-      expect(screen.getByRole("button", { name: "Register for CS201 L1" })).toBeEnabled();
-      expect(screen.getByRole("button", { name: "Register for CS101 L1" })).toBeEnabled();
-      expect(screen.queryByRole("status")).not.toBeInTheDocument();
-      expect(queryClient.isFetching()).toBe(0);
-      expect(enrollmentReads).toBe(1);
-    });
-
-    it("shows the database's reason when a drop is refused", async () => {
-      enrolled.add(cs101);
-      server.use(
-        http.delete(`${API}/enrollments/:sectionId`, () =>
-          HttpResponse.json(
-            { error: { code: "rule_violation", message: "The add/drop period has ended" } },
-            { status: 422 },
-          ),
-        ),
-      );
-      renderRegistration();
-      await userEvent.click(await screen.findByRole("button", { name: "Drop CS101 L1" }));
-      expect(await screen.findByRole("alert")).toHaveTextContent("The add/drop period has ended");
-      expect(screen.getByRole("button", { name: "Drop CS101 L1" })).toBeEnabled();
-      expect(screen.queryByRole("status")).not.toBeInTheDocument();
-    });
-
-    it("disables the button while the request is in flight", async () => {
-      server.use(
-        http.post(`${API}/enrollments`, async () => {
-          await delay("infinite");
-          return HttpResponse.json({});
-        }),
-      );
-      renderRegistration();
-      const button = await screen.findByRole("button", { name: "Register for CS101 L1" });
-      await userEvent.click(button);
-      expect(button).toBeDisabled();
-      expect(screen.getByRole("button", { name: "Register for CS201 L1" })).toBeEnabled();
-    });
-
-    it("clears the previous message when a new action starts", async () => {
-      const second = gate();
-      server.use(
-        http.post(`${API}/enrollments`, async ({ request }) => {
-          const { sectionId } = (await request.json()) as { sectionId: string };
-          if (sectionId === cs201) {
-            return HttpResponse.json(
-              { error: { code: "rule_violation", message: "Prerequisites for CS201 are not met" } },
-              { status: 422 },
-            );
-          }
-          await second.opened;
-          return HttpResponse.json(change(sectionId, "enrolled"), { status: 201 });
-        }),
-      );
-      renderRegistration();
-
-      await userEvent.click(await screen.findByRole("button", { name: "Register for CS201 L1" }));
-      expect(await screen.findByRole("alert")).toHaveTextContent("Prerequisites for CS201 are not met");
-
-      await userEvent.click(screen.getByRole("button", { name: "Register for CS101 L1" }));
-      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-      second.open();
-      expect(await screen.findByRole("status")).toHaveTextContent("Registered for CS101 L1.");
-
-      await userEvent.click(screen.getByRole("button", { name: "Register for CS201 L1" }));
-      expect(await screen.findByRole("alert")).toHaveTextContent("Prerequisites for CS201 are not met");
-      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+      expect(screen.queryByText(/^CS101 /)).not.toBeInTheDocument();
+      expect(screen.queryByText("No sections are published for this term yet.")).not.toBeInTheDocument();
     });
   });
 });

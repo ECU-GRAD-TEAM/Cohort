@@ -40,14 +40,24 @@ export function formatMeeting(meeting: Meeting): string {
   return meeting.room === null ? when : `${when} · Room ${meeting.room}`;
 }
 
+/** An enrolment's sections as "Section L1" or "Sections L1, B2", or "No section assigned yet". */
+export function formatSections(sections: { code: string }[]): string {
+  if (sections.length === 0) return "No section assigned yet";
+  const codes = sections.map((section) => section.code).join(", ");
+  return sections.length === 1 ? `Section ${codes}` : `Sections ${codes}`;
+}
+
 /** Credit hours as "1 credit", "3 credits" or "3.5 credits": the number exactly as it is. */
 export function formatCredits(creditHours: number): string {
   return creditHours === 1 ? "1 credit" : `${creditHours} credits`;
 }
 
-/** The sidebar's label for the caller: "Student" with the student role, else "Staff" or "Non-staff". */
+/** Role keys a university gives its students. */
+const STUDENT_ROLES = ["undergraduate", "postgraduate"];
+
+/** The sidebar's label for the caller: "Student" with a student role, else "Staff" or "Non-staff". */
 export function formatRole(me: Pick<MeResponse, "userType" | "roles">): string {
-  if (me.roles.includes("student")) return "Student";
+  if (me.roles.some((role) => STUDENT_ROLES.includes(role))) return "Student";
   if (me.roles.includes("teaching_assistant")) return "Teaching Assistant";
   return me.userType === "staff" ? "Staff" : "Non-staff";
 }

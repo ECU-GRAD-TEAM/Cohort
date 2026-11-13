@@ -12,7 +12,7 @@ const me: MeResponse = {
   userType: "non_staff",
   displayName: "Ayla Hassan",
   tenant: { id: "a4c8e0f2-1b3d-4a5c-9e7f-0123456789ab", name: "Cohort University" },
-  roles: ["student"],
+  roles: ["undergraduate"],
 };
 
 const client = (onUnauthorized = vi.fn()) =>
@@ -32,17 +32,14 @@ describe("createApiClient", () => {
 
   it("surfaces the API's error code and message", async () => {
     server.use(
-      http.post(`${API}/enrollments`, () =>
-        HttpResponse.json(
-          { error: { code: "rule_violation", message: "Prerequisites for CS201 are not met" } },
-          { status: 422 },
-        ),
+      http.get(`${API}/terms/:termId/sections`, () =>
+        HttpResponse.json({ error: { code: "not_found", message: "Term not found." } }, { status: 404 }),
       ),
     );
-    await expect(client().enroll(sectionId)).rejects.toMatchObject({
-      status: 422,
-      code: "rule_violation",
-      message: "Prerequisites for CS201 are not met",
+    await expect(client().getSections(sectionId)).rejects.toMatchObject({
+      status: 404,
+      code: "not_found",
+      message: "Term not found.",
     });
   });
 
@@ -74,30 +71,17 @@ describe("createApiClient", () => {
     });
   });
 
-  it("drops with DELETE on the section's path", async () => {
-    server.use(
-      http.delete(`${API}/enrollments/${sectionId}`, () =>
-        HttpResponse.json({ enrollment: { id: sectionId, sectionId, status: "dropped", waitlistPosition: null } }),
-      ),
-    );
-    await expect(client().drop(sectionId)).resolves.toMatchObject({ enrollment: { status: "dropped" } });
-  });
-
-  it("enrolls with a JSON body", async () => {
+  it("sends a JSON body", async () => {
     let received: { contentType: string | null; body: unknown } | undefined;
+    const input = { message: "Hello", history: [], language: "auto" as const };
     server.use(
-      http.post(`${API}/enrollments`, async ({ request }) => {
+      http.post(`${API}/student-ai/chat`, async ({ request }) => {
         received = { contentType: request.headers.get("content-type"), body: await request.json() };
-        return HttpResponse.json(
-          { enrollment: { id: sectionId, sectionId, status: "waitlisted", waitlistPosition: 3 } },
-          { status: 201 },
-        );
+        return HttpResponse.json({ answer: "Hi", language: "en", provider: "p", model: "m", latency_ms: 1, sources: [], limitations: [] });
       }),
     );
-    await expect(client().enroll(sectionId)).resolves.toMatchObject({
-      enrollment: { status: "waitlisted", waitlistPosition: 3 },
-    });
-    expect(received).toEqual({ contentType: "application/json", body: { sectionId } });
+    await expect(client().chatWithStudentAssistant(input)).resolves.toMatchObject({ answer: "Hi" });
+    expect(received).toEqual({ contentType: "application/json", body: input });
   });
 
   it("encodes path parameters", async () => {
