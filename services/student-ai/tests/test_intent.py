@@ -1,35 +1,56 @@
+import asyncio
 import unittest
 
-from app.intent import _rule_hint, classify_intent
+from app.intent import classify_intents
 
 
-class IntentRuleTests(unittest.TestCase):
-    def test_english_record_prompts(self):
-        self.assertEqual(_rule_hint("What is my GPA?"), "gpa")
-        self.assertEqual(_rule_hint("How many absences do I have?"), "attendance")
-        self.assertEqual(_rule_hint("Show me my published grades"), "grades")
-        self.assertEqual(_rule_hint("Which courses am I enrolled in?"), "enrollments")
-        self.assertEqual(_rule_hint("Show my timetable"), "timetable")
+class GeminiMultiIntentTests(unittest.TestCase):
+    def test_multiple_intents_are_returned_and_deduplicated(self):
+        calls = []
 
-    def test_arabic_record_prompts(self):
-        self.assertEqual(_rule_hint("ما هو معدلي التراكمي؟"), "gpa")
-        self.assertEqual(_rule_hint("كم عدد مرات غيابي؟"), "attendance")
-        self.assertEqual(_rule_hint("ما هي درجاتي؟"), "grades")
-        self.assertEqual(_rule_hint("ما هي موادي؟"), "enrollments")
-        self.assertEqual(_rule_hint("اعرض جدولي"), "timetable")
+        async def model_call(messages):
+            calls.append(messages)
+            return '{"intents":["gpa","attendance","gpa"]}'
 
-    def test_ambiguous_prompts_use_model_fallback(self):
-        self.assertIsNone(_rule_hint("Can you help me understand recursion?"))
+        result = asyncio.run(classify_intents(
+            "What is my GPA and how many classes have I missed?", model_call
+        ))
 
-    def test_intent_model_output_is_allow_listed(self):
+        self.assertEqual(result, ["gpa", "attendance"])
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][0]["role"], "system")
+
+    def test_general_question_returns_no_intents(self):
         async def model_call(_messages):
-            return '{"intent":"DROP TABLE users"}'
+            return '{"intents":[]}'
 
-        async def run():
-            self.assertEqual(await classify_intent("please look this up", model_call), "none")
+        self.assertEqual(
+            asyncio.run(classify_intents("Explain photosynthesis", model_call)), []
+        )
 
-        import asyncio
-        asyncio.run(run())
+    def test_unknown_intent_fails_closed(self):
+        async def model_call(_messages):
+            return '{"intents":["gpa","drop_all_tables"]}'
+
+        self.assertEqual(
+            asyncio.run(classify_intents("Check my GPA", model_call)), []
+        )
+
+    def test_malformed_json_fails_closed(self):
+        async def model_call(_messages):
+            return "I think the intent is GPA."
+
+        self.assertEqual(
+            asyncio.run(classify_intents("Check my GPA", model_call)), []
+        )
+
+    def test_json_code_fence_is_accepted(self):
+        async def model_call(_messages):
+            return '```json\n{"intents":["grades"]}\n```'
+
+        self.assertEqual(
+            asyncio.run(classify_intents("Show my marks", model_call)), ["grades"]
+        )
 
 
 if __name__ == "__main__":
