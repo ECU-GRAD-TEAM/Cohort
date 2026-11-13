@@ -48,6 +48,7 @@ export function formatCredits(creditHours: number): string {
 /** The sidebar's label for the caller: "Student" with the student role, else "Staff" or "Non-staff". */
 export function formatRole(me: Pick<MeResponse, "userType" | "roles">): string {
   if (me.roles.includes("student")) return "Student";
+  if (me.roles.includes("teaching_assistant")) return "Teaching Assistant";
   return me.userType === "staff" ? "Staff" : "Non-staff";
 }
 
