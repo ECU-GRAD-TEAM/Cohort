@@ -27,7 +27,7 @@ function TeachingAssistantDashboard({ displayName }: { displayName: string }) {
           <span className="uf-kicker">TEACH. CONNECT. INSPIRE.</span>
           <h2>More time for teaching.<br /><em>Everything else, in flow.</em></h2>
           <p>Welcome back, {firstName}. Your courses, schedule and student communication are all within reach.</p>
-          <div className="uf-hero-actions"><Link className="uf-primary" to="/courses">Open courses <span aria-hidden="true">↗</span></Link><Link className="uf-outline" to="/schedule">View schedule</Link></div>
+          <div className="uf-hero-actions"><Link className="uf-primary" to="/courses">Explore courses <span aria-hidden="true">↗</span></Link><Link className="uf-outline" to="/schedule">View schedule</Link></div>
         </div>
         <div className="uf-hero-art" aria-hidden="true"><div className="uf-paper uf-paper-back" /><div className="uf-paper"><span>CS / TA</span><b>Aa<span>+</span></b><i /><i /><i /><div className="uf-paper-check">✓</div></div><span className="uf-art-star">✳</span></div>
       </section>
