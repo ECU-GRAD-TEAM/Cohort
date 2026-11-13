@@ -1,6 +1,5 @@
 import {
   ApiErrorBody,
-  EnrollmentChange,
   EnrollmentsResponse,
   GradesResponse,
   MeResponse,
@@ -36,8 +35,6 @@ export type ApiClient = {
   getTerms(): Promise<TermsResponse>;
   getSections(termId: string): Promise<SectionsResponse>;
   getMyEnrollments(): Promise<EnrollmentsResponse>;
-  enroll(sectionId: string): Promise<EnrollmentChange>;
-  drop(sectionId: string): Promise<EnrollmentChange>;
   getMyGrades(): Promise<GradesResponse>;
   chatWithStudentAssistant(input: { message: string; history: { role: "user" | "assistant"; content: string }[]; language: "auto" | "en" | "ar" }): Promise<StudentAiChatResponse>;
 };
@@ -102,8 +99,6 @@ export function createApiClient({ baseUrl, getAccessToken, onUnauthorized }: Api
     getTerms: () => request("GET", "/terms", TermsResponse),
     getSections: (termId) => request("GET", `/terms/${encodeURIComponent(termId)}/sections`, SectionsResponse),
     getMyEnrollments: () => request("GET", "/me/enrollments", EnrollmentsResponse),
-    enroll: (sectionId) => request("POST", "/enrollments", EnrollmentChange, { sectionId }),
-    drop: (sectionId) => request("DELETE", `/enrollments/${encodeURIComponent(sectionId)}`, EnrollmentChange),
     getMyGrades: () => request("GET", "/me/grades", GradesResponse),
     chatWithStudentAssistant: (input) => request("POST", "/student-ai/chat", StudentAiResponse, input),
   };

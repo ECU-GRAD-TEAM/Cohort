@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { useApi } from "../lib/ApiContext.tsx";
-import { formatEnrollmentStatus, formatGradeItem, formatScore } from "../lib/format.ts";
+import { formatEnrollmentStatus, formatSections, formatGradeItem, formatScore } from "../lib/format.ts";
 import { queryKeys } from "../lib/queryKeys.ts";
 import "../styles/teaching-assistant-dashboard.css";
 
@@ -72,7 +72,18 @@ function CoursesSection() {
   else if (enrollments.data === undefined) content = <p role="alert">{enrollments.error?.message}</p>;
   else {
     const current = enrollments.data.enrollments.filter((enrollment) => enrollment.status !== "dropped");
-    content = current.length === 0 ? <p>You are not registered in any courses yet.</p> : <ul className="card-list">{current.map((enrollment) => <li key={enrollment.id}>{`${enrollment.course.code} ${enrollment.course.title} · Section ${enrollment.sectionCode} · ${formatEnrollmentStatus(enrollment.status, enrollment.waitlistPosition)}`}</li>)}</ul>;
+    content =
+      current.length === 0 ? (
+        <p>You are not registered in any courses yet.</p>
+      ) : (
+        <ul className="card-list">
+          {current.map((enrollment) => (
+            <li key={enrollment.id}>
+              {`${enrollment.course.code} ${enrollment.course.title} · ${formatSections(enrollment.sections)} · ${formatEnrollmentStatus(enrollment.status, enrollment.waitlistPosition)}`}
+            </li>
+          ))}
+        </ul>
+      );
   }
   return <section><h2>My courses</h2>{content}</section>;
 }

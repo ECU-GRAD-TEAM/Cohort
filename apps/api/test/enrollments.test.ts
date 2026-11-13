@@ -1,7 +1,6 @@
-import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { createTestApp } from "./support/app.ts";
-import { closeOwnerPool, ownerQuery, seedUniversity, type University } from "./support/db.ts";
+import { closeOwnerPool, enrol, ownerQuery, seedUniversity } from "./support/db.ts";
 
 let t: Awaited<ReturnType<typeof createTestApp>>;
 
@@ -14,119 +13,82 @@ afterAll(async () => {
   await closeOwnerPool();
 });
 
-const call = async (method: "GET" | "POST" | "DELETE", url: string, sub: string, payload?: object) =>
-  t.app.inject({ method, url, headers: { authorization: `Bearer ${await t.tokenFor(sub)}` }, ...(payload && { payload }) });
-const post = (sectionId: string, sub: string) => call("POST", "/enrollments", sub, { sectionId });
-const del = (sectionId: string, sub: string) => call("DELETE", `/enrollments/${sectionId}`, sub);
+const call = async (method: "GET" | "POST" | "DELETE", url: string, sub: string) =>
+  t.app.inject({ method, url, headers: { authorization: `Bearer ${await t.tokenFor(sub)}` } });
 const mine = (sub: string) => call("GET", "/me/enrollments", sub);
 
 it("asks for a token", async () => {
-  const u = await seedUniversity();
-  for (const [method, url] of [
-    ["GET", "/me/enrollments"],
-    ["POST", "/enrollments"],
-    ["DELETE", `/enrollments/${u.sections.cs101}`],
-  ] as const) {
-    expect((await t.app.inject({ method, url })).statusCode).toBe(401);
-  }
+  expect((await t.app.inject({ method: "GET", url: "/me/enrollments" })).statusCode).toBe(401);
 });
 
-it("registers a student and lists the enrolment", async () => {
+it("does not offer self-registration: registrars enrol students", async () => {
   const u = await seedUniversity();
-  const r = await post(u.sections.cs101, u.users.student);
-  expect(r.statusCode).toBe(201);
-  expect(r.json()).toMatchObject({ enrollment: { sectionId: u.sections.cs101, status: "enrolled", waitlistPosition: null } });
-  expect((await mine(u.users.student)).json().enrollments).toEqual([expect.objectContaining({
-    sectionId: u.sections.cs101, sectionCode: "L1", termId: u.termId, status: "enrolled",
-    course: { code: "CS101", title: "Programming I", creditHours: 3.5 } })]);
+  expect((await call("POST", "/enrollments", u.users.student)).statusCode).toBe(404);
+  expect((await call("DELETE", `/enrollments/${u.sections.cs101}`, u.users.student)).statusCode).toBe(404);
+});
+
+it("lists the student's courses with the sections of their assigned meetings", async () => {
+  const u = await seedUniversity();
+  await enrol(u, u.users.student, "cs101");
+  await enrol(u, u.users.student, "cs201", { meetings: false });
+
+  const r = await mine(u.users.student);
+  expect(r.statusCode).toBe(200);
+  expect(r.json().enrollments).toEqual([
+    {
+      id: expect.any(String),
+      termId: u.termId,
+      status: "enrolled",
+      waitlistPosition: null,
+      course: { code: "CS101", title: "Programming I", creditHours: 3.5 },
+      sections: [{ id: u.sections.cs101, code: "L1" }],
+    },
+    // Enrolled, but no meetings assigned yet.
+    expect.objectContaining({ course: expect.objectContaining({ code: "CS201" }), sections: [] }),
+  ]);
 });
 
 it("lists every status by course code, and only the caller's own rows", async () => {
   const u = await seedUniversity();
-  // MA101 is inserted first, as a dropped row, so the order cannot be the order of insertion.
-  await ownerQuery(
-    `insert into public.enrollments (tenant_id, student_id, section_id, offering_id, status)
-     values ($1, $2, $3, $4, 'dropped')`,
-    [u.tenantId, u.users.student, u.sections.ma101, u.offerings.ma101],
-  );
-  await post(u.sections.cs101, u.users.student);
-  await post(u.sections.cs101, u.users.classmate);
+  // MA101 is enrolled first, as a dropped row, so the order cannot be the order of insertion.
+  await enrol(u, u.users.student, "ma101", { status: "dropped" });
+  await enrol(u, u.users.student, "cs201", { status: "waitlisted" });
+  await enrol(u, u.users.student, "cs101");
+  await enrol(u, u.users.classmate, "cs101");
 
   const r = await mine(u.users.student);
   expect(r.statusCode).toBe(200);
   expect(r.json().enrollments.map((e: { course: { code: string }; status: string }) => [e.course.code, e.status])).toEqual([
     ["CS101", "enrolled"],
+    ["CS201", "waitlisted"],
     ["MA101", "dropped"],
   ]);
-  // The teacher of CS101 may read its students' enrolments, but this list is the caller's own.
+  // The teacher of CS101 may read its students' enrolments, but this list is only ever the caller's.
   expect((await mine(u.users.teacher)).json()).toEqual({ enrollments: [] });
 });
 
-it("waitlists, then refuses, when the section fills", async () => {
-  const u = await seedUniversity({ cs101Capacity: 1, cs101Waitlist: 1 });
-  await post(u.sections.cs101, u.users.student);
-  expect((await post(u.sections.cs101, u.users.classmate)).json().enrollment).toMatchObject({ status: "waitlisted", waitlistPosition: 1 });
-  const full = await post(u.sections.cs101, u.users.latecomer);
-  expect([full.statusCode, full.json()]).toEqual([422, { error: { code: "rule_violation", message: "This section is full" } }]);
-});
-
-it.each([
-  ["missing prerequisite", (u: University) => post(u.sections.cs201, u.users.student), 422, "rule_violation", "Prerequisites for CS201 are not met"],
-  ["teacher registering", (u: University) => post(u.sections.cs101, u.users.teacher), 403, "forbidden", "You are not allowed to do that."],
-  ["non-staff account without the student role", (u: University) => post(u.sections.cs101, u.users.student), 403, "forbidden", "You are not allowed to do that.", { studentRoles: false }],
-])("refuses a %s", async (_label, act, status, code, message, seed?: { studentRoles: boolean }) => {
-  const r = await act(await seedUniversity(seed ?? {}));
-  expect([r.statusCode, r.json()]).toEqual([status, { error: { code, message } }]);
-});
-
-it("refuses a duplicate registration", async () => {
+it("includes a historical transcript record, which has a course and a term but no offering", async () => {
   const u = await seedUniversity();
-  await post(u.sections.cs101, u.users.student);
-  const r = await post(u.sections.cs101, u.users.student);
-  expect([r.statusCode, r.json().error]).toEqual([409, { code: "conflict", message: "Already registered in a lecture section of this course" }]);
+  await ownerQuery(
+    `insert into public.enrollments
+       (tenant_id, student_id, course_id, term_id, status, credit_hours_attempted,
+        final_grade_letter, final_grade_points, quality_points)
+     values ($1, $2, $3, $4, 'completed', 3, 'A', 4, 12)`,
+    [u.tenantId, u.users.student, u.courses.ma101, u.termId],
+  );
+
+  expect((await mine(u.users.student)).json().enrollments).toEqual([
+    expect.objectContaining({
+      termId: u.termId,
+      status: "completed",
+      course: { code: "MA101", title: "Calculus I", creditHours: 3 },
+      sections: [],
+    }),
+  ]);
 });
 
-it("refuses when registration is closed", async () => {
-  const u = await seedUniversity({ registrationOpen: false });
-  expect((await post(u.sections.cs101, u.users.student)).json().error).toEqual({ code: "rule_violation", message: "Registration is closed for this term" });
-});
-
-it("does not reveal another university's section", async () => {
-  const [u, other] = [await seedUniversity(), await seedUniversity()];
-  expect((await post(other.sections.cs101, u.users.student)).json().error).toEqual({ code: "not_found", message: "Section not found" });
-});
-
-it("answers 404 for a section that does not exist", async () => {
-  const u = await seedUniversity();
-  const r = await post(randomUUID(), u.users.student);
-  expect([r.statusCode, r.json().error]).toEqual([404, { code: "not_found", message: "Section not found" }]);
-});
-
-it("rejects a malformed section id", async () => {
-  const u = await seedUniversity();
-  expect((await post("x", u.users.student)).statusCode).toBe(400);
-  expect((await del("x", u.users.student)).statusCode).toBe(400);
-  expect((await call("POST", "/enrollments", u.users.student, {})).statusCode).toBe(400);
-});
-
-it("drops, and promotes the head of the waiting list", async () => {
-  const u = await seedUniversity({ cs101Capacity: 1, cs101Waitlist: 1 });
-  await post(u.sections.cs101, u.users.student);
-  await post(u.sections.cs101, u.users.classmate);
-  const r = await del(u.sections.cs101, u.users.student);
-  expect([r.statusCode, r.json().enrollment.status]).toEqual([200, "dropped"]);
-  expect((await mine(u.users.classmate)).json().enrollments[0]).toMatchObject({ status: "enrolled", waitlistPosition: null });
-});
-
-it("refuses to drop a section the student is not in", async () => {
-  const u = await seedUniversity();
-  expect((await del(u.sections.cs101, u.users.student)).json().error).toEqual({ code: "not_found", message: "You are not registered in this section" });
-});
-
-it("does not let a student drop a section of another university", async () => {
-  const [u, other] = [await seedUniversity(), await seedUniversity()];
-  await post(other.sections.cs101, other.users.student);
-  const r = await del(other.sections.cs101, u.users.student);
-  expect([r.statusCode, r.json().error]).toEqual([404, { code: "not_found", message: "You are not registered in this section" }]);
-  expect((await mine(other.users.student)).json().enrollments[0].status).toBe("enrolled");
+it("shows nothing from another university", async () => {
+  const [u, other] = await Promise.all([seedUniversity(), seedUniversity()]);
+  await enrol(other, other.users.student, "cs101");
+  expect((await mine(u.users.student)).json()).toEqual({ enrollments: [] });
 });

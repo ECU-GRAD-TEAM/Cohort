@@ -1,7 +1,8 @@
 # Cohort
 
 Cohort is a multi-tenant platform for universities. This repository holds the database, a
-Fastify API and a React web app. A student signs in with Supabase Auth and registers for courses.
+Fastify API and a React web app. A student signs in with Supabase Auth and sees their courses,
+class meetings and grades; the university's registrars enrol students and assign their meetings.
 The API checks the Supabase access token and runs every query as that user, so the database's
 row-level security decides what each person can see and change.
 
@@ -63,24 +64,37 @@ GradProj has two pieces of state that no migration creates: a foreign key rename
 the ECU tenant. Files in `scripts/db/pre-migration/` named after a migration recreate that state
 just before that migration runs, in the test database only.
 
+Some migrations only rework GradProj's real records (named staff, imported transcripts, the
+approved timetable) and stop when those records are missing, which they always are in an empty test
+database. Two lists in `scripts/db` deal with them, in the test build only:
+
+- `data-only-migrations.txt`: migrations with no structural change, which the build skips.
+- `data-check-migrations.txt`: migrations that also change structure, which the build runs without
+  their top-level `DO $$ ... END $$;` blocks (the parts that check or move those records).
+
+When a new migration of this kind stops `npm run db:test:reset`, add its name to the right list.
+
 #### Regenerating the Prisma schema
 
 Regenerate `apps/api/prisma/schema.prisma` with `npm run db:pull -w @cohort/api`. `db pull`
 introspects the database in `TEST_DATABASE_URL` (the test database from step 2), never GradProj,
 so run `npm run db:test:reset` first. A fresh
-`db pull` infers six relations as one-to-one, because their tables have partial unique indexes,
-and `prisma validate` then fails. Change these six opposite relation fields back to lists:
+`db pull` infers seven relations as one-to-one, because their tables have partial unique indexes,
+and `prisma validate` then fails. Change these seven opposite relation fields back to lists:
 
 - `faculties.academic_calendars`
 - `academic_calendars.academic_years`
-- `person_profiles.person_profile_phones`
+- `user_profiles.person_profile_phones`
+- `user_profiles.person_profile_emails`
 - `programs.program_academic_policies`
 - `users.student_department_assignments_student`
 - `users.student_programme_selections_student`
 
 ### 3. Set the API role's password
 
-GradProj has every migration in this repository (`supabase/migrations` mirrors it). Migration
+GradProj has every migration in this repository (`supabase/migrations` mirrors it) except any
+that [supabase/README.md](supabase/README.md) lists as not yet applied; it also says how to apply
+them. Migration
 `api_role` creates the `cohort_api` login role without a password, so the API cannot connect
 until you set one. In the Supabase Dashboard, open the SQL Editor for GradProj and run:
 
