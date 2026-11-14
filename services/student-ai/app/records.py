@@ -60,7 +60,7 @@ class StudentRecordRetriever:
         async with httpx.AsyncClient(timeout=timeout) as client:
             if intent == "gpa":
                 rows = await self._get(client, access_token, "student_gpa", {
-                    "select": "academic_year_code,academic_year_name,term_id,term_code,term_name,term_kind,term_sequence,term_gpa,cumulative_gpa,term_credits_attempted,cumulative_credits_earned,term_quality_points,cumulative_quality_points,gpa_computed_at",
+                    "select": "academic_year_code,academic_year_name,term_id,term_code,term_name,term_kind,term_sequence,term_gpa,cumulative_gpa,term_credits_attempted,cumulative_credits_attempted,cumulative_credits_earned,cumulative_gpa_credits,term_quality_points,cumulative_quality_points,gpa_computed_at",
                     "student_id": f"eq.{student_id}",
                     "order": "academic_year_code.asc,term_sequence.asc,gpa_computed_at.asc",
                     "limit": "100",
