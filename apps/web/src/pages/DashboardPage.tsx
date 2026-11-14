@@ -529,10 +529,36 @@ function GradesSection() {
           <h2>{t("Published grades", "الدرجات المعلنة")}</h2>
         </div>
         <span className="uf-muted-label">
-          {t("Cumulative GPA: 3.61 · 78 / 120 Credits", "المعدل التراكمي: 3.61 · 78 / 120 ساعة")}
+          {t("Final results and published marks", "النتائج النهائية والدرجات المعلنة")}
         </span>
       </div>
       {content}
+
+      {grades.data && grades.data.courseResults.length > 0 && (
+        <div className="uf-table-wrap" aria-label={t("Final course results", "النتائج النهائية للمقررات")}>
+          <h3>{t("Final course results", "النتائج النهائية للمقررات")}</h3>
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">{t("Course", "المقرر")}</th>
+                <th scope="col">{t("Term", "الفصل الدراسي")}</th>
+                <th scope="col">{t("Final grade", "التقدير النهائي")}</th>
+                <th scope="col">{t("Grade points", "نقاط التقدير")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {grades.data.courseResults.map((result) => (
+                <tr key={result.enrollmentId}>
+                  <td>{result.course.code} · {result.course.title}</td>
+                  <td>{result.term ?? "—"}</td>
+                  <td>{result.finalGradeLetter ?? t("Not published", "لم تعلن")}</td>
+                  <td>{result.finalGradePoints ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* UniFlow What-If Grade Calculator */}
       <div className="uf-whatif-box">
