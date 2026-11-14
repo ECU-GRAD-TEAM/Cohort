@@ -1,9 +1,5 @@
 import { z } from "zod";
 
-/**
- * A published assessment grade. `componentId` identifies its graded component, or is null
- * for a whole-course assessment grade. `item` is null when the component is hidden by RLS.
- */
 export const Grade = z.object({
   id: z.uuid(),
   offeringId: z.uuid(),
@@ -28,8 +24,18 @@ export const CourseResult = z.object({
 });
 export type CourseResult = z.infer<typeof CourseResult>;
 
+export const AttendanceResult = z.object({
+  id: z.uuid(),
+  course: z.object({ code: z.string(), title: z.string() }),
+  term: z.string(),
+  status: z.string(),
+  recordedAt: z.iso.datetime().nullable(),
+});
+export type AttendanceResult = z.infer<typeof AttendanceResult>;
+
 export const GradesResponse = z.object({
   grades: z.array(Grade),
   courseResults: z.array(CourseResult).default([]),
+  attendanceResults: z.array(AttendanceResult).default([]),
 });
 export type GradesResponse = z.infer<typeof GradesResponse>;
