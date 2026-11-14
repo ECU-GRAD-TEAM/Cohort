@@ -38,7 +38,17 @@ export const studentAiRoutes: FastifyPluginAsync = async (app) => {
     } catch {
       throw new ApiError(502, "internal", "The student assistant is temporarily unavailable.");
     }
-    if (!upstream.ok) throw new ApiError(upstream.status === 401 ? 503 : 502, "internal", "The student assistant could not complete the request.");
+    if (!upstream.ok) {
+      request.log.error(
+        { upstreamStatus: upstream.status },
+        "Student AI service returned an unsuccessful response",
+      );
+      throw new ApiError(
+        upstream.status === 401 ? 503 : 502,
+        "internal",
+        "The student assistant could not complete the request.",
+      );
+    }
     const data: unknown = await upstream.json();
     const parsed = ResponseSchema.safeParse(data);
     if (!parsed.success) throw new ApiError(502, "internal", "The student assistant returned an invalid response.");
