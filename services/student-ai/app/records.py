@@ -41,10 +41,10 @@ class StudentRecordRetriever:
             },
         )
         if response.status_code in (401, 403):
-            raise RecordRetrievalError("The student's database session was rejected.")
+            raise RecordRetrievalError(f"The student's database session was rejected (HTTP {response.status_code}, table {table}).")
         if response.is_error:
             # Do not leak SQL, schema, or provider response details into the chat.
-            raise RecordRetrievalError(f"Could not retrieve the requested {table} records.")
+            raise RecordRetrievalError(f"Could not retrieve the requested {table} records (HTTP {response.status_code}).")
         data = response.json()
         if not isinstance(data, list):
             raise RecordRetrievalError("The database returned an unexpected response.")
