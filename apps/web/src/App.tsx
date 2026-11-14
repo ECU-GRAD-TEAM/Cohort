@@ -1,8 +1,10 @@
 import { Navigate, Route, Routes } from "react-router";
 import { AppShell } from "./AppShell.tsx";
 import { RequireAuth } from "./auth/RequireAuth.tsx";
+import { LanguageProvider } from "./lib/i18n.tsx";
 import { DashboardPage } from "./pages/DashboardPage.tsx";
 import { LoginPage } from "./pages/LoginPage.tsx";
+import { ProfilePage } from "./pages/ProfilePage.tsx";
 import { RegistrationPage } from "./pages/RegistrationPage.tsx";
 import { StudentAiPage } from "./pages/StudentAiPage.tsx";
 import { SignUpPage } from "./pages/SignUpPage.tsx";
@@ -15,27 +17,30 @@ import { SupportPreview } from "./previews/SupportPreview.tsx";
 
 export function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<SignUpPage />} />
-      <Route
-        element={
-          <RequireAuth>
-            <AppShell />
-          </RequireAuth>
-        }
-      >
-        <Route index element={<DashboardPage />} />
-        <Route path="register" element={<RegistrationPage />} />
-        <Route path="student-assistant" element={<StudentAiPage />} />
-        <Route path="courses" element={<CoursesPreview />} />
-        <Route path="schedule" element={<SchedulePreview />} />
-        <Route path="assignments" element={<AssignmentsPreview />} />
-        <Route path="messages" element={<MessagesPreview />} />
-        <Route path="support" element={<SupportPreview />} />
-        <Route path="campus" element={<CampusPreview />} />
-        <Route path="assistant" element={<Navigate to="/student-assistant" replace />} />
-      </Route>
-    </Routes>
+    <LanguageProvider>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignUpPage />} />
+        <Route
+          element={
+            <RequireAuth>
+              <AppShell />
+            </RequireAuth>
+          }
+        >
+          <Route index element={<DashboardPage />} />
+          <Route path="register" element={<RegistrationPage />} />
+          <Route path="student-assistant" element={<StudentAiPage />} />
+          <Route path="profile" element={<ProfilePage />} />
+          <Route path="courses" element={<CoursesPreview />} />
+          <Route path="schedule" element={<SchedulePreview />} />
+          <Route path="assignments" element={<AssignmentsPreview />} />
+          <Route path="messages" element={<MessagesPreview />} />
+          <Route path="support" element={<SupportPreview />} />
+          <Route path="campus" element={<CampusPreview />} />
+          <Route path="assistant" element={<Navigate to="/student-assistant" replace />} />
+        </Route>
+      </Routes>
+    </LanguageProvider>
   );
 }

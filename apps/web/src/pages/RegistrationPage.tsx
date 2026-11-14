@@ -1,14 +1,34 @@
 import type { CatalogueSection, Term } from "@cohort/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { useId, useState, type ReactNode } from "react";
+import { Link } from "react-router";
+import { Icon } from "../components/Icons.tsx";
+import {
+  AcademicYearStepper,
+  type AcademicYearId,
+} from "../components/InteractiveSelectors.tsx";
 import { useApi } from "../lib/ApiContext.tsx";
 import { formatCredits, formatMeeting } from "../lib/format.ts";
+import { useLanguage } from "../lib/i18n.tsx";
 import { queryKeys } from "../lib/queryKeys.ts";
 import { pickDefaultTerm } from "../lib/terms.ts";
 
 function SectionRow({ section, assigned }: { section: CatalogueSection; assigned: boolean }) {
+  const { t } = useLanguage();
   return (
-    <li>
+    <li className={assigned ? "uf-reg-card assigned-card" : "uf-reg-card"}>
+      <div className="uf-reg-card-top">
+        <span className="uf-course-code-pill">{section.course.code}</span>
+        <span className="uf-section-kind-pill">{section.kind}</span>
+        {section.capacity !== null && (
+          <span className="uf-capacity-pill">
+            <Icon name="users" size={13} />
+            <span>
+              {section.capacity} {t("seats", "مقعد")}
+            </span>
+          </span>
+        )}
+      </div>
       <p>{`${section.course.code} ${section.course.title} · Section ${section.code} · ${formatCredits(section.course.creditHours)}`}</p>
       {assigned && <p className="assigned">Your section</p>}
       {section.meetings.length > 0 && (
@@ -24,8 +44,14 @@ function SectionRow({ section, assigned }: { section: CatalogueSection; assigned
 
 function SectionList({ termId }: { termId: string }) {
   const api = useApi();
-  const sections = useQuery({ queryKey: queryKeys.sections(termId), queryFn: () => api.getSections(termId) });
-  const enrollments = useQuery({ queryKey: queryKeys.enrollments, queryFn: () => api.getMyEnrollments() });
+  const sections = useQuery({
+    queryKey: queryKeys.sections(termId),
+    queryFn: () => api.getSections(termId),
+  });
+  const enrollments = useQuery({
+    queryKey: queryKeys.enrollments,
+    queryFn: () => api.getMyEnrollments(),
+  });
 
   // Which sections are marked as the student's depends on their enrolments, so nothing is listed
   // until both answers are in.
@@ -35,8 +61,12 @@ function SectionList({ termId }: { termId: string }) {
     return (
       <>
         {(sections.isPending || enrollments.isPending) && <p>Loading…</p>}
-        {sectionsData === undefined && sections.error && <p role="alert">{sections.error.message}</p>}
-        {enrollmentsData === undefined && enrollments.error && <p role="alert">{enrollments.error.message}</p>}
+        {sectionsData === undefined && sections.error && (
+          <p role="alert">{sections.error.message}</p>
+        )}
+        {enrollmentsData === undefined && enrollments.error && (
+          <p role="alert">{enrollments.error.message}</p>
+        )}
       </>
     );
   }
@@ -51,9 +81,13 @@ function SectionList({ termId }: { termId: string }) {
       .flatMap((enrollment) => enrollment.sections.map((section) => section.id)),
   );
   return (
-    <ul className="card-list">
+    <ul className="card-list uf-reg-grid">
       {sectionsData.sections.map((section) => (
-        <SectionRow key={section.id} section={section} assigned={assignedSectionIds.has(section.id)} />
+        <SectionRow
+          key={section.id}
+          section={section}
+          assigned={assignedSectionIds.has(section.id)}
+        />
       ))}
     </ul>
   );
@@ -61,11 +95,67 @@ function SectionList({ termId }: { termId: string }) {
 
 function TermRegistration({ terms, defaultTerm }: { terms: Term[]; defaultTerm: Term }) {
   const selectId = useId();
+  const termRadioGroup = useId();
+  const { t } = useLanguage();
   const [termId, setTermId] = useState(defaultTerm.id);
+  const [selectedYear, setSelectedYear] = useState<AcademicYearId>("all");
 
   return (
     <>
-      <p className="field-row">
+      <AcademicYearStepper
+        value={selectedYear}
+        onChange={setSelectedYear}
+        useRadioLabels={true}
+        label={t("Academic year level view", "عرض الفرقة الدراسية")}
+      />
+
+      <div
+        className="uf-term-deck"
+        role="group"
+        aria-label={t("Interactive term cards", "بطاقات الفصول الدراسية التفاعلية")}
+      >
+        <div className="uf-year-stepper-head">
+          <span className="uf-kicker">
+            {t("ACADEMIC TERM TIMELINE", "الفصول الدراسية المتاحة")}
+          </span>
+          <span className="uf-year-hint">
+            {t(
+              "Select a semester card to inspect its sections",
+              "اختر بطاقة الفصل الدراسي لعرض السكاشن والمواعيد",
+            )}
+          </span>
+        </div>
+        <div className="uf-term-cards-row">
+          {terms.map((term) => {
+            const active = term.id === termId;
+            return (
+              <label
+                key={term.id}
+                className={active ? "uf-term-card active" : "uf-term-card"}
+              >
+                <input
+                  type="radio"
+                  name={termRadioGroup}
+                  value={term.id}
+                  checked={active}
+                  onChange={() => setTermId(term.id)}
+                  className="sr-only-input"
+                />
+                <span className="uf-term-card-top">
+                  <span className="uf-term-code">{term.code}</span>
+                  <span className="uf-term-dot" aria-hidden="true">
+                    <Icon name="calendar" size={14} />
+                  </span>
+                </span>
+                <strong>{term.name}</strong>
+                <small>{`${term.startsOn} – ${term.endsOn}`}</small>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+
+      <p className="field-row uf-synced-term-select">
         <label htmlFor={selectId}>Term</label>
         <select id={selectId} value={termId} onChange={(event) => setTermId(event.target.value)}>
           {terms.map((term) => (
@@ -82,6 +172,7 @@ function TermRegistration({ terms, defaultTerm }: { terms: Term[]; defaultTerm: 
 
 export function RegistrationPage() {
   const api = useApi();
+  const { t } = useLanguage();
   const terms = useQuery({ queryKey: queryKeys.terms, queryFn: () => api.getTerms() });
 
   let content: ReactNode;
@@ -101,13 +192,30 @@ export function RegistrationPage() {
   }
 
   return (
-    <>
-      <h1>Course registration</h1>
-      <p>
-        Your registrar enrols you in courses and assigns your class meetings. Here are the term&rsquo;s
-        sections and their times; yours are marked.
-      </p>
+    <div className="uf-dashboard uf-registration-page">
+      <div className="uf-heading">
+        <div>
+          <span className="uf-kicker">
+            {t("COHORT / ACADEMIC REGISTRAR", "بوابة الجامعة الذكية · التسجيل والسكاشن")}
+          </span>
+          <h1>{t("Course registration", "Course registration")}</h1>
+          <p>
+            Your registrar enrols you in courses and assigns your class meetings. Here are the
+            term&rsquo;s sections and their times; yours are marked.
+          </p>
+        </div>
+        <div className="uf-heading-badges">
+          <Link to="/student-assistant" className="uf-ai-pill-link">
+            <Icon name="spark" size={14} />
+            <span>{t("AI Assistant", "المساعد الذكي")}</span>
+          </Link>
+          <Link to="/messages" className="uf-demo">
+            <Icon name="chat" size={14} />
+            <span>{t("Course Groups", "جروبات المقررات")}</span>
+          </Link>
+        </div>
+      </div>
       {content}
-    </>
+    </div>
   );
 }
