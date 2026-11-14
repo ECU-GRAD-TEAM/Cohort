@@ -1,5 +1,6 @@
 import type { Enrollment, Grade } from "@cohort/contracts";
 import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { API, defaultMe, server } from "../../test/server.ts";
@@ -212,5 +213,146 @@ describe("DashboardPage", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong. Please try again.");
     expect(screen.getAllByRole("alert")).toHaveLength(1);
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("toggles between English and Arabic with one click and updates layout direction", async () => {
+    renderDashboard();
+    expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
+
+    const langToggle = screen.getByRole("button", { name: "Switch language to Arabic" });
+    await userEvent.click(langToggle);
+
+    expect(await screen.findByRole("heading", { name: "لوحة تحكم الطالب" })).toBeInTheDocument();
+    expect(document.documentElement.dir).toBe("rtl");
+    expect(document.documentElement.lang).toBe("ar");
+
+    await userEvent.click(screen.getByRole("button", { name: "Switch language to English" }));
+    expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
+    expect(document.documentElement.dir).toBe("ltr");
+  });
+
+  it("lets students switch academic years using the interactive card stepper and open quick chat & voice recording", async () => {
+    renderDashboard();
+    await screen.findByRole("heading", { name: "Dashboard" });
+
+    // Verify UniFlow GPA display and What-If Grade Calculator
+    expect(screen.getAllByText("3.68").length).toBeGreaterThan(0);
+    const courseworkInput = screen.getByLabelText("Coursework (%)");
+    await userEvent.clear(courseworkInput);
+    await userEvent.type(courseworkInput, "90");
+    await userEvent.click(screen.getByRole("button", { name: "Calculate result" }));
+    expect(screen.getByText("90.0% projected overall")).toBeInTheDocument();
+
+    const yearSelector = screen.getByRole("group", { name: "Select your academic year" });
+    const year2Button = within(yearSelector).getByRole("button", { name: /Level 2 · Sophomore/ });
+    expect(year2Button).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(year2Button);
+    expect(year2Button).toHaveAttribute("aria-pressed", "true");
+
+    // Verify floating button is renamed to "AI Assistant"
+    expect(screen.getByRole("button", { name: "AI Assistant" })).toBeInTheDocument();
+
+    // Open quick Communication Groups drawer from the floating dock
+    await userEvent.click(screen.getByRole("button", { name: /Course Groups/ }));
+    const groupsDrawer = await screen.findByRole("region", { name: "Quick Communication Groups" });
+    expect(groupsDrawer).toBeInTheDocument();
+
+    // Record and attach a voice note inside the group chat drawer
+    await userEvent.click(within(groupsDrawer).getByRole("button", { name: "Record voice" }));
+    await userEvent.click(within(groupsDrawer).getByRole("button", { name: /Attach voice/ }));
+    await userEvent.click(within(groupsDrawer).getByRole("button", { name: "Post" }));
+    expect(within(groupsDrawer).getByText(/Voice Note/)).toBeInTheDocument();
+  });
+
+  it("opens the read-only Profile page from the header profile icon with mailto academic advisor link", async () => {
+    renderDashboard();
+    await screen.findByRole("heading", { name: "Dashboard" });
+
+    const profileTrigger = screen.getByRole("link", { name: "Open academic profile" });
+    await userEvent.click(profileTrigger);
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Academic Profile" })).toBeInTheDocument();
+    expect(screen.getByText("Personal Email")).toBeInTheDocument();
+    expect(screen.getByText("Academic Year")).toBeInTheDocument();
+    expect(screen.getByText("Contact Information")).toBeInTheDocument();
+    expect(screen.getByText("+20 100 245 8910")).toBeInTheDocument();
+
+    const advisorLink = screen.getByRole("link", { name: /dr\.leila\.hassan@ecu\.edu\.eg/i });
+    expect(advisorLink).toHaveAttribute("href", expect.stringMatching(/^mailto:dr\.leila\.hassan@ecu\.edu\.eg/));
+  });
+
+  it("supports creating, switching, and deleting conversations plus Resend and Edit actions on AI Assistant", async () => {
+    server.use(
+      http.post(`${API}/student-ai/chat`, () =>
+        HttpResponse.json({
+          answer: "CS305 requires Data Structures (CS201) and Discrete Math.",
+          language: "en",
+          provider: "test",
+          model: "test-model",
+          latency_ms: 42,
+          sources: [],
+          limitations: [],
+        }),
+      ),
+    );
+    renderApp({ route: "/student-assistant", auth: createFakeAuth({ session: fakeSession }) });
+    expect(await screen.findByRole("heading", { level: 1, name: "AI Assistant" })).toBeInTheDocument();
+
+    // Create a new conversation
+    await userEvent.click(screen.getByRole("button", { name: /New chat/i }));
+    expect(screen.getByText(/New conversation 3/i)).toBeInTheDocument();
+
+    // Send a message using Enter key
+    const input = screen.getByLabelText("Message");
+    await userEvent.type(input, "What are the prerequisites for CS305?{Enter}");
+
+    expect(await screen.findByText("What are the prerequisites for CS305?")).toBeInTheDocument();
+    expect(
+      await screen.findByText("CS305 requires Data Structures (CS201) and Discrete Math."),
+    ).toBeInTheDocument();
+
+    // Verify Resend button is present on the sent message
+    expect(screen.getByRole("button", { name: "Resend message" })).toBeInTheDocument();
+
+    // Edit the sent message
+    const editBtn = screen.getByRole("button", { name: "Edit message" });
+    await userEvent.click(editBtn);
+    expect(screen.getByLabelText("Edit message text")).toHaveValue("What are the prerequisites for CS305?");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    // Delete a conversation
+    const deleteBtns = screen.getAllByRole("button", { name: /Delete conversation/i });
+    await userEvent.click(deleteBtns[0]!);
+  });
+
+  it("restricts Course Groups to registered courses and supports own-message edit/delete, WhatsApp reactions, and polls", async () => {
+    renderApp({ route: "/messages", auth: createFakeAuth({ session: fakeSession }) });
+    expect(await screen.findByRole("heading", { level: 1, name: "Messages" })).toBeInTheDocument();
+
+    // Verify registered courses access notice is present and year stepper is not present
+    expect(
+      screen.getByText(/You can only view and communicate in groups for your strictly registered courses/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: /Academic year/i })).not.toBeInTheDocument();
+
+    // React to a message with a WhatsApp emoji reaction
+    const heartButtons = screen.getAllByRole("button", { name: "React with Heart" });
+    await userEvent.click(heartButtons[0]!);
+
+    // Open "+" attachment menu and create a poll
+    await userEvent.click(screen.getByRole("button", { name: "More attachment options" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Create poll" }));
+    await userEvent.type(screen.getByLabelText("Poll question"), "Best day for lab review?");
+    await userEvent.type(screen.getByLabelText("Poll option 1"), "Sunday");
+    await userEvent.type(screen.getByLabelText("Poll option 2"), "Tuesday");
+    await userEvent.click(screen.getByRole("button", { name: "Attach Poll" }));
+
+    // Send the poll
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+    expect(await screen.findByText("Best day for lab review?")).toBeInTheDocument();
+
+    // User's own message has Edit and Delete buttons
+    expect(screen.getAllByRole("button", { name: "Edit own message" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Delete own message" }).length).toBeGreaterThan(0);
   });
 });

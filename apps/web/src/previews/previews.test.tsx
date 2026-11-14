@@ -8,11 +8,11 @@ import { navItems } from "../navigation.ts";
 const previews = navItems.filter((item) => item.preview);
 
 describe("preview tabs", () => {
-  it("lists Student assistant right after Registration", () => {
+  it("lists AI Assistant right after Registration", () => {
     expect(navItems.map((item) => item.label).slice(0, 4)).toEqual([
       "Dashboard",
       "Registration",
-      "Student assistant",
+      "AI Assistant",
       "Courses",
     ]);
   });
@@ -28,9 +28,9 @@ describe("preview tabs", () => {
     ]);
   });
 
-  it("sends the old /assistant address to the Student assistant", async () => {
+  it("sends the old /assistant address to the AI Assistant", async () => {
     renderApp({ route: "/assistant", auth: createFakeAuth({ session: fakeSession }) });
-    expect(await screen.findByRole("heading", { level: 1, name: "Student assistant" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "AI Assistant" })).toBeInTheDocument();
   });
 
   it("has a single assistant in the sidebar", async () => {
