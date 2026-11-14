@@ -59,51 +59,42 @@ class StudentRecordRetriever:
         timeout = httpx.Timeout(15.0, connect=5.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
             if intent == "gpa":
-                rows = await self._get(client, access_token, "student_academic_overview", {
-                    "select": "cumulative_gpa,cumulative_gpa_credits,cumulative_quality_points,cumulative_credits_earned,latest_term_id,latest_term_name,latest_term_code,latest_term_kind,latest_academic_year_id,latest_term_gpa,term_gpa_credits,term_quality_points,gpa_computed_at",
+                rows = await self._get(client, access_token, "student_gpa", {
+                    "select": "academic_year_code,academic_year_name,term_id,term_code,term_name,term_kind,term_sequence,term_gpa,cumulative_gpa,term_credits_attempted,cumulative_credits_earned,term_quality_points,cumulative_quality_points,gpa_computed_at",
                     "student_id": f"eq.{student_id}",
-                    "limit": "1",
+                    "order": "academic_year_code.asc,term_sequence.asc,gpa_computed_at.asc",
+                    "limit": "100",
                 })
-                return ("Student academic overview (official GPA snapshot): " + _json(rows), ["student_academic_overview", "gpa_snapshots", "terms"])
+                return ("Student GPA and cumulative GPA by academic year and term: " + _json(rows), ["student_gpa", "gpa_snapshots", "terms", "academic_years"])
 
             if intent == "attendance":
-                rows = await self._get(client, access_token, "student_attendance_summary", {
-                    "select": "course_code,course_title,term_name,section_code,total_sessions,unrecorded_sessions,present_count,late_count,absent_count,excused_count,attendance_percentage,last_session_at",
+                rows = await self._get(client, access_token, "student_results", {
+                    "select": "course_code,course_title,academic_year_name,term_name,component_name,attendance_status,recorded_at",
                     "student_id": f"eq.{student_id}",
-                    "order": "last_session_at.desc.nullslast",
-                    "limit": "100",
+                    "result_type": "eq.attendance_component",
+                    "order": "recorded_at.desc.nullslast",
+                    "limit": "200",
                 })
-                return ("Student attendance summary by course and section: " + _json(rows), ["student_attendance_summary", "attendance_records", "attendance_sessions", "student_meetings"])
+                return ("Student attendance component records by course and term: " + _json(rows), ["student_results", "attendance_records", "attendance_sessions"])
 
             if intent == "grades":
-                course_results = await self._get(client, access_token, "student_course_results", {
-                    "select": "course_code,course_title,credit_hours,term_code,term_name,enrollment_status,final_percentage,final_grade_letter,final_grade_points,gpa_exclusion_reason,quality_points",
+                rows = await self._get(client, access_token, "student_results", {
+                    "select": "result_id,result_type,course_code,course_title,academic_year_name,term_name,component_type,component_name,assessment_title,score,max_score,grade_letter,grade_points,result_status,attendance_status,gpa_exclusion_reason,recorded_at",
                     "student_id": f"eq.{student_id}",
-                    "order": "enrolled_at.desc.nullslast",
-                    "limit": "200",
+                    "order": "recorded_at.desc.nullslast",
+                    "limit": "300",
                 })
-                assessment_results = await self._get(client, access_token, "student_assessment_results", {
-                    "select": "course_code,course_title,term_name,component_name,assessment_title,assessment_kind,score,max_score,feedback,published_at",
-                    "student_id": f"eq.{student_id}",
-                    "order": "published_at.desc",
-                    "limit": "200",
-                })
-                return (
-                    "Student academic results: " + _json({
-                        "final_course_results": course_results,
-                        "published_assessment_results": assessment_results,
-                    }),
-                    ["student_course_results", "student_assessment_results", "published_grades", "enrollments"],
-                )
+                return ("Student course, assessment-component, and attendance results: " + _json(rows), ["student_results", "enrollments", "grade_entries", "attendance_records"])
 
             if intent == "enrollments":
-                rows = await self._get(client, access_token, "student_course_results", {
-                    "select": "course_code,course_title,credit_hours,term_code,term_name,enrollment_status,enrolled_at,final_grade_letter,final_grade_points",
+                rows = await self._get(client, access_token, "student_results", {
+                    "select": "course_code,course_title,credit_hours,term_code,term_name,academic_year_name,result_status,grade_letter,grade_points",
                     "student_id": f"eq.{student_id}",
-                    "order": "enrolled_at.desc.nullslast",
+                    "result_type": "eq.course_final",
+                    "order": "recorded_at.desc.nullslast",
                     "limit": "100",
                 })
-                return ("Student course enrollments and final results: " + _json(rows), ["student_course_results", "enrollments", "course_offerings", "courses", "terms"])
+                return ("Student course enrollments and final results: " + _json(rows), ["student_results", "enrollments", "course_offerings", "courses", "terms"])
 
             if intent == "timetable":
                 rows = await self._get(client, access_token, "student_timetable", {
