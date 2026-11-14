@@ -6,6 +6,7 @@ row access. No Supabase secret or service-role key is used.
 """
 from __future__ import annotations
 
+import logging
 import os
 import re
 import time
@@ -22,6 +23,8 @@ from app.intent import classify_intents
 from app.records import RecordRetrievalError, StudentRecordRetriever
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "gemini-3.5-flash-lite"
 record_retriever = StudentRecordRetriever()
@@ -190,6 +193,7 @@ async def chat(
         messages.append({"role": "user", "content": payload.message})
         answer = await _call_gemini(model, messages)
     except RecordRetrievalError as exc:
+        logger.exception("Student record retrieval failed: %s", exc)
         raise HTTPException(503, "Student records could not be retrieved securely.") from exc
     except HTTPException:
         raise
