@@ -43,7 +43,7 @@ export const gradeRoutes: FastifyPluginAsync = async (app) => {
 
     return {
       grades: rows
-        .filter((row) => row.result_type === "assessment_component" && row.score !== null && row.max_score !== null)
+        .filter((row) => row.result_type === "assessment" && row.score !== null && row.max_score !== null)
         .map((row) => ({
           id: row.result_id,
           offeringId: row.offering_id,
@@ -67,7 +67,7 @@ export const gradeRoutes: FastifyPluginAsync = async (app) => {
           finalGradePoints: row.grade_points === null ? null : toNumber(row.grade_points),
         })),
       attendanceResults: rows
-        .filter((row) => row.result_type === "attendance_component" && row.attendance_status !== null)
+        .filter((row) => row.result_type === "attendance" && row.attendance_status !== null)
         .map((row) => ({
           id: row.result_id,
           course: { code: row.course_code, title: row.course_title },
