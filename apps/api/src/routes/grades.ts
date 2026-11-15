@@ -7,7 +7,7 @@ import type { Prisma } from "../generated/prisma/client.ts";
 type StudentResultRow = {
   result_id: string;
   result_type: string;
-  offering_id: string;
+  offering_id: string | null;
   course_code: string;
   course_title: string;
   term_name: string;
