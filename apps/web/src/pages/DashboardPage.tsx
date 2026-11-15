@@ -564,9 +564,6 @@ function GradesSection() {
         </div>
       )}
 
-
-}
-
       {/* UniFlow What-If Grade Calculator */}
       <div className="uf-whatif-box">
         <div className="uf-whatif-head">
