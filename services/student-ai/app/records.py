@@ -57,6 +57,14 @@ class StudentRecordRetriever:
 
         timeout = httpx.Timeout(15.0, connect=5.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
+            if intent == "profile":
+                rows = await self._get(client, access_token, "student_profile", {
+                    "select": "tenant_id,student_id,full_name,email,program_id,program_name,specialization_id,specialization_name,department_id,department_name,faculty_id,faculty_name,academic_level,enrollment_status",
+                    "student_id": f"eq.{student_id}",
+                    "limit": "1",
+                })
+                return ("Student's official Cohort profile: " + _json(rows), ["student_profile", "users", "user_profiles", "student_academic_progressions", "student_programme_selections", "student_specialization_selections"])
+
             if intent == "gpa":
                 rows = await self._get(client, access_token, "student_gpa", {
                     "select": "academic_year_code,academic_year_name,term_id,term_code,term_name,term_kind,term_sequence,term_gpa,cumulative_gpa,term_credits_attempted,cumulative_credits_attempted,cumulative_credits_earned,term_quality_points,cumulative_quality_points,gpa_computed_at",
