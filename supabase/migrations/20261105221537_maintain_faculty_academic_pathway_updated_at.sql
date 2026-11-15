@@ -1,0 +1,3 @@
+create trigger set_faculty_academic_pathway_updated_at
+before update on public.faculty_academic_pathways
+for each row execute function private.set_student_progression_updated_at();

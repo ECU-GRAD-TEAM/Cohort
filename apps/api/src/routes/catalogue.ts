@@ -1,0 +1,117 @@
+import { SectionsResponse, TermParams, TermsResponse } from "@cohort/contracts";
+import type { FastifyPluginAsync } from "fastify";
+import type { ZodTypeProvider } from "fastify-type-provider-zod";
+import { ApiError } from "../errors.ts";
+import { toClockTime, toIsoDate, toNumber } from "../format.ts";
+
+/** Contracts carry timestamps in the `Z` form that `toISOString` produces. */
+const toIsoTimestamp = (d: Date | null) => d?.toISOString() ?? null;
+
+export const catalogueRoutes: FastifyPluginAsync = async (app) => {
+  const api = app.withTypeProvider<ZodTypeProvider>();
+
+  api.get("/terms", { schema: { response: { 200: TermsResponse } } }, async (request) => {
+    // Row-level security leaves only the caller's university, so there is no tenant filter here.
+    const terms = await request.withDb((tx) =>
+      tx.terms.findMany({ orderBy: [{ starts_on: { sort: "desc", nulls: "last" } }, { code: "asc" }] }),
+    );
+    return {
+      terms: terms.map((term) => ({
+        id: term.id,
+        code: term.code,
+        name: term.name,
+        startsOn: term.starts_on ? toIsoDate(term.starts_on) : null,
+        endsOn: term.ends_on ? toIsoDate(term.ends_on) : null,
+        registrationOpensAt: toIsoTimestamp(term.registration_opens_at),
+        registrationClosesAt: toIsoTimestamp(term.registration_closes_at),
+        addDropEndsAt: toIsoTimestamp(term.add_drop_ends_at),
+      })),
+    };
+  });
+
+  api.get(
+    "/terms/:termId/sections",
+    { schema: { params: TermParams, response: { 200: SectionsResponse } } },
+    async (request) => {
+      const { termId } = request.params;
+      const found = await request.withDb(async (tx) => {
+        // Another university's term is invisible to the caller, so it reads as unknown.
+        const term = await tx.terms.findUnique({ where: { id: termId }, select: { id: true } });
+        if (!term) return null;
+
+        // One query at a time: a transaction has a single connection (see `withDb`). The
+        // meetings are therefore a second query rather than a second relation on the first.
+        const published = { course_offerings: { term_id: termId, status: "published" as const } };
+        const sections = await tx.sections.findMany({
+          where: published,
+          orderBy: [{ course_offerings: { courses: { code: "asc" } } }, { code: "asc" }],
+          select: {
+            id: true,
+            code: true,
+            kind: true,
+            capacity: true,
+            course_offerings: {
+              select: { courses: { select: { id: true, code: true, title: true, credit_hours: true } } },
+            },
+          },
+        });
+        const entries = await tx.section_meetings.findMany({
+          where: { sections: published },
+          select: {
+            section_id: true,
+            day_of_week: true,
+            starts_at: true,
+            ends_at: true,
+            rooms: { select: { code: true } },
+          },
+        });
+        return { sections, entries };
+      });
+      if (!found) throw new ApiError(404, "not_found", "Term not found.");
+
+      // Meetings by ISO weekday (Monday 1 to Sunday 7), then start and end time.
+      const meetingsBySection = new Map<string, SectionsResponse["sections"][number]["meetings"]>();
+      const timetable = found.entries.map((entry) => ({ ...entry, weekday: isoWeekday(entry.day_of_week) }));
+      timetable.sort(
+        (a, b) =>
+          a.weekday - b.weekday ||
+          a.starts_at.getTime() - b.starts_at.getTime() ||
+          a.ends_at.getTime() - b.ends_at.getTime(),
+      );
+      for (const entry of timetable) {
+        const meetings = meetingsBySection.get(entry.section_id) ?? [];
+        meetings.push({
+          weekday: entry.weekday,
+          startsAt: toClockTime(entry.starts_at),
+          endsAt: toClockTime(entry.ends_at),
+          room: entry.rooms?.code ?? null,
+        });
+        meetingsBySection.set(entry.section_id, meetings);
+      }
+
+      return {
+        sections: found.sections.map((section) => {
+          const course = section.course_offerings.courses;
+          return {
+            id: section.id,
+            code: section.code,
+            kind: section.kind,
+            capacity: section.capacity,
+            course: {
+              id: course.id,
+              code: course.code,
+              title: course.title,
+              creditHours: toNumber(course.credit_hours),
+            },
+            meetings: meetingsBySection.get(section.id) ?? [],
+          };
+        }),
+      };
+    },
+  );
+};
+
+/** `section_meetings.day_of_week` counts from Sunday (0) to Saturday (6), as Postgres does. */
+export function isoWeekday(dayOfWeek: number): number {
+  return dayOfWeek === 0 ? 7 : dayOfWeek;
+}

@@ -1,0 +1,3 @@
+# Migrations that change structure but also check or move GradProj's real records in top-level
+# DO $$ ... END $$; blocks. scripts/db/reset-test-db.sh runs them without those blocks.
+20261110184849_consolidate_historical_transcript_into_academic_records

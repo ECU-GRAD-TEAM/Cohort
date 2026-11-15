@@ -1,51 +1,247 @@
-# UniFlow university workspace
+# Cohort
 
-Responsive browser-local implementation of the university SaaS design documents. Updated with Milano Red #B81104, Lemon Chiffon #FFFACD, Inter and Noto Sans Arabic, focused navigation, consistent SVG navigation icons, larger touch targets and Arabic navigation with RTL layout.
+Cohort is a multi-tenant platform for universities. This repository holds the database, a
+Fastify API and a React web app. A student signs in with Supabase Auth and sees their courses,
+class meetings and grades; the university's registrars enrol students and assign their meetings.
+The API checks the Supabase access token and runs every query as that user, so the database's
+row-level security decides what each person can see and change.
 
-## Run
-Serve `dist/` with a static server. No build step is needed. Run `node --check dist/app.js`, `node --check dist/workspace.js`, and `node tests/validation.mjs` for source checks.
+| Path | Contents |
+| --- | --- |
+| `apps/api` | The Fastify API, which reads and writes the database through Prisma |
+| `apps/web` | The React web app (Vite) |
+| `packages/contracts` | The request and response schemas the API and the web app share |
+| `supabase` | Migrations and database tests; see [supabase/README.md](supabase/README.md) |
+| `scripts/db` | `reset-test-db.sh`, which builds the test database |
+| `docs/superpowers/specs` | Design documents |
 
-## Implemented local workflows
-- Course workspace tabs for materials, assignments, quizzes, grades, attendance, announcements and discussions.
-- Materials, versioning, release dates, text previews and file downloads. Attachments stored in IndexedDB with a 10 MB limit.
-- Assignment authoring, instructions, rubric, model-answer release, local submissions and receipts, one resubmission before deadline.
-- Quiz builder and question bank with MCQ, true/false, matching, essay and problem solving; browser timer, answer autosave, attempt limits, objective scoring and written-answer review.
-- Explicit draft, approved and published grade states, confirmation before publication and local change history.
-- Name-entry attendance sessions, pending requests and instructor status confirmation. No fake QR verification.
-- Timetable clash and room-capacity checks, academic calendars, exam seat release gating and iCalendar export.
-- Local directory creation/editing and validated CSV imports; academic structure and course offerings; enrolment validation and waiting lists.
-- Requests with categories, priorities, response targets, owner assignment, internal notes, replies and resolution history.
-- Local messages, appointment booking/cancellation, notifications, preferences, event registration, lost-and-found items and an illustrative campus directory.
-- Incidents with owner, severity, evidence, history and resolution notes; sample service/log/AI telemetry views.
-- Manually confirmed workflow-rule runs; proposed AI budgets and preferences; local audit and CSV/data export.
-- Prepared assistant answers with inspectable sample sources and feedback controls. No live LLM.
+## Running Cohort locally
 
-## Verification
-- JavaScript syntax checks passed.
-- Eleven business-rule assertions passed (duplicate emails, capacity, prerequisite self-reference, schedule overlaps and adjacent slots, incident notes, question keys and quoted CSV).
-- Browser-confirmed quiz flow scored 2/2 objective answers and left essay in Needs review.
-- Browser-confirmed grade approval remained unpublished.
-- Browser-confirmed overlapping timetable request rejected while retaining input.
-- Browser-confirmed incident saved with Resolved state and notes.
-- Desktop and 390px Arabic RTL mobile layout visually inspected.
-- Final support-form browser check could not run after browser tooling denied access; do not claim every interaction is tested. A broad screen smoke-test tool timed out before its final report, so it is not counted as a completed test suite.
+You need Node 22.22.2 or later and npm. The steps run in order; steps 2 and 7 are only for the
+tests.
 
-## Remaining production work
-This is not a production multi-tenant university service. Role switching is a visual preview, not authorization. All information is sample data stored in a visitor's browser. Do not enter real educational or personal records. No university SSO/MFA, secure account recovery, server permission enforcement, tenant isolation, live AI/RAG/predictive models, real messaging, push/email, finance integration, live monitoring, secure QR check-in, server-authoritative exams, server uploads, cross-device sync or scheduled background automation is connected. Some Arabic content remains English; Arabic navigation and RTL are provided, not a complete translation audit. Accessibility improvements are implemented but WCAG conformance has not been independently audited. Browser file persistence is not cloud backup and offline app-shell caching is not implemented.
+### Before you start: check that GradProj signs tokens with asymmetric keys
 
-The in-app Feature status screen makes these boundaries visible to users.
+The API checks each access token against the project's public key set, so the project has to sign
+its tokens with an asymmetric key. Fetch the key set:
 
-## Floating dock navigation update
-The sidebar and hamburger drawer are hidden at all breakpoints. The role selector and brand move to the header. A five-destination floating bottom dock adapts to the selected role, supports RTL, exposes aria-current and keyboard focus, and replaces More with Chats, opening Messages. Safe-area offsets and footer padding reserve room for the dock. Verified JavaScript syntax and existing business-rule assertions; browser visual QA was unavailable in this pass.
+```bash
+curl -s https://gejismdqvjuygtxibdhs.supabase.co/auth/v1/.well-known/jwks.json
+```
 
-## Academic Staff and IT dashboards — November 2026
-Dedicated responsive dashboards in `dist/dashboards.js` and `dist/dashboards.css`, loaded after the existing workspace. The Academic Staff display label preserves the internal Teaching staff role for stored data compatibility.
+The response must list at least one key with `"alg": "ES256"` or `"alg": "RS256"`. If the list is
+empty, the project still signs tokens with the legacy shared secret, and every API request gets 401
+until you enable asymmetric JWT signing keys in the project's JWT settings in the Supabase
+Dashboard.
 
-Academic dashboard: grade/written-response review queue, approved publication count, course cards, published teaching sessions, materials, assignments and quiz creation shortcuts, local grade publication progress and a teaching assistant entry point.
+### 1. Install
 
-IT dashboard: explicit sample service snapshot, dynamic local incident and IT ticket counts, incident investigation, sample latency comparison, local activity and links to logs/storage/security/AI preferences. Sample telemetry is deliberately separate from incident workflow state.
+```bash
+npm install
+```
 
-Validation: JavaScript syntax and existing 11 business-rule assertions pass. Browser-verified both desktop dashboards, 390px mobile viewport and Arabic RTL academic layout (no horizontal overflow), grade review, assignment creation, material creation, incident details and mobile incident creation forms. No end-to-end university integration or live telemetry is claimed.
+### 2. Build the test database
 
-## Profile, notifications and appeals update
-The header profile picture opens a menu for help, notifications, profile, settings and chats. Profile editing keeps email, programme and academic year read-only while allowing display name and phone changes. Quiz and assignment notifications can be toggled independently. The schedule page places a class timetable on the right with room, duration and lecturer details. Submitted quizzes offer an appeal action that records a local manual review request and adds it to the Academic Staff queue.
+The API's tests run against a local Postgres 15 or later with pgvector, a superuser named
+`postgres` and trust authentication for local connections. The web app's tests need no database.
+
+| Variable | Default |
+| --- | --- |
+| `TEST_DB_ADMIN_URL` (creates and drops the test database) | `postgresql://postgres@127.0.0.1:5432/postgres` |
+| `TEST_DATABASE_URL` (the owner, which applies migrations and seeds data) | `postgresql://postgres@127.0.0.1:5432/cohort_test` |
+| `TEST_API_DATABASE_URL` (the connection the API under test uses) | `postgresql://cohort_api@127.0.0.1:5432/cohort_test` |
+
+Export the variables whose defaults do not fit your Postgres, then run:
+
+```bash
+npm run db:test:reset
+```
+
+This drops and recreates the database named in `TEST_DATABASE_URL` (its name must end in `_test`)
+and applies every migration in `supabase/migrations`.
+
+GradProj has two pieces of state that no migration creates: a foreign key renamed by hand, and
+the ECU tenant. Files in `scripts/db/pre-migration/` named after a migration recreate that state
+just before that migration runs, in the test database only.
+
+Some migrations only rework GradProj's real records (named staff, imported transcripts, the
+approved timetable) and stop when those records are missing, which they always are in an empty test
+database. Two lists in `scripts/db` deal with them, in the test build only:
+
+- `data-only-migrations.txt`: migrations with no structural change, which the build skips.
+- `data-check-migrations.txt`: migrations that also change structure, which the build runs without
+  their top-level `DO $$ ... END $$;` blocks (the parts that check or move those records).
+
+When a new migration of this kind stops `npm run db:test:reset`, add its name to the right list.
+
+#### Regenerating the Prisma schema
+
+Regenerate `apps/api/prisma/schema.prisma` with `npm run db:pull -w @cohort/api`. `db pull`
+introspects the database in `TEST_DATABASE_URL` (the test database from step 2), never GradProj,
+so run `npm run db:test:reset` first. A fresh
+`db pull` infers seven relations as one-to-one, because their tables have partial unique indexes,
+and `prisma validate` then fails. Change these seven opposite relation fields back to lists:
+
+- `faculties.academic_calendars`
+- `academic_calendars.academic_years`
+- `user_profiles.person_profile_phones`
+- `user_profiles.person_profile_emails`
+- `programs.program_academic_policies`
+- `users.student_department_assignments_student`
+- `users.student_programme_selections_student`
+
+### 3. Set the API role's password
+
+GradProj has every migration in this repository (`supabase/migrations` mirrors it) except
+`20261113131803_repoint_functions_after_profile_and_enrolment_changes`; see
+[supabase/README.md](supabase/README.md) for what it fixes and how to apply it. Migration
+`api_role` creates the `cohort_api` login role without a password, so the API cannot connect
+until you set one. In the Supabase Dashboard, open the SQL Editor for GradProj and run:
+
+```sql
+alter role cohort_api with password '<cohort_api password>';
+```
+
+Use a long random password and keep it out of git.
+
+### 4. Configure the API
+
+Copy `apps/api/.env.example` to `apps/api/.env` (git-ignored) and replace the placeholders:
+
+```bash
+DATABASE_URL=postgresql://cohort_api.gejismdqvjuygtxibdhs:<cohort_api password>@<session pooler host>:5432/postgres
+SUPABASE_URL=https://gejismdqvjuygtxibdhs.supabase.co
+```
+
+`DATABASE_URL` uses the Session pooler. Its user is `cohort_api.gejismdqvjuygtxibdhs` (the role,
+a dot, then the project ref). Copy the host from Dashboard > Connect. If the password contains
+`@`, `:`, `/`, `?`, `#` or `%`, percent-encode those characters in the URL.
+
+**The API must never connect as `postgres`.** It connects as `cohort_api`, which holds no
+privileges of its own and switches to the `authenticated` role for each request, so row-level
+security applies to every query. A superuser connection would skip that protection.
+
+### 5. Configure the web app
+
+Copy `apps/web/.env.example` to `apps/web/.env` (git-ignored) and replace `<publishable key>` with
+the project's publishable key (Dashboard > Project Settings > API Keys):
+
+```bash
+VITE_SUPABASE_URL=https://gejismdqvjuygtxibdhs.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=<publishable key>
+VITE_API_URL=http://localhost:3000
+```
+
+Never put a secret or service-role key in the web app.
+
+### 6. Start the API and the web app
+
+Run each in its own terminal:
+
+```bash
+npm run dev -w @cohort/api    # http://127.0.0.1:3000
+npm run dev -w @cohort/web    # http://localhost:5173
+```
+
+Open http://localhost:5173 and sign in with a Supabase Auth account that belongs to a university.
+An account gets its university when the backend creates it, or later updates it, with `app_metadata` (see Identity in
+[supabase/README.md](supabase/README.md)). An account without one signs in but sees "Your account
+is not linked to a university yet."
+
+### 7. Run the tests
+
+```bash
+npm test                      # every workspace; the API's tests need the database from step 2
+npm test -w @cohort/web       # the web app alone, no database
+npm run typecheck
+```
+
+The database's own tests are described in [supabase/README.md](supabase/README.md).
+
+### Sign-up
+
+The sign-up page creates the Supabase Auth login only. It sends the full name as `user_metadata`
+and nothing about a university, role or user type.
+
+- Linking the account to ECU (Egyptian Chinese University) and granting roles is the team's
+  trusted provisioning step: a server-side call that sets `app_metadata` through the Admin API,
+  after which the database provisions the account and the step grants roles.
+- Until then the person signs in and sees "Your account is not linked to a university yet.
+  Contact your administrator."
+- With "Confirm email" on, people confirm by email before they can sign in.
+
+The project owner sets these in the Supabase Dashboard before this branch merges, because `main`
+auto-deploys `/signup` to production:
+
+- **Authentication > Sign In / Providers:** "Allow new users to sign up" must be on.
+- **Authentication > URL Configuration:** the Site URL must be `https://cohort-nine-mu.vercel.app`.
+  Also add `http://localhost:5173/**` to Redirect URLs.
+- **Custom SMTP (Authentication > Emails > SMTP Settings):** with "Confirm email" on, Supabase's
+  built-in email service only delivers to members of the project's organisation, and only a few
+  emails an hour. Anyone else cannot receive the confirmation email until custom SMTP is
+  configured.
+
+## Deploying to Vercel
+
+One Vercel project, linked to this GitHub repository, serves both apps from the same address:
+
+- **Web app:** static files, built by Vite. Any path that is not a file, such as `/register`,
+  serves `index.html`.
+- **API:** a single Node.js function serving every request under `/api`. It runs in Dublin
+  (`dub1`), next to GradProj in `eu-west-1`.
+
+Every push to `main` deploys to production. Pushes to other branches get preview deployments;
+by default only members of the Vercel team can open those.
+
+### How the build works
+
+[`vercel.json`](vercel.json) tells Vercel to run `npm ci` and then `npm run build:vercel`. That
+runs [`scripts/vercel/build.mjs`](scripts/vercel/build.mjs), which writes the deployment in
+Vercel's [Build Output API](https://vercel.com/docs/build-output-api) format, in
+`.vercel/output`:
+
+1. It builds the web app.
+2. It generates the Prisma client.
+3. It bundles the API into one file with esbuild.
+
+The script bundles the API itself because Vercel's own TypeScript compilation does not support
+this repository's TypeScript 7 setup. You can run the same build locally with
+`npm run build:vercel`. It reads `apps/web/.env` for the web app's variables.
+
+### Environment variables
+
+Set these in the Vercel project for Production and Preview:
+
+| Variable | Value |
+| --- | --- |
+| `DATABASE_URL` | GradProj's **Transaction pooler** connection string, as `cohort_api` (see below). |
+| `SUPABASE_URL` | `https://gejismdqvjuygtxibdhs.supabase.co` |
+| `VITE_SUPABASE_URL` | `https://gejismdqvjuygtxibdhs.supabase.co` |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | The project's publishable key. |
+| `VITE_API_URL` | `/api` |
+
+`DATABASE_URL` takes the form
+`postgresql://cohort_api.gejismdqvjuygtxibdhs:<cohort_api password>@<transaction pooler host>:6543/postgres`.
+Copy the host from Dashboard > Connect > Transaction pooler.
+
+Vercel's functions cannot reach Supabase's direct host, which has only an IPv6 address. The
+transaction pooler also keeps many short-lived function instances from using up the database's
+connections. Each API request runs in a single transaction, so the per-request role switch is
+safe through it.
+
+The `VITE_` values are built into the web app. If you change one, redeploy for it to take effect.
+
+## Student AI assistant (initial integration)
+
+The student assistant is a private Python service behind the authenticated Fastify API.
+
+1. Install and run the Python service from `services/student-ai` as described in its README.
+2. Configure `COHORT_AI_INTERNAL_KEY` and at least one model provider key in the Python service environment.
+3. Set matching `STUDENT_AI_SERVICE_URL` and `STUDENT_AI_INTERNAL_KEY` in `apps/api/.env`.
+4. Restart the API and web app, sign in as an enrolled student, and open **Student assistant**.
+
+The first slice provides conversational tutoring with Arabic/English language selection and a
+suggested-question interface. It does **not yet** retrieve student records or official university
+documents, persist conversations/memory, enforce AI budgets, or write AI usage/audit records. The
+assistant explicitly discloses that personal/official context was not retrieved. Those integrations
+must be completed before treating it as a university-record-aware production assistant.

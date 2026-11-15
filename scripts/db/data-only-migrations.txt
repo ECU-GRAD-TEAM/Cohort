@@ -1,0 +1,8 @@
+# Migrations that only rework GradProj's real records and stop when those records are missing.
+# scripts/db/reset-test-db.sh skips them when it builds the test database.
+20261108202013_create_set_staff_position_and_leadership_appointments
+20261110165018_seed_ecu_mandatory_midterm_and_final_grade_components
+20261110200742_add_english_language_to_set_semester_1
+20261110201829_remove_english_language_from_set_semester_1
+20261113122822_apply_approved_fall_2026_section_meeting_times
+20261113124137_apply_approved_fall_2026_section_meeting_rooms

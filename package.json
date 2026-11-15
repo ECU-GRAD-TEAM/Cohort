@@ -1,13 +1,24 @@
 {
-  "name": "cohort-lms",
+  "name": "cohort",
   "private": true,
   "version": "2.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=22.22.2"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node tests/validation.mjs"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:front": "node tests/validation.mjs",
+    "db:test:reset": "bash scripts/db/reset-test-db.sh",
+    "build:vercel": "node scripts/vercel/build.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.544.0",
@@ -16,7 +27,11 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.4",
+    "@types/node": "22.20.5",
     "@vitejs/plugin-react": "^4.4.1",
-    "vite": "^6.3.2"
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2",
+    "vite": "^6.3.2",
+    "vitest": "5.0.5"
   }
 }
