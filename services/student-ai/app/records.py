@@ -71,7 +71,8 @@ class StudentRecordRetriever:
                 rows = await self._get(client, access_token, "student_assessments", {
                     "select": "course_code,course_title,academic_year_name,term_name,component_name,attendance_status,recorded_at",
                     "student_id": f"eq.{student_id}",
-                    "result_type": "eq.attendance_component",
+                    "result_type": "eq.assessment",
+                    "component_type": "eq.attendance",
                     "order": "recorded_at.desc.nullslast",
                     "limit": "200",
                 })
