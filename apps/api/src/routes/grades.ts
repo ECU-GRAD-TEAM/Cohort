@@ -23,7 +23,7 @@ type StudentResultRow = {
   recorded_at: Date | null;
 };
 
-/** One normalized results view supplies final grades, assessment marks, and attendance. */
+/** Course finals and assessment/attendance records are stored in separate student-facing views. */
 export const gradeRoutes: FastifyPluginAsync = async (app) => {
   const api = app.withTypeProvider<ZodTypeProvider>();
 
