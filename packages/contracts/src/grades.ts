@@ -28,22 +28,8 @@ export const CourseResult = z.object({
 });
 export type CourseResult = z.infer<typeof CourseResult>;
 
-export const AttendanceResult = z.object({
-  id: z.uuid(),
-  course: z.object({ code: z.string(), title: z.string() }),
-  term: z.string(),
-  status: z.string(),
-  score: z.number(),
-  maxScore: z.number(),
-  percentage: z.number().nullable(),
-  weight: z.number().nullable(),
-  recordedAt: z.iso.datetime().nullable(),
-});
-export type AttendanceResult = z.infer<typeof AttendanceResult>;
-
 export const GradesResponse = z.object({
   grades: z.array(Grade),
   courseResults: z.array(CourseResult).default([]),
-  attendanceResults: z.array(AttendanceResult).default([]),
 });
 export type GradesResponse = z.infer<typeof GradesResponse>;
