@@ -63,7 +63,7 @@ class StudentRecordRetriever:
                     "student_id": f"eq.{student_id}",
                     "limit": "1",
                 })
-                return ("Student's official Cohort profile: " + _json(rows), ["student_profile", "users", "user_profiles", "student_academic_progressions", "student_programs", "student_specialization_selections"])
+                return ("Student's official Cohort profile: " + _json(rows), ["student_profile", "users", "user_profiles", "student_academic_progressions", "student_programs", "student_specializations"])
 
             if intent == "gpa":
                 rows = await self._get(client, access_token, "student_gpa", {
