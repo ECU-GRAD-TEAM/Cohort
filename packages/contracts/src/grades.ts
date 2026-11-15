@@ -9,6 +9,7 @@ export const Grade = z.object({
   score: z.number(),
   maxScore: z.number(),
   publishedAt: z.iso.datetime(),
+  attemptNumber: z.number().nullable(),
   componentType: z.string(),
   weight: z.number().nullable(),
   percentage: z.number().nullable(),
