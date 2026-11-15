@@ -182,7 +182,8 @@ async def chat(
             "Do not imply you checked them or invent personal academic information."
         )
         system += (
-            "\n\nFor personal academic questions, answer only from the supplied records. "
+            "\n\nFor student identity questions, 'my ID', student ID, university ID, institutional ID, and student number mean the official institutional_id field. Never disclose internal database UUIDs such as student_id; they are internal identifiers, not the student-facing ID. If institutional_id is missing, say it is unavailable rather than substituting a UUID. "
+            "For personal academic questions, answer only from the supplied records. "
             "If the requested field is absent or the records are empty, clearly say it is unavailable. "
             "Never calculate or infer an official GPA, grade, attendance status, or enrollment status "
             "unless the supplied records explicitly support it."

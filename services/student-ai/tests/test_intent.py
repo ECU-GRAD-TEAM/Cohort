@@ -1,7 +1,7 @@
 import asyncio
 import unittest
 
-from app.intent import classify_intents
+from app.intent import INTENT_INSTRUCTIONS, classify_intents
 
 
 class GeminiMultiIntentTests(unittest.TestCase):
@@ -19,6 +19,11 @@ class GeminiMultiIntentTests(unittest.TestCase):
         self.assertEqual(result, ["gpa", "attendance"])
         self.assertEqual(len(calls), 1)
         self.assertEqual(calls[0][0]["role"], "system")
+
+    def test_student_id_is_defined_as_institutional_id_not_uuid(self):
+        self.assertIn('"my ID"', INTENT_INSTRUCTIONS)
+        self.assertIn("institutional_id", INTENT_INSTRUCTIONS)
+        self.assertIn("Never use or reveal the internal student_id UUID", INTENT_INSTRUCTIONS)
 
     def test_general_question_returns_no_intents(self):
         async def model_call(_messages):

@@ -59,7 +59,7 @@ class StudentRecordRetriever:
         async with httpx.AsyncClient(timeout=timeout) as client:
             if intent == "profile":
                 rows = await self._get(client, access_token, "student_profile", {
-                    "select": "tenant_id,student_id,full_name,email,program_id,program_name,specialization_id,specialization_name,department_id,department_name,faculty_id,faculty_name,academic_level,enrollment_status",
+                    "select": "institutional_id,full_name,email,program_id,program_name,specialization_id,specialization_name,department_id,department_name,faculty_id,faculty_name,academic_level,enrollment_status",
                     "student_id": f"eq.{student_id}",
                     "limit": "1",
                 })
