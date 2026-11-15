@@ -633,6 +633,7 @@ function GradesSection() {
 }
 
 function StudentDashboard({ displayName }: { displayName: string }) {
+  const api = useApi();
   const { t } = useLanguage();
   const firstName = displayName.trim().split(/\s+/)[0] || "Student";
   const gpa = useQuery({ queryKey: queryKeys.gpa, queryFn: () => api.getMyGpa() });
