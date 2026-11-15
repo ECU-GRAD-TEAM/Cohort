@@ -4,4 +4,5 @@ export const queryKeys = {
   sections: (termId: string) => ["sections", termId],
   enrollments: ["enrollments"],
   grades: ["grades"],
+  gpa: ["gpa"],
 } as const;
