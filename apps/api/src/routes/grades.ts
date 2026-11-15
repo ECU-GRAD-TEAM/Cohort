@@ -32,7 +32,11 @@ export const gradeRoutes: FastifyPluginAsync = async (app) => {
       select result_id, result_type, offering_id, course_code, course_title, term_name,
              component_id, component_name, score, max_score, grade_letter, grade_points,
              result_status, attendance_status, credit_hours, recorded_at
-      from public.student_results
+      from (
+        select * from public.student_courses
+        union all
+        select * from public.student_assessments
+      ) results
       where student_id = ${request.user.sub}::uuid
       order by recorded_at desc nulls last, course_code, result_id
     `);
