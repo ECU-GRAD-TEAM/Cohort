@@ -544,6 +544,8 @@ function GradesSection() {
                 <th scope="col">{t("Term", "الفصل الدراسي")}</th>
                 <th scope="col">{t("Final grade", "التقدير النهائي")}</th>
                 <th scope="col">{t("Grade points", "نقاط التقدير")}</th>
+                <th scope="col">{t("Attempt", "المحاولة")}</th>
+                <th scope="col">{t("Status", "الحالة")}</th>
               </tr>
             </thead>
             <tbody>
@@ -553,39 +555,17 @@ function GradesSection() {
                   <td>{result.term ?? "—"}</td>
                   <td>{result.finalGradeLetter ?? t("Not published", "لم تعلن")}</td>
                   <td>{result.finalGradePoints ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-
-      {grades.data && grades.data.attendanceResults.length > 0 && (
-        <div className="uf-table-wrap" aria-label={t("Attendance components", "درجات الحضور")}>
-          <h3>{t("Attendance components", "درجات الحضور")}</h3>
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">{t("Course", "المقرر")}</th>
-                <th scope="col">{t("Term", "الفصل الدراسي")}</th>
-                <th scope="col">{t("Attendance status", "حالة الحضور")}</th>
-                <th scope="col">{t("Recorded at", "تاريخ التسجيل")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {grades.data.attendanceResults.map((result) => (
-                <tr key={result.id}>
-                  <td>{result.course.code} · {result.course.title}</td>
-                  <td>{result.term}</td>
+                  <td>{result.attemptNumber ?? "—"}</td>
                   <td>{result.status}</td>
-                  <td>{result.recordedAt ? new Date(result.recordedAt).toLocaleDateString() : "—"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+
+}
 
       {/* UniFlow What-If Grade Calculator */}
       <div className="uf-whatif-box">
