@@ -58,6 +58,7 @@ export const gradeRoutes: FastifyPluginAsync = async (app) => {
           score: toNumber(row.score!),
           maxScore: toNumber(row.max_score!),
           publishedAt: row.recorded_at!.toISOString(),
+          attemptNumber: row.attempt_number,
           componentType: row.component_type,
           weight: row.component_weight === null ? null : toNumber(row.component_weight),
           percentage: row.score_percentage === null ? null : toNumber(row.score_percentage),
