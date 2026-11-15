@@ -6,13 +6,14 @@ import re
 from typing import Awaitable, Callable
 
 ALLOWED_INTENTS = frozenset({
-    "gpa", "attendance", "grades", "enrollments", "timetable",
+    "profile", "gpa", "attendance", "grades", "enrollments", "timetable",
 })
 
 INTENT_INSTRUCTIONS = """Identify every distinct personal Cohort-record lookup required to answer
 the student's latest message. Return a JSON object with an "intents" array.
 
 Allowed intent values:
+- "profile": the student's own profile, full name, university email, programme, confirmed specialization, department, faculty, academic level, or enrollment/account status.
 - "gpa": the student's GPA, CGPA, grade-point average, or cumulative average.
 - "attendance": the student's attendance, absences, lateness, or attendance percentage.
 - "grades": the student's marks, scores, published assessment results, or course grades.
