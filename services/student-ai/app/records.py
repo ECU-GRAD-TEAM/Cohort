@@ -43,7 +43,6 @@ class StudentRecordRetriever:
         if response.status_code in (401, 403):
             raise RecordRetrievalError(f"The student's database session was rejected (HTTP {response.status_code}, table {table}).")
         if response.is_error:
-            # Do not leak SQL, schema, or provider response details into the chat.
             raise RecordRetrievalError(f"Could not retrieve the requested {table} records (HTTP {response.status_code}).")
         data = response.json()
         if not isinstance(data, list):
@@ -69,9 +68,8 @@ class StudentRecordRetriever:
 
             if intent == "attendance":
                 rows = await self._get(client, access_token, "student_assessments", {
-                    "select": "course_code,course_title,academic_year_name,term_name,component_name,component_type,score,max_score,score_percentage,component_weight,result_status,recorded_at",
+                    "select": "course_code,course_title,academic_year_name,term_name,component_name,component_type,score,max_score,score_percentage,component_weight,result_status,recorded_at,attempt_number",
                     "student_id": f"eq.{student_id}",
-                    "result_type": "eq.assessment",
                     "component_type": "eq.attendance",
                     "order": "recorded_at.desc.nullslast",
                     "limit": "200",
@@ -80,25 +78,23 @@ class StudentRecordRetriever:
 
             if intent == "grades":
                 course_rows = await self._get(client, access_token, "student_courses", {
-                    "select": "result_id,result_type,course_code,course_title,academic_year_name,term_name,component_type,component_name,assessment_title,score,max_score,score_percentage,component_weight,grade_letter,grade_points,result_status,attendance_status,gpa_exclusion_reason,recorded_at,attempt_number",
+                    "select": "course_code,course_title,academic_year_name,term_name,credit_hours,enrollment_status,final_percentage,final_grade_letter,final_grade_points,gpa_exclusion_reason,recorded_at,attempt_number,offering_id",
                     "student_id": f"eq.{student_id}",
                     "order": "recorded_at.desc.nullslast",
                     "limit": "150",
                 })
                 assessment_rows = await self._get(client, access_token, "student_assessments", {
-                    "select": "result_id,result_type,course_code,course_title,academic_year_name,term_name,component_type,component_name,assessment_title,score,max_score,grade_letter,grade_points,result_status,attendance_status,gpa_exclusion_reason,recorded_at",
+                    "select": "course_code,course_title,academic_year_name,term_name,component_type,component_name,assessment_title,score,max_score,score_percentage,component_weight,result_status,recorded_at,attempt_number,offering_id",
                     "student_id": f"eq.{student_id}",
                     "order": "recorded_at.desc.nullslast",
                     "limit": "300",
                 })
-                rows = course_rows + assessment_rows
-                return ("Student course results and separate assessment/attendance components: " + _json(rows), ["student_courses", "student_assessments", "enrollments", "grade_entries", "attendance_records"])
+                return ("Student course results and individual assessment components: " + _json({"course_results": course_rows, "assessments": assessment_rows}), ["student_courses", "student_assessments", "enrollments", "grade_entries"])
 
             if intent == "enrollments":
                 rows = await self._get(client, access_token, "student_courses", {
-                    "select": "course_code,course_title,credit_hours,term_code,term_name,academic_year_name,result_status,grade_letter,grade_points,attempt_number",
+                    "select": "course_code,course_title,credit_hours,term_code,term_name,academic_year_name,enrollment_status,final_percentage,final_grade_letter,final_grade_points,attempt_number,offering_id",
                     "student_id": f"eq.{student_id}",
-                    "result_type": "eq.course_final",
                     "order": "recorded_at.desc.nullslast",
                     "limit": "100",
                 })
@@ -115,12 +111,6 @@ class StudentRecordRetriever:
 
         return ("No personal record lookup was required for this prompt.", [])
 
-def _uuid_in_filter(values: list[str]) -> str:
-    # IDs came from our own database response; validate before interpolating into PostgREST's
-    # comma-delimited IN filter so values cannot alter the filter expression.
-    from uuid import UUID
-    safe = [str(UUID(value)) for value in values]
-    return "in.(" + ",".join(safe) + ")"
 
 def _json(value: Any) -> str:
     import json
