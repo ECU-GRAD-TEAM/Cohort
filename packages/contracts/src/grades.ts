@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const Grade = z.object({
   id: z.uuid(),
-  offeringId: z.uuid(),
+  offeringId: z.uuid().nullable(),
   course: z.object({ code: z.string(), title: z.string() }),
   componentId: z.uuid().nullable(),
   item: z.string().nullable(),
@@ -20,7 +20,7 @@ export const CourseResult = z.object({
   enrollmentId: z.uuid(),
   course: z.object({ code: z.string(), title: z.string() }),
   term: z.string().nullable(),
-  status: z.string(),
+  status: z.enum(["enrolled", "completed", "withdrawn", "failed"]),
   creditHours: z.number().nullable(),
   finalPercentage: z.number().nullable(),
   finalGradeLetter: z.string().nullable(),
