@@ -13,6 +13,7 @@ import type { PrismaClient } from "./generated/prisma/client.ts";
 import { catalogueRoutes } from "./routes/catalogue.ts";
 import { enrollmentRoutes } from "./routes/enrollments.ts";
 import { gradeRoutes } from "./routes/grades.ts";
+import { gpaRoutes } from "./routes/gpa.ts";
 import { meRoutes } from "./routes/me.ts";
 import { studentAiRoutes } from "./routes/student-ai.ts";
 
@@ -92,6 +93,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
     await scope.register(catalogueRoutes);
     await scope.register(enrollmentRoutes);
     await scope.register(gradeRoutes);
+    await scope.register(gpaRoutes);
     await scope.register(studentAiRoutes);
   });
 
