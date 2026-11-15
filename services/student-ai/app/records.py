@@ -69,7 +69,7 @@ class StudentRecordRetriever:
 
             if intent == "attendance":
                 rows = await self._get(client, access_token, "student_assessments", {
-                    "select": "course_code,course_title,academic_year_name,term_name,component_name,attendance_status,recorded_at",
+                    "select": "course_code,course_title,academic_year_name,term_name,component_name,component_type,score,max_score,score_percentage,component_weight,result_status,recorded_at",
                     "student_id": f"eq.{student_id}",
                     "result_type": "eq.assessment",
                     "component_type": "eq.attendance",
@@ -80,7 +80,7 @@ class StudentRecordRetriever:
 
             if intent == "grades":
                 course_rows = await self._get(client, access_token, "student_courses", {
-                    "select": "result_id,result_type,course_code,course_title,academic_year_name,term_name,component_type,component_name,assessment_title,score,max_score,grade_letter,grade_points,result_status,attendance_status,gpa_exclusion_reason,recorded_at",
+                    "select": "result_id,result_type,course_code,course_title,academic_year_name,term_name,component_type,component_name,assessment_title,score,max_score,score_percentage,component_weight,grade_letter,grade_points,result_status,attendance_status,gpa_exclusion_reason,recorded_at,attempt_number",
                     "student_id": f"eq.{student_id}",
                     "order": "recorded_at.desc.nullslast",
                     "limit": "150",
@@ -96,7 +96,7 @@ class StudentRecordRetriever:
 
             if intent == "enrollments":
                 rows = await self._get(client, access_token, "student_courses", {
-                    "select": "course_code,course_title,credit_hours,term_code,term_name,academic_year_name,result_status,grade_letter,grade_points",
+                    "select": "course_code,course_title,credit_hours,term_code,term_name,academic_year_name,result_status,grade_letter,grade_points,attempt_number",
                     "student_id": f"eq.{student_id}",
                     "result_type": "eq.course_final",
                     "order": "recorded_at.desc.nullslast",
