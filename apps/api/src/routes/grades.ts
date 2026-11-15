@@ -7,6 +7,7 @@ import type { Prisma } from "../generated/prisma/client.ts";
 type StudentResultRow = {
   result_id: string;
   result_type: string;
+  component_type: string;
   offering_id: string | null;
   course_code: string;
   course_title: string;
@@ -29,7 +30,7 @@ export const gradeRoutes: FastifyPluginAsync = async (app) => {
 
   api.get("/me/grades", { schema: { response: { 200: GradesResponse } } }, async (request) => {
     const rows = await request.withDb((tx) => tx.$queryRaw<StudentResultRow[]>`
-      select result_id, result_type, offering_id, course_code, course_title, term_name,
+      select result_id, result_type, component_type, offering_id, course_code, course_title, term_name,
              component_id, component_name, score, max_score, grade_letter, grade_points,
              result_status, attendance_status, credit_hours, recorded_at
       from (
