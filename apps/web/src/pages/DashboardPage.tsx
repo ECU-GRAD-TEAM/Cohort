@@ -492,7 +492,7 @@ function GradesSection() {
         <span aria-hidden="true">
           <Icon name="chart" size={18} />
         </span>
-        <p>{t("No published grades yet.", "لا توجد درجات معلنة حتى الآن.")}</p>
+        <p>{t("No published assessment component grades yet.", "لا توجد درجات معلنة لعناصر التقييم حتى الآن.")}</p>
       </div>
     );
   else
@@ -560,6 +560,33 @@ function GradesSection() {
         </div>
       )}
 
+
+      {grades.data && grades.data.attendanceResults.length > 0 && (
+        <div className="uf-table-wrap" aria-label={t("Attendance components", "درجات الحضور")}>
+          <h3>{t("Attendance components", "درجات الحضور")}</h3>
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">{t("Course", "المقرر")}</th>
+                <th scope="col">{t("Term", "الفصل الدراسي")}</th>
+                <th scope="col">{t("Attendance status", "حالة الحضور")}</th>
+                <th scope="col">{t("Recorded at", "تاريخ التسجيل")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {grades.data.attendanceResults.map((result) => (
+                <tr key={result.id}>
+                  <td>{result.course.code} · {result.course.title}</td>
+                  <td>{result.term}</td>
+                  <td>{result.status}</td>
+                  <td>{result.recordedAt ? new Date(result.recordedAt).toLocaleDateString() : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {/* UniFlow What-If Grade Calculator */}
       <div className="uf-whatif-box">
         <div className="uf-whatif-head">
@@ -608,14 +635,17 @@ function GradesSection() {
 function StudentDashboard({ displayName }: { displayName: string }) {
   const { t } = useLanguage();
   const firstName = displayName.trim().split(/\s+/)[0] || "Student";
+  const gpa = useQuery({ queryKey: queryKeys.gpa, queryFn: () => api.getMyGpa() });
+  const gpaRecords = gpa.data?.records ?? [];
+  const latestGpa = gpaRecords[gpaRecords.length - 1];
   const [selectedYear, setSelectedYear] = useState<AcademicYearId>("year-4");
 
   // Core UniFlow Student Dashboard Stat Cards (GPA, Attendance, Active Courses, Upcoming Tasks)
   const uniflowStats: { value: string; label: string; sub: string; icon: IconName }[] = [
     {
-      value: "3.68",
-      label: t("Current GPA", "المعدل الفصلي الحالي"),
-      sub: t("Cumulative 3.61 · Good standing", "التراكمي 3.61 · تقدير جيد جداً"),
+      value: latestGpa?.termGpa == null ? "—" : latestGpa.termGpa.toFixed(2),
+      label: t("Latest term GPA", "معدل آخر فصل دراسي"),
+      sub: latestGpa ? t(`Cumulative ${latestGpa.cumulativeGpa?.toFixed(2) ?? "—"} · ${latestGpa.cumulativeCreditsEarned} credits earned`, `التراكمي ${latestGpa.cumulativeGpa?.toFixed(2) ?? "—"} · ${latestGpa.cumulativeCreditsEarned} ساعة مكتسبة`) : t("No official GPA snapshot available", "لا توجد بيانات معدل رسمية متاحة"),
       icon: "chart",
     },
     {
