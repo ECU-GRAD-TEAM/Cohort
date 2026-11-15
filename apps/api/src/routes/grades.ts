@@ -75,19 +75,7 @@ export const gradeRoutes: FastifyPluginAsync = async (app) => {
           finalGradePoints: row.grade_points === null ? null : toNumber(row.grade_points),
           attemptNumber: row.attempt_number,
         })),
-      attendanceResults: rows
-        .filter((row) => row.result_type === "assessment" && row.component_type === "attendance" && row.score !== null && row.max_score !== null)
-        .map((row) => ({
-          id: row.result_id,
-          course: { code: row.course_code, title: row.course_title },
-          term: row.term_name,
-          status: row.result_status,
-          score: toNumber(row.score!),
-          maxScore: toNumber(row.max_score!),
-          percentage: row.score_percentage === null ? null : toNumber(row.score_percentage),
-          weight: row.component_weight === null ? null : toNumber(row.component_weight),
-          recordedAt: row.recorded_at?.toISOString() ?? null,
-        })),
+
     };
   });
 };
