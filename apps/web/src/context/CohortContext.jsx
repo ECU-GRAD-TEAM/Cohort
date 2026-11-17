@@ -1,5 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { INITIAL_SEED } from '../data/seedData';
+import { useAccount } from '../auth/AuthGate';
+import { toProfile, toScheduleItems, toStaffCourses, toStudentCourses, workspaceRole } from '../lib/liveData';
 
 const STORAGE_KEY = 'cohort-lms-v6';
 
@@ -39,24 +41,90 @@ function loadInitialData() {
   }
 }
 
+// Fields a local profile edit may not change: they come from the signed-in account.
+const ACCOUNT_FIELDS = ['name', 'nameAr', 'email', 'university'];
+
+/**
+ * The signed-in person's courses and timetable, loaded fresh from the API on every visit and never
+ * saved in the browser. Students get their enrolments, grades and assigned meetings; academic staff
+ * the sections they teach and their meetings.
+ */
+function useLiveData(api, me, role) {
+  const [live, setLive] = useState({ status: 'loading', courses: [], schedule: [], error: null });
+  const load = useCallback(async () => {
+    setLive((prev) => ({ ...prev, status: 'loading', error: null }));
+    try {
+      if (role === 'Academic Staff') {
+        const [teaching, schedule] = await Promise.all([api.teaching(), api.schedule()]);
+        setLive({
+          status: 'ready',
+          courses: toStaffCourses(teaching.sections, me.displayName),
+          schedule: toScheduleItems(schedule.meetings),
+          error: null,
+        });
+      } else {
+        const [enrollments, grades, schedule] = await Promise.all([api.enrollments(), api.grades(), api.schedule()]);
+        setLive({
+          status: 'ready',
+          courses: toStudentCourses(enrollments.enrollments, grades.grades, schedule.meetings),
+          schedule: toScheduleItems(schedule.meetings),
+          error: null,
+        });
+      }
+    } catch (error) {
+      setLive((prev) => ({ ...prev, status: 'error', error }));
+    }
+  }, [api, me.displayName, role]);
+  useEffect(() => {
+    load();
+  }, [load]);
+  return { ...live, reload: load };
+}
+
 export function CohortProvider({ children }) {
+  const { me, api, signOut } = useAccount();
+  const role = workspaceRole(me);
   const [data, setData] = useState(loadInitialData);
+  const live = useLiveData(api, me, role);
   const [page, setPage] = useState('dashboard');
-  const [selectedCourseId, setSelectedCourseId] = useState('CS201');
+  const [selectedCourseId, setSelectedCourseId] = useState('');
   const [courseTab, setCourseTab] = useState('Overview');
   const [selectedBuildingId, setSelectedBuildingId] = useState('Engineering');
   const [activeChatThread, setActiveChatThread] = useState(() =>
-    data.role === 'Academic Staff' ? 'direct-p-alex' : 'advisor-leila'
+    role === 'Academic Staff' ? 'direct-p-alex' : 'advisor-leila'
   );
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [toastMessage, setToastMessage] = useState('');
   const toastTimerRef = useRef(null);
 
-  const role = data.role;
   const lang = data.language === 'ar' ? 'ar' : 'en';
-  const profile = data.profiles[role];
+  const profile = useMemo(() => {
+    // Edits made on this device, kept per account so people sharing a browser don't see each other's.
+    const edits = { ...(data.profileEdits?.[me.id] ?? {}) };
+    ACCOUNT_FIELDS.forEach((field) => delete edits[field]);
+    return { ...toProfile(me, role), ...edits };
+  }, [data.profileEdits, me, role]);
   const prefs = data.prefs[role];
+
+  // The pages read courses, the timetable and the profile from `data`; those come from the API.
+  const liveData = useMemo(
+    () => ({
+      ...data,
+      role,
+      courses: live.courses,
+      schedule: live.schedule,
+      profiles: { ...data.profiles, [role]: profile },
+    }),
+    [data, live.courses, live.schedule, profile, role]
+  );
+
+  // Keep the selected course pointing at one the person actually has.
+  useEffect(() => {
+    if (live.courses.length > 0 && !live.courses.some((c) => c.id === selectedCourseId)) {
+      setSelectedCourseId(live.courses[0].id);
+    }
+  }, [live.courses, selectedCourseId]);
 
   useEffect(() => {
     try {
@@ -121,33 +189,6 @@ export function CohortProvider({ children }) {
     [prefs?.reduceMotion]
   );
 
-  const setRole = useCallback(
-    (nextRole) => {
-      const normalized = nextRole === 'Academic Staff' ? 'Academic Staff' : 'Student';
-      setData((prev) => ({ ...prev, role: normalized }));
-      setActiveChatThread((prevThread) => {
-        if (normalized === 'Academic Staff' && (prevThread === 'advisor-leila' || prevThread === 'direct-p-michael')) {
-          return 'direct-p-alex';
-        }
-        if (normalized === 'Student' && prevThread === 'direct-p-alex') {
-          return 'advisor-leila';
-        }
-        return prevThread;
-      });
-      setPage('dashboard');
-      showToast(
-        normalized === 'Academic Staff'
-          ? lang === 'ar'
-            ? 'تم التبديل إلى مساحة هيئة التدريس'
-            : 'Switched to Academic Staff workspace'
-          : lang === 'ar'
-            ? 'تم التبديل إلى مساحة الطالب'
-            : 'Switched to Student workspace'
-      );
-    },
-    [lang, showToast]
-  );
-
   const toggleLanguage = useCallback(() => {
     setData((prev) => ({
       ...prev,
@@ -159,17 +200,14 @@ export function CohortProvider({ children }) {
     (updates) => {
       setData((prev) => ({
         ...prev,
-        profiles: {
-          ...prev.profiles,
-          [prev.role]: {
-            ...prev.profiles[prev.role],
-            ...updates,
-          },
+        profileEdits: {
+          ...(prev.profileEdits ?? {}),
+          [me.id]: { ...(prev.profileEdits?.[me.id] ?? {}), ...updates },
         },
       }));
-      showToast(t('Profile details saved locally.', 'تم حفظ بيانات الملف الشخصي محليًا.'));
+      showToast(t('Profile details saved on this device.', 'تم حفظ بيانات الملف الشخصي على هذا الجهاز.'));
     },
-    [showToast, t]
+    [me.id, showToast, t]
   );
 
   const updatePrefs = useCallback(
@@ -178,15 +216,15 @@ export function CohortProvider({ children }) {
         ...prev,
         prefs: {
           ...prev.prefs,
-          [prev.role]: {
-            ...prev.prefs[prev.role],
+          [role]: {
+            ...prev.prefs[role],
             ...updates,
           },
         },
       }));
       showToast(t('Notification & display preferences saved.', 'تم حفظ تفضيلات الإشعارات والعرض.'));
     },
-    [showToast, t]
+    [role, showToast, t]
   );
 
   const addPetition = useCallback(
@@ -196,8 +234,8 @@ export function CohortProvider({ children }) {
         petitions: [
           {
             id: `pet-${Date.now()}`,
-            student: prev.profiles.Student.name,
-            studentId: prev.profiles.Student.id,
+            student: profile.name,
+            studentId: profile.id,
             date: new Date().toISOString().slice(0, 10),
             status: 'Pending Advisor',
             ...petition,
@@ -207,7 +245,7 @@ export function CohortProvider({ children }) {
       }));
       showToast(t('Academic petition submitted to advisor queue.', 'تم إرسال الالتماس الأكاديمي للمرشد.'));
     },
-    [showToast, t]
+    [profile, showToast, t]
   );
 
   const updatePetitionStatus = useCallback(
@@ -255,7 +293,9 @@ export function CohortProvider({ children }) {
   }, []);
 
   const exportWorkspaceData = useCallback(() => {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    // Only this account's data: edits other people made on this device stay out of the file.
+    const { profileEdits: _otherAccounts, ...workspace } = liveData;
+    const blob = new Blob([JSON.stringify(workspace, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -263,14 +303,17 @@ export function CohortProvider({ children }) {
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     showToast(t('Workspace data exported as JSON.', 'تم تصدير بيانات مساحة العمل بصيغة JSON.'));
-  }, [data, role, showToast, t]);
+  }, [liveData, role, showToast, t]);
 
   const value = useMemo(
     () => ({
-      data,
+      data: liveData,
       setData,
       role,
-      setRole,
+      account: me,
+      api,
+      signOut,
+      live,
       lang,
       toggleLanguage,
       t,
@@ -302,9 +345,12 @@ export function CohortProvider({ children }) {
       exportWorkspaceData,
     }),
     [
-      data,
+      liveData,
       role,
-      setRole,
+      me,
+      api,
+      signOut,
+      live,
       lang,
       toggleLanguage,
       t,

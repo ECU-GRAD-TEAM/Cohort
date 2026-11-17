@@ -1,5 +1,6 @@
 import React from 'react';
 import { CheckCircle2 } from 'lucide-react';
+import { AuthGate } from './auth/AuthGate';
 import { CohortProvider, useCohort } from './context/CohortContext';
 import { Header } from './components/layout/Header';
 import { FloatingDock } from './components/layout/FloatingDock';
@@ -73,8 +74,10 @@ function CohortShell() {
 
 export default function App() {
   return (
-    <CohortProvider>
-      <CohortShell />
-    </CohortProvider>
+    <AuthGate>
+      <CohortProvider>
+        <CohortShell />
+      </CohortProvider>
+    </AuthGate>
   );
 }

@@ -11,13 +11,14 @@ import {
   HelpCircle,
   ChevronDown,
   BarChart3,
+  LogOut,
 } from 'lucide-react';
 import { useCohort } from '../../context/CohortContext';
 
 export function Header() {
   const {
     role,
-    setRole,
+    signOut,
     lang,
     toggleLanguage,
     t,
@@ -164,21 +165,12 @@ export function Header() {
 
         {/* Role Switcher, Language Toggle, Notifications & Profile Hub Menu */}
         <div className="order-2 flex items-center gap-2 sm:gap-3 md:order-3">
-          {/* Role Switcher: Restricted strictly to Student & Academic Staff */}
-          <div className="flex items-center gap-1.5 rounded-xl border border-[#E8E3D9] bg-[#FCFBF6] px-2.5 py-1.5">
-            <GraduationCap className="hidden h-4 w-4 text-[#B81104] sm:block" aria-hidden="true" />
-            <label htmlFor="cohort-role-select" className="sr-only">
-              {t('Workspace Role', 'دور مساحة العمل')}
-            </label>
-            <select
-              id="cohort-role-select"
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="bg-transparent text-xs font-semibold text-[#302521] focus:outline-none sm:text-sm"
-            >
-              <option value="Student">{t('Student', 'طالب')}</option>
-              <option value="Academic Staff">{t('Academic Staff', 'هيئة التدريس')}</option>
-            </select>
+          {/* Workspace: set by the account's role at the university, not chosen here */}
+          <div className="hidden items-center gap-1.5 rounded-xl border border-[#E8E3D9] bg-[#FCFBF6] px-2.5 py-2 sm:flex">
+            <GraduationCap className="h-4 w-4 text-[#B81104]" aria-hidden="true" />
+            <span className="text-xs font-semibold text-[#302521] sm:text-sm">
+              {role === 'Student' ? t('Student', 'طالب') : t('Academic Staff', 'هيئة التدريس')}
+            </span>
           </div>
 
           {/* Language Toggle */}
@@ -245,9 +237,11 @@ export function Header() {
                 <div className="mb-1.5 border-b border-[#E8E3D9] px-3 py-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <p className="truncate text-sm font-bold text-[#302521]">{displayName}</p>
-                    <span className="rounded-md bg-[#FFFACD] px-2 py-0.5 text-[10px] font-bold text-[#B81104]">
-                      {profile.id}
-                    </span>
+                    {profile.id ? (
+                      <span className="rounded-md bg-[#FFFACD] px-2 py-0.5 text-[10px] font-bold text-[#B81104]">
+                        {profile.id}
+                      </span>
+                    ) : null}
                   </div>
                   <p className="mt-0.5 truncate text-xs text-[#6E645D]">{profile.email}</p>
                 </div>
@@ -298,6 +292,23 @@ export function Header() {
                       </button>
                     );
                   })}
+                </div>
+
+                <div className="mt-1.5 border-t border-[#E8E3D9] pt-1.5">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      signOut();
+                    }}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-start text-xs font-bold text-[#302521] transition hover:bg-[#FCFBF6]"
+                  >
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[#E8E3D9] bg-[#FCFBF6] text-[#B81104]">
+                      <LogOut className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    {t('Sign out', 'تسجيل الخروج')}
+                  </button>
                 </div>
               </div>
             ) : null}

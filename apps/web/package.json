@@ -7,9 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node tests/validation.mjs"
+    "test": "node tests/validation.mjs && node tests/live-data.mjs"
   },
   "dependencies": {
+    "@cohort/contracts": "*",
+    "@supabase/supabase-js": "2.118.0",
     "lucide-react": "^0.544.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
