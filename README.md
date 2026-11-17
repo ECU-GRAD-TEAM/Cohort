@@ -9,7 +9,7 @@ row-level security decides what each person can see and change.
 | Path | Contents |
 | --- | --- |
 | `apps/api` | The Fastify API, which reads and writes the database through Prisma |
-| `apps/web` | The React web app (Vite) |
+| `apps/web` | The React web app (Vite, Tailwind), in English and Arabic |
 | `packages/contracts` | The request and response schemas the API and the web app share |
 | `supabase` | Migrations and database tests; see [supabase/README.md](supabase/README.md) |
 | `scripts/db` | `reset-test-db.sh`, which builds the test database |
@@ -145,8 +145,27 @@ npm run dev -w @cohort/web    # http://localhost:5173
 
 Open http://localhost:5173 and sign in with a Supabase Auth account that belongs to a university.
 An account gets its university when the backend creates it, or later updates it, with `app_metadata` (see Identity in
-[supabase/README.md](supabase/README.md)). An account without one signs in but sees "Your account
-is not linked to a university yet."
+[supabase/README.md](supabase/README.md)). An account without one signs in but sees "Almost there:
+your university hasn't linked this account yet."
+
+### What the web app shows
+
+The workspace follows the account: a person with a student role (`undergraduate` or
+`postgraduate`) sees the Student workspace, and any other staff account sees Academic Staff. There
+is no role switch.
+
+| Page | Comes from the API | Still sample data |
+| --- | --- | --- |
+| Dashboard | Courses, credit hours, students taught, weekly sessions | Deadlines, appointments, announcements |
+| Courses | Course list, sections, teachers, a student's published grades | Materials, assignments, quizzes, attendance, discussion |
+| Schedule | Weekly classes (`GET /me/schedule`), Sunday first | The month calendar of deadlines and appointments |
+| Registration | Students: the term's sections and their own (`GET /terms`, `GET /terms/:id/sections`, `GET /me/enrollments`), read-only | Staff: advisee approvals |
+| AI Assistant | General and course questions (`POST /student-ai/chat`) | The Materials, Assignments, Exams and People modes |
+| Profile | Name, email and university | Everything else; edits are kept on the device |
+
+Grading, Messages, Campus Map, Notifications, Support and Academic Affairs are sample data only.
+A notice at the top of each page says which parts are live. Courses and the timetable are loaded
+on every visit and never stored in the browser. Teachers' courses come from `GET /me/teaching`.
 
 ### 7. Run the tests
 
@@ -160,7 +179,7 @@ The database's own tests are described in [supabase/README.md](supabase/README.m
 
 ### Sign-up
 
-The sign-up page creates the Supabase Auth login only. It sends the full name as `user_metadata`
+"Create an account" on the sign-in screen creates the Supabase Auth login only. It sends the full name as `user_metadata`
 and nothing about a university, role or user type.
 
 - Linking the account to ECU (Egyptian Chinese University) and granting roles is the team's
@@ -170,8 +189,8 @@ and nothing about a university, role or user type.
   Contact your administrator."
 - With "Confirm email" on, people confirm by email before they can sign in.
 
-The project owner sets these in the Supabase Dashboard before this branch merges, because `main`
-auto-deploys `/signup` to production:
+The project owner sets these in the Supabase Dashboard, because `main` auto-deploys sign-up to
+production:
 
 - **Authentication > Sign In / Providers:** "Allow new users to sign up" must be on.
 - **Authentication > URL Configuration:** the Site URL must be `https://cohort-nine-mu.vercel.app`.
