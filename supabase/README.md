@@ -10,8 +10,8 @@ changes are written to an immutable audit log.
 
 ## Status
 
-Every migration in `supabase/migrations` up to `20261113131803` is applied in GradProj, and the
-folder mirrors GradProj; the two after it are not applied yet.
+Every migration in `supabase/migrations` up to `20261113142259` is applied in GradProj, and the
+folder mirrors GradProj; the one after it is not applied yet.
 The source of truth is the `supabase_migrations` schema on GradProj
 (`select version, name from supabase_migrations.schema_migrations order by version`). When the
 folder and GradProj disagree, GradProj is right.
@@ -24,8 +24,9 @@ folder and GradProj disagree, GradProj is right.
 | `20261025120100_api_role` | Applied |
 | Every later migration in `supabase/migrations` (through `20261113124137`) | Applied |
 | `20261113131803_repoint_functions_after_profile_and_enrolment_changes` | Applied |
-| `20261113142258_retire_student_self_registration` | **Not yet applied** |
-| `20261113142259_grant_ecu_it_officer_every_permission` | **Not yet applied** |
+| `20261113142258_retire_student_self_registration` | Applied |
+| `20261113142259_grant_ecu_it_officer_every_permission` | Applied |
+| `20261117115300_add_directory_names` | **Not yet applied** |
 
 `20261113131803` repairs what three of the team's 10–12 November migrations left behind:
 
@@ -44,6 +45,10 @@ folder and GradProj disagree, GradProj is right.
 `20261113142258` makes `enroll_in_section` and `drop_section` refuse with a clear message: students no
 longer register themselves, registrars enrol them. `20261113142259` gives ECU's `it_officer` role every
 permission again, after `20261109162311` cleared all role permissions.
+
+`20261117115300` adds `directory_names(user_ids)`, which returns the display name and title (the two
+fields `directory_search` already shows everyone at the university) for given people, so a timetable
+can name its lecturers.
 
 Apply pending migrations with `npx supabase db push --remote` (below); a dry run first
 (`--dry-run`) lists exactly what it would apply.
