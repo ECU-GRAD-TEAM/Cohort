@@ -26,17 +26,21 @@ function capitalize(word) {
   return word ? word[0].toUpperCase() + word.slice(1) : word;
 }
 
-/** The date (YYYY-MM-DD) of the given ISO weekday in the week of `today`, Monday first. */
+// The university week runs Sunday to Saturday, so Sunday (ISO weekday 7) comes first.
+const sundayFirst = (weekday) => weekday % 7;
+
+/** The date (YYYY-MM-DD) of the given ISO weekday in the week of `today`, Sunday first. */
 export function dateInWeek(weekday, today = new Date()) {
-  const todayIso = ((today.getDay() + 6) % 7) + 1;
-  const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + (weekday - todayIso));
+  const offset = sundayFirst(weekday) - today.getDay();
+  const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
   const pad = (n) => String(n).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-/** /me/schedule meetings as timetable slots. */
+/** /me/schedule meetings as timetable slots, Sunday first. */
 export function toScheduleItems(meetings, today = new Date()) {
-  return meetings.map((m) => ({
+  const ordered = [...meetings].sort((a, b) => sundayFirst(a.weekday) - sundayFirst(b.weekday));
+  return ordered.map((m) => ({
     id: m.id,
     courseCode: m.course.code,
     courseName: m.course.title,
@@ -146,4 +150,33 @@ export function toProfile(me, role) {
     return { ...base, department: me.tenant.name, departmentAr: me.tenant.name, rank: '', rankAr: '', officeRoom: '', officeRoomAr: '', officeHoursNote: '', officeHoursNoteAr: '', advisorRole: '', advisorRoleAr: '' };
   }
   return { ...base, programme: me.tenant.name, programmeAr: me.tenant.name, year: '', yearAr: '', advisor: '', advisorAr: '', standing: '', standingAr: '' };
+}
+
+/**
+ * Whether students can register in the term at `now`: from the moment registration opens until
+ * add/drop ends (or, with no add/drop date, until registration closes), both inclusive. A term with
+ * no opening time is never open.
+ */
+export function isRegistrationOpen(term, now = new Date()) {
+  if (term.registrationOpensAt === null) return false;
+  const time = now.getTime();
+  if (time < Date.parse(term.registrationOpensAt)) return false;
+  const end = term.addDropEndsAt ?? term.registrationClosesAt;
+  return end === null || time <= Date.parse(end);
+}
+
+/** The term whose registration window contains `now`, else the first term, else undefined. */
+export function pickDefaultTerm(terms, now = new Date()) {
+  return terms.find((term) => isRegistrationOpen(term, now)) ?? terms[0];
+}
+
+/** Catalogue sections grouped by course, in the order the API listed them. */
+export function groupSectionsByCourse(sections) {
+  const byCode = new Map();
+  for (const section of sections) {
+    const group = byCode.get(section.course.code) ?? { ...section.course, sections: [] };
+    group.sections.push(section);
+    byCode.set(section.course.code, group);
+  }
+  return [...byCode.values()];
 }

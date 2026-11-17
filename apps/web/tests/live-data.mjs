@@ -2,6 +2,8 @@
 import assert from 'node:assert/strict';
 import {
   dateInWeek,
+  groupSectionsByCourse,
+  pickDefaultTerm,
   toProfile,
   toScheduleItems,
   toStaffCourses,
@@ -33,11 +35,12 @@ check('students see the student workspace, other staff the staff one', () => {
   assert.equal(workspaceRole(me(['undergraduate', 'teaching_assistant'], 'staff')), 'Student');
 });
 
-check('dateInWeek finds the weekday in the same Monday-first week', () => {
+check('dateInWeek finds the weekday in the same Sunday-first week', () => {
   const wednesday = new Date(2026, 10, 18); // Wed 18 Nov 2026
+  assert.equal(dateInWeek(7, wednesday), '2026-11-15');
   assert.equal(dateInWeek(1, wednesday), '2026-11-16');
   assert.equal(dateInWeek(3, wednesday), '2026-11-18');
-  assert.equal(dateInWeek(7, wednesday), '2026-11-22');
+  assert.equal(dateInWeek(6, wednesday), '2026-11-21');
 });
 
 const meeting = (over = {}) => ({
@@ -65,7 +68,7 @@ check('meetings become timetable slots', () => {
     sectionCode: 'L1',
     type: 'Lecture',
     day: 'Sun',
-    date: '2026-11-22',
+    date: '2026-11-15',
     start: '09:00',
     end: '10:30',
     duration: '90 min',
@@ -76,6 +79,8 @@ check('meetings become timetable slots', () => {
     forStudent: true,
     forStaff: false,
   });
+  const order = toScheduleItems([meeting({ id: 'mon', weekday: 1 }), meeting({ id: 'sun', weekday: 7 })]);
+  assert.deepEqual(order.map((s) => s.id), ['sun', 'mon']);
   const [bare] = toScheduleItems([meeting({ room: null, building: null, instructors: [], role: 'teacher' })]);
   assert.equal(bare.location, '—');
   assert.equal(bare.lecturer, '—');
@@ -141,6 +146,31 @@ check('the profile carries the real name, email and university, and nothing inve
   assert.equal(profile.programme, 'Egyptian Chinese University');
   assert.equal(profile.advisor, '');
   assert.equal(profile.phone, '');
+});
+
+check('the default term is the one open for registration, else the first', () => {
+  const term = (id, opens, closes, addDrop = null) => ({
+    id,
+    registrationOpensAt: opens,
+    registrationClosesAt: closes,
+    addDropEndsAt: addDrop,
+  });
+  const now = new Date('2026-11-17T10:00:00Z');
+  const past = term('past', '2026-01-01T00:00:00Z', '2026-02-01T00:00:00Z');
+  const open = term('open', '2026-11-01T00:00:00Z', '2026-11-10T00:00:00Z', '2026-11-30T00:00:00Z');
+  const unset = term('unset', null, null);
+  assert.equal(pickDefaultTerm([past, open, unset], now).id, 'open');
+  assert.equal(pickDefaultTerm([past, unset], now).id, 'past');
+  assert.equal(pickDefaultTerm([], now), undefined);
+});
+
+check('catalogue sections are grouped by course', () => {
+  const section = (id, code) => ({ id, code: 'L1', course: { id: code, code, title: code, creditHours: 3 } });
+  const groups = groupSectionsByCourse([section('a', 'CS101'), section('b', 'MA101'), section('c', 'CS101')]);
+  assert.deepEqual(groups.map((g) => [g.code, g.sections.map((s) => s.id)]), [
+    ['CS101', ['a', 'c']],
+    ['MA101', ['b']],
+  ]);
 });
 
 console.log(`${passed} live-data checks passed.`);

@@ -5,6 +5,7 @@ import { CohortProvider, useCohort } from './context/CohortContext';
 import { Header } from './components/layout/Header';
 import { FloatingDock } from './components/layout/FloatingDock';
 import { GlobalSearchModal } from './components/search/GlobalSearchModal';
+import { PageNotice } from './components/layout/PageNotice';
 import { DashboardPage } from './components/pages/DashboardPage';
 import { CoursesPage } from './components/pages/CoursesPage';
 import { SchedulePage } from './components/pages/SchedulePage';
@@ -52,6 +53,7 @@ function CohortShell() {
         tabIndex={-1}
         className="mx-auto max-w-7xl px-4 sm:px-6 pt-5 pb-28 sm:pb-32 focus:outline-none"
       >
+        <PageNotice />
         <ActivePage />
       </main>
 

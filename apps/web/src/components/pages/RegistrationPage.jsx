@@ -14,10 +14,17 @@ import { COURSE_CATALOG } from '../../data/seedData';
 import { validateCourseRegistration } from '../../utils/validation';
 import { ProfileHubNav } from '../profile/ProfileHubNav';
 import { StatusBadge } from '../common/StatusBadge';
+import { StudentRegistration } from './StudentRegistration';
 
 const COMPLETED_PREREQS = ['CS101', 'CS201', 'CS320'];
 
 export function RegistrationPage() {
+  const { role } = useCohort();
+  return role === 'Academic Staff' ? <AdviseeRegistration /> : <StudentRegistration />;
+}
+
+// Advisor approvals and rosters: still sample data (shown with a Preview notice).
+function AdviseeRegistration() {
   const { role, lang, t, profile, data, setData, showToast } = useCohort();
   const isStaff = role === 'Academic Staff';
 

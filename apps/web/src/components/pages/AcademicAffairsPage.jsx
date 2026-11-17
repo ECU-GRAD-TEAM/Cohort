@@ -14,6 +14,7 @@ import {
 import { useCohort } from '../../context/CohortContext';
 import { ProfileHubNav } from '../profile/ProfileHubNav';
 import { StatusBadge } from '../common/StatusBadge';
+import { pct } from '../../lib/format';
 import {
   DIRECTORY_PEOPLE,
   STUDENT_GPA_HISTORY,
@@ -350,7 +351,7 @@ export function AcademicAffairsPage() {
           onClick={() => navigate('registration')}
           className="min-h-[42px] rounded-xl bg-[#B81104] px-4 py-2 text-xs font-bold text-white hover:bg-[#940E03]"
         >
-          {t('Go to Course Registration (Up to 7)', 'الانتقال لتسجيل المقررات (حتى ٧)')}
+          {t('Go to Course Registration', 'الانتقال لتسجيل المقررات')}
         </button>
       </div>
 
@@ -470,7 +471,7 @@ export function AcademicAffairsPage() {
               </thead>
               <tbody className="divide-y divide-[#E8E3D9]">
                 {data.courses.map((c) => {
-                  const attOk = c.attendance >= 90;
+                  const attOk = c.attendance == null || c.attendance >= 90;
                   return (
                     <tr key={c.id} className="hover:bg-[#FCFBF6]">
                       <td className="py-3 pe-3">
@@ -483,10 +484,10 @@ export function AcademicAffairsPage() {
                         </button>
                       </td>
                       <td className="px-2 py-3 text-center tabular-nums">{c.credits}</td>
-                      <td className="px-2 py-3 text-center font-bold text-[#302521] tabular-nums">{c.grade}%</td>
+                      <td className="px-2 py-3 text-center font-bold text-[#302521] tabular-nums">{pct(c.grade)}</td>
                       <td className="px-2 py-3 text-center tabular-nums">
-                        <span className={c.attendance < 88 ? 'font-bold text-[#B76E00]' : 'font-semibold text-[#16845B]'}>
-                          {c.attendance}%
+                        <span className={c.attendance != null && c.attendance < 88 ? 'font-bold text-[#B76E00]' : 'font-semibold text-[#16845B]'}>
+                          {pct(c.attendance)}
                         </span>
                       </td>
                       <td className="ps-2 py-3 text-end">

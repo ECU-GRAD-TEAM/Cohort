@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { useCohort } from '../../context/CohortContext';
 import { StatusBadge } from '../common/StatusBadge';
+import { NoCourses } from '../common/NoCourses';
+import { barWidth, pct, seats, utilisation } from '../../lib/format';
 
 const STAFF_APPOINTMENT_TARGETS = [
   { name: 'Dr. Leila Hassan', roleLabel: 'Academic Advisor', location: 'Eng Bldg · Room B-201' },
@@ -106,9 +108,9 @@ export function DashboardPage() {
   }, [calendarFilter, data.appointments, data.assignments, data.quizzes, isStaff, lang, t]);
 
   const avgClassScore = useMemo(() => {
-    if (!data.courses.length) return 0;
-    const sum = data.courses.reduce((acc, c) => acc + c.grade, 0);
-    return Math.round(sum / data.courses.length);
+    const graded = data.courses.filter((c) => c.grade != null);
+    if (!graded.length) return null;
+    return Math.round(graded.reduce((acc, c) => acc + c.grade, 0) / graded.length);
   }, [data.courses]);
 
   const handleBookAppointment = (e) => {
@@ -326,17 +328,19 @@ export function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <button
           type="button"
-          onClick={() => navigate('academic-affairs')}
+          onClick={() => navigate(isStaff ? 'courses' : 'registration')}
           className="cohort-card p-5 text-start transition hover:border-[#B81104]/50"
         >
           <span className="text-xs font-semibold text-[#6E645D]">
-            {isStaff ? t('Enrolled Students', 'الطلاب المسجلون') : t('Cumulative GPA', 'المعدل التراكمي')}
+            {isStaff ? t('Enrolled Students', 'الطلاب المسجلون') : t('Credit Hours', 'الساعات المعتمدة')}
           </span>
           <p className="mt-2 text-3xl font-extrabold text-[#302521] tabular-nums">
-            {isStaff ? '128' : '3.82'}
+            {isStaff
+              ? data.courses.reduce((sum, c) => sum + (c.enrolled ?? 0), 0)
+              : data.courses.filter((c) => c.status === 'enrolled').reduce((sum, c) => sum + c.credits, 0)}
           </p>
           <span className="mt-1 block text-xs font-semibold text-[#16845B]">
-            {isStaff ? t('View cohort analytics →', 'تحليلات الدفعة ←') : t('Dean’s List Standing →', 'قائمة التميز ←')}
+            {isStaff ? t('Across your sections →', 'في جميع شعبك ←') : t('Enrolled this term →', 'المسجلة هذا الفصل ←')}
           </span>
         </button>
 
@@ -415,6 +419,7 @@ export function DashboardPage() {
                 {t('All courses →', 'كل المقررات ←')}
               </button>
             </div>
+            {data.courses.length === 0 ? <NoCourses compact /> : null}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               {data.courses.slice(0, 3).map((c) => (
                 <button
@@ -437,13 +442,28 @@ export function DashboardPage() {
                       {lang === 'ar' ? c.nameAr : c.name}
                     </h3>
                     <p className="mt-0.5 truncate text-xs text-[#6E645D]">{c.teacher}</p>
-                    <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-[#6E645D]">
-                      <span>{t('Progress', 'التقدم')}</span>
-                      <span className="tabular-nums text-[#B81104]">{c.progress}%</span>
-                    </div>
-                    <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-[#EFECE5]">
-                      <div className="h-full rounded-full bg-[#B81104]" style={{ width: `${c.progress}%` }} />
-                    </div>
+                    {c.progress == null ? (
+                      <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-[#6E645D]">
+                        <span>
+                          {t('Section', 'الشعبة')} {c.section}
+                        </span>
+                        <span className="tabular-nums text-[#B81104]">
+                          {c.status === 'waitlisted'
+                            ? t(`Waitlist #${c.waitlistPosition}`, `قائمة الانتظار #${c.waitlistPosition}`)
+                            : t(`${c.credits} credits`, `${c.credits} ساعات`)}
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-[#6E645D]">
+                          <span>{t('Progress', 'التقدم')}</span>
+                          <span className="tabular-nums text-[#B81104]">{c.progress}%</span>
+                        </div>
+                        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-[#EFECE5]">
+                          <div className="h-full rounded-full bg-[#B81104]" style={{ width: `${c.progress}%` }} />
+                        </div>
+                      </>
+                    )}
                   </div>
                 </button>
               ))}
@@ -528,8 +548,8 @@ export function DashboardPage() {
                   <p className="text-xs text-[#6E645D]">
                     {isStaff
                       ? t(
-                          `Average section mastery ${avgClassScore}% · ${pendingGrades.length} pending review(s)`,
-                          `متوسط إتقان الشُعب ${avgClassScore}٪ · ${pendingGrades.length} درجات قيد المراجعة`
+                          `Average section mastery ${pct(avgClassScore)} · ${pendingGrades.length} pending review(s)`,
+                          `متوسط إتقان الشُعب ${pct(avgClassScore)} · ${pendingGrades.length} درجات قيد المراجعة`
                         )
                       : t(
                           'Course score progression against the 85% attendance policy minimum.',
@@ -550,8 +570,10 @@ export function DashboardPage() {
             </div>
 
             <div className="space-y-3">
+              {data.courses.length === 0 ? <NoCourses compact /> : null}
               {data.courses.map((c) => {
-                const attendanceWatch = c.attendance < 88;
+                const attendanceWatch = c.attendance != null && c.attendance < 88;
+                const seatUse = utilisation(c.enrolled, c.capacity);
                 return (
                   <div
                     key={c.id}
@@ -563,11 +585,11 @@ export function DashboardPage() {
                       </span>
                       <div className="flex flex-wrap items-center gap-2 text-xs tabular-nums">
                         <span className="font-extrabold text-[#B81104]">
-                          {t('Grade:', 'الدرجة:')} {c.grade}%
+                          {t('Grade:', 'الدرجة:')} {pct(c.grade)}
                         </span>
                         {isStaff ? (
                           <span className="text-[#6E645D]">
-                            {t('Capacity:', 'السعة:')} {c.enrolled}/{c.capacity}
+                            {t('Students:', 'الطلاب:')} {seats(c.enrolled, c.capacity)}
                           </span>
                         ) : (
                           <span
@@ -577,7 +599,7 @@ export function DashboardPage() {
                                 : 'bg-[#E8F5EC] text-[#16845B]'
                             }`}
                           >
-                            {t('Attendance:', 'الحضور:')} {c.attendance}%
+                            {t('Attendance:', 'الحضور:')} {pct(c.attendance)}
                           </span>
                         )}
                       </div>
@@ -586,17 +608,17 @@ export function DashboardPage() {
                       <div>
                         <div className="flex justify-between text-[10px] font-semibold text-[#6E645D] mb-1">
                           <span>{isStaff ? t('Class Average', 'متوسط الشعبة') : t('Standing Grade', 'التحصيل')}</span>
-                          <span className="tabular-nums">{c.grade}%</span>
+                          <span className="tabular-nums">{pct(c.grade)}</span>
                         </div>
                         <div className="h-2 w-full rounded-full bg-[#EFECE5] overflow-hidden">
-                          <div className="h-full rounded-full bg-[#B81104]" style={{ width: `${c.grade}%` }} />
+                          <div className="h-full rounded-full bg-[#B81104]" style={{ width: barWidth(c.grade) }} />
                         </div>
                       </div>
                       <div>
                         <div className="flex justify-between text-[10px] font-semibold text-[#6E645D] mb-1">
                           <span>{isStaff ? t('Seat Utilization', 'إشغال القاعة') : t('Attendance (min 85%)', 'الحضور (الحد الأدنى ٨٥٪)')}</span>
                           <span className="tabular-nums">
-                            {isStaff ? `${Math.round((c.enrolled / c.capacity) * 100)}%` : `${c.attendance}%`}
+                            {pct(isStaff ? seatUse : c.attendance)}
                           </span>
                         </div>
                         <div className="h-2 w-full rounded-full bg-[#EFECE5] overflow-hidden">
@@ -604,11 +626,7 @@ export function DashboardPage() {
                             className={`h-full rounded-full ${
                               !isStaff && attendanceWatch ? 'bg-[#B76E00]' : 'bg-[#16845B]'
                             }`}
-                            style={{
-                              width: `${
-                                isStaff ? Math.round((c.enrolled / c.capacity) * 100) : c.attendance
-                              }%`,
-                            }}
+                            style={{ width: barWidth(isStaff ? seatUse : c.attendance) }}
                           />
                         </div>
                       </div>

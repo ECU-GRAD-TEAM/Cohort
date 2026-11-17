@@ -22,6 +22,9 @@ import { useCohort } from '../../context/CohortContext';
 import { DIRECTORY_PEOPLE } from '../../data/seedData';
 import { StatusBadge } from '../common/StatusBadge';
 import { WaygroundBuilder, WaygroundPlayer } from '../common/WaygroundTemplateStudio';
+import { NoCourses } from '../common/NoCourses';
+import { PreviewTag } from '../common/PreviewTag';
+import { barWidth, pct, seats } from '../../lib/format';
 
 const COURSE_TABS = [
   { id: 'Overview', en: 'Overview', ar: 'نظرة عامة', Icon: BookOpen },
@@ -50,6 +53,24 @@ function attendanceBadgeProps(val, t) {
 }
 
 export function CoursesPage() {
+  const { data, t } = useCohort();
+  if (data.courses.length === 0) {
+    return (
+      <section className="page-enter space-y-6">
+        <div>
+          <p className="text-[11px] font-bold tracking-widest text-[#6E645D] uppercase">
+            {t('COURSE WORKSPACE', 'مساحة المقرر')}
+          </p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-[#302521] sm:text-3xl">{t('My Courses', 'مقرراتي')}</h1>
+        </div>
+        <NoCourses />
+      </section>
+    );
+  }
+  return <CourseWorkspace />;
+}
+
+function CourseWorkspace() {
   const {
     role,
     lang,
@@ -121,12 +142,17 @@ export function CoursesPage() {
     [course.id, data.quizzes]
   );
 
+  const publishedForCourse = useMemo(
+    () => (data.publishedGrades || []).filter((g) => g.course.code === course.id),
+    [course.id, data.publishedGrades]
+  );
+
   const courseGrades = useMemo(
     () =>
       data.gradeReviews.filter(
-        (g) => g.course === course.id && (isStaff || g.student === 'Alex Chen')
+        (g) => g.course === course.id && (isStaff || g.student === profile.name)
       ),
-    [course.id, data.gradeReviews, isStaff]
+    [course.id, data.gradeReviews, isStaff, profile.name]
   );
 
   const courseAnnouncements = useMemo(
@@ -377,6 +403,9 @@ export function CoursesPage() {
           </h1>
           <p className="mt-1 text-sm text-[#6E645D]">
             {course.teacher} · TA: {course.ta} · {course.section} · {course.credits} {t('Credits', 'ساعات معتمدة')}
+            {course.status === 'waitlisted'
+              ? ` · ${t(`Waitlist #${course.waitlistPosition}`, `قائمة الانتظار #${course.waitlistPosition}`)}`
+              : ''}
           </p>
         </div>
 
@@ -447,16 +476,18 @@ export function CoursesPage() {
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div className="rounded-xl border border-[#E8E3D9] bg-[#FCFBF6] p-3.5">
                   <span className="text-[11px] font-semibold text-[#6E645D]">{t('Grade Average', 'متوسط الدرجة')}</span>
-                  <p className="mt-1 text-xl font-extrabold text-[#302521] tabular-nums">{course.grade}%</p>
+                  <p className="mt-1 text-xl font-extrabold text-[#302521] tabular-nums">{pct(course.grade)}</p>
                 </div>
                 <div className="rounded-xl border border-[#E8E3D9] bg-[#FCFBF6] p-3.5">
                   <span className="text-[11px] font-semibold text-[#6E645D]">{t('Attendance', 'نسبة الحضور')}</span>
-                  <p className="mt-1 text-xl font-extrabold text-[#16845B] tabular-nums">{course.attendance}%</p>
+                  <p className="mt-1 text-xl font-extrabold text-[#16845B] tabular-nums">{pct(course.attendance)}</p>
                 </div>
                 <div className="rounded-xl border border-[#E8E3D9] bg-[#FCFBF6] p-3.5">
-                  <span className="text-[11px] font-semibold text-[#6E645D]">{t('Enrolled', 'المسجلون')}</span>
-                  <p className="mt-1 text-xl font-extrabold text-[#302521] tabular-nums">
-                    {course.enrolled}/{course.capacity}
+                  <span className="text-[11px] font-semibold text-[#6E645D]">
+                    {course.enrolled == null ? t('Section', 'الشعبة') : t('Enrolled', 'المسجلون')}
+                  </span>
+                  <p className="mt-1 truncate text-xl font-extrabold text-[#302521] tabular-nums">
+                    {course.enrolled == null ? course.section : seats(course.enrolled, course.capacity)}
                   </p>
                 </div>
                 <div className="rounded-xl border border-[#E8E3D9] bg-[#FCFBF6] p-3.5">
@@ -471,17 +502,19 @@ export function CoursesPage() {
                     {t('Course Lecturer', 'محاضر المقرر')}
                   </span>
                   <p className="text-sm font-bold text-[#302521]">{course.teacher}</p>
-                  <p className="text-xs text-[#6E645D]">
-                    {lecturerMeta ? `${lecturerMeta.room} · ${lecturerMeta.officeHours}` : 'Eng Bldg · Office Hours Posted'}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => navigate('map', { buildingId: lecturerMeta?.buildingId || 'Engineering' })}
-                    className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-[#B81104] hover:underline"
-                  >
-                    <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>{t('Locate on Campus Map', 'الموقع على الخريطة')}</span>
-                  </button>
+                  {lecturerMeta ? (
+                    <>
+                      <p className="text-xs text-[#6E645D]">{`${lecturerMeta.room} · ${lecturerMeta.officeHours}`}</p>
+                      <button
+                        type="button"
+                        onClick={() => navigate('map', { buildingId: lecturerMeta.buildingId })}
+                        className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-[#B81104] hover:underline"
+                      >
+                        <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>{t('Locate on Campus Map', 'الموقع على الخريطة')}</span>
+                      </button>
+                    </>
+                  ) : null}
                 </div>
 
                 <div className="rounded-xl border border-[#E8E3D9] bg-white p-4 space-y-1.5">
@@ -489,17 +522,19 @@ export function CoursesPage() {
                     {t('Teaching Assistant (TA)', 'المعيد المعاون')}
                   </span>
                   <p className="text-sm font-bold text-[#302521]">{course.ta}</p>
-                  <p className="text-xs text-[#6E645D]">
-                    {taMeta ? `${taMeta.room} · ${taMeta.officeHours}` : 'TA Wing · Lab Support'}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => navigate('map', { buildingId: taMeta?.buildingId || 'TA Wing' })}
-                    className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-[#B81104] hover:underline"
-                  >
-                    <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>{t('Locate TA Room', 'غرفة المعيد على الخريطة')}</span>
-                  </button>
+                  {taMeta ? (
+                    <>
+                      <p className="text-xs text-[#6E645D]">{`${taMeta.room} · ${taMeta.officeHours}`}</p>
+                      <button
+                        type="button"
+                        onClick={() => navigate('map', { buildingId: taMeta.buildingId })}
+                        className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-[#B81104] hover:underline"
+                      >
+                        <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>{t('Locate TA Room', 'غرفة المعيد على الخريطة')}</span>
+                      </button>
+                    </>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -892,7 +927,7 @@ export function CoursesPage() {
                 </h2>
                 <p className="text-xs text-[#6E645D]">
                   {t('Standing course average:', 'متوسط المقرر الحالي:')}{' '}
-                  <strong className="text-[#B81104] tabular-nums">{course.grade}%</strong>
+                  <strong className="text-[#B81104] tabular-nums">{pct(course.grade)}</strong>
                 </p>
               </div>
               {isStaff ? (
@@ -906,11 +941,39 @@ export function CoursesPage() {
               ) : null}
             </div>
 
+            {!isStaff ? (
+              <div className="rounded-2xl border border-[#E8E3D9] bg-white p-4 space-y-2.5">
+                <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#B81104]">
+                  {t('Published grades', 'الدرجات المنشورة')}
+                </h3>
+                {publishedForCourse.length ? (
+                  publishedForCourse.map((g) => (
+                    <div
+                      key={g.id}
+                      className="flex items-center justify-between gap-2 rounded-xl border border-[#E8E3D9] bg-[#FCFBF6] px-3.5 py-2.5"
+                    >
+                      <span className="min-w-0 truncate text-xs font-bold text-[#302521]">
+                        {g.item ?? (g.componentId ? t('Grade', 'درجة') : t('Course grade', 'درجة المقرر'))}
+                      </span>
+                      <span className="shrink-0 text-sm font-extrabold text-[#B81104] tabular-nums">
+                        {g.score}/{g.maxScore}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-[#6E645D]">
+                    {t('No grades have been published for this course yet.', 'لم تُنشر أي درجات لهذا المقرر بعد.')}
+                  </p>
+                )}
+              </div>
+            ) : null}
+
             {/* Coursework & Interactive Assessment Breakdown */}
             <div className="rounded-2xl border border-[#E8E3D9] bg-[#FCFBF6] p-4 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#B81104]">
+                <h3 className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#B81104]">
                   {t('Coursework & Interactive Assessment Breakdown', 'تفاصيل أعمال السنة والتقييمات التفاعلية')}
+                  <PreviewTag />
                 </h3>
                 <span className="text-[11px] font-semibold text-[#6E645D] tabular-nums">
                   {courseAssignments.length} {t('Assignments', 'تكليفات')} · {courseQuizzes.length} {t('Quizzes/Exams', 'اختبارات')}
@@ -1041,7 +1104,7 @@ export function CoursesPage() {
             ) : (
               <p className="rounded-xl border border-[#E8E3D9] bg-[#FCFBF6] p-4 text-xs text-[#6E645D]">
                 {t('Overall standing calculated from quizzes & coursework:', 'التقييم محسوب من الاختبارات وأعمال السنة:')}{' '}
-                <strong className="text-[#302521] tabular-nums">{course.grade}/100</strong>.
+                <strong className="text-[#302521] tabular-nums">{course.grade == null ? '—' : `${course.grade}/100`}</strong>.
               </p>
             )}
 
@@ -1181,14 +1244,14 @@ export function CoursesPage() {
                     </p>
                   </div>
                   <span className="rounded-xl bg-[#E8F5EC] px-3.5 py-2 text-sm font-extrabold text-[#16845B] tabular-nums">
-                    {course.attendance}% {t('Present', 'نسبة الحضور')}
+                    {pct(course.attendance)} {t('Present', 'نسبة الحضور')}
                   </span>
                 </div>
 
                 <div className="h-3 w-full rounded-full bg-[#EFECE5] overflow-hidden">
                   <div
-                    className={`h-full rounded-full ${course.attendance >= 85 ? 'bg-[#16845B]' : 'bg-[#B76E00]'}`}
-                    style={{ width: `${course.attendance}%` }}
+                    className={`h-full rounded-full ${course.attendance == null || course.attendance >= 85 ? 'bg-[#16845B]' : 'bg-[#B76E00]'}`}
+                    style={{ width: barWidth(course.attendance) }}
                   />
                 </div>
 

@@ -14,6 +14,7 @@ import {
 import { useCohort } from '../../context/CohortContext';
 import { DIRECTORY_PEOPLE } from '../../data/seedData';
 import { StatusBadge } from '../common/StatusBadge';
+import { seats } from '../../lib/format';
 
 export function MessagesPage() {
   const {
@@ -98,10 +99,10 @@ export function MessagesPage() {
         group: 'Courses',
         title: `${c.id} · ${lang === 'ar' ? c.nameAr : c.name}`,
         subtitle: t(
-          `Course Channel · ${c.enrolled}/${c.capacity} enrolled`,
-          `قناة المقرر · ${c.enrolled}/${c.capacity} مسجلين`
+          `Course Channel · ${seats(c.enrolled, c.capacity)} enrolled`,
+          `قناة المقرر · ${seats(c.enrolled, c.capacity)} مسجلين`
         ),
-        badge: c.id === 'CS201' ? t('Coordinator', 'منسق المقرر') : t('Course', 'مقرر'),
+        badge: t('Course', 'مقرر'),
         courseId: c.id,
       }));
 
@@ -627,8 +628,8 @@ export function MessagesPage() {
                 aria-label={t('Write a message', 'اكتب رسالة')}
                 placeholder={
                   isStaff
-                    ? t('Reply as Dr. Michael Tan...', 'اكتب ردك بصفتك المرشد أو المحاضر...')
-                    : t('Write a message as Alex Chen...', 'اكتب رسالتك هنا...')
+                    ? t(`Reply as ${profile.name}...`, 'اكتب ردك بصفتك المرشد أو المحاضر...')
+                    : t(`Write a message as ${profile.name}...`, 'اكتب رسالتك هنا...')
                 }
                 className="flex-1 min-w-[180px] rounded-2xl border border-[#E5DCCF] bg-white px-4 py-2.5 text-sm text-[#1A1715]"
               />

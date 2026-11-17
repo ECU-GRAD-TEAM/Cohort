@@ -85,7 +85,7 @@ export function SchedulePage() {
 
   // Staff add-session state
   const [addOpen, setAddOpen] = useState(false);
-  const [newCourse, setNewCourse] = useState(data.courses[0]?.id || 'CS201');
+  const [newCourse, setNewCourse] = useState(data.courses[0]?.id || '');
   const [newType, setNewType] = useState('Office Hours');
   const [newDay, setNewDay] = useState('Wed');
   const [newStart, setNewStart] = useState('14:30');
@@ -346,7 +346,9 @@ export function SchedulePage() {
       lecturer: profile.name,
       location: cleanRoom,
       buildingId: newBuildingId,
-      enrolled: courseObj?.enrolled || 20,
+      enrolled: courseObj?.enrolled ?? null,
+      // Saved on this device only: the university's timetable comes from the registrar.
+      local: true,
       forStaff: true,
       forStudent: newType !== 'Office Hours' && newType !== 'Lab Duty',
     };
@@ -359,8 +361,8 @@ export function SchedulePage() {
     setAddOpen(false);
     showToast(
       t(
-        `Added ${newCourse} ${newType} on ${newDay} (${newStart}–${newEnd}).`,
-        `تمت إضافة ${newCourse} (${newType}) يوم ${newDay}.`
+        `Added ${newCourse} ${newType} on ${newDay} (${newStart}–${newEnd}) on this device.`,
+        `تمت إضافة ${newCourse} (${newType}) يوم ${newDay} على هذا الجهاز.`
       )
     );
   };
@@ -520,6 +522,12 @@ export function SchedulePage() {
               )}
             </h2>
           </div>
+          <p className="text-xs text-[#6E645D]">
+            {t(
+              'Sessions you add here are saved on this device only. Your teaching timetable itself comes from the registrar.',
+              'الجلسات التي تضيفها هنا تُحفظ على هذا الجهاز فقط. أما جدول تدريسك فيأتي من المسجل.'
+            )}
+          </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
             <div>
@@ -681,7 +689,14 @@ export function SchedulePage() {
                   {rows.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="px-4 py-8 text-center text-xs text-[#6E645D]">
-                        {t('No sessions match the selected filters.', 'لا توجد جلسات تطابق عوامل التصفية.')}
+                        {roleSchedule.length === 0
+                          ? isStaff
+                            ? t('No classes on your timetable yet.', 'لا توجد محاضرات في جدولك بعد.')
+                            : t(
+                                'No classes yet. The registrar assigns your lecture, lab and tutorial times when you are enrolled.',
+                                'لا توجد محاضرات بعد. يحدد المسجل مواعيد محاضراتك ومعاملك وسكاشنك عند تسجيلك.'
+                              )
+                          : t('No sessions match the selected filters.', 'لا توجد جلسات تطابق عوامل التصفية.')}
                       </td>
                     </tr>
                   ) : (

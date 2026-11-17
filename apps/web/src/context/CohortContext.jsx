@@ -68,6 +68,7 @@ function useLiveData(api, me, role) {
           status: 'ready',
           courses: toStudentCourses(enrollments.enrollments, grades.grades, schedule.meetings),
           schedule: toScheduleItems(schedule.meetings),
+          grades: grades.grades,
           error: null,
         });
       }
@@ -113,10 +114,12 @@ export function CohortProvider({ children }) {
       ...data,
       role,
       courses: live.courses,
-      schedule: live.schedule,
+      // Live meetings, plus any session added on this device from the timetable page.
+      schedule: [...live.schedule, ...data.schedule.filter((s) => s.local)],
+      publishedGrades: live.grades ?? [],
       profiles: { ...data.profiles, [role]: profile },
     }),
-    [data, live.courses, live.schedule, profile, role]
+    [data, live.courses, live.grades, live.schedule, profile, role]
   );
 
   // Keep the selected course pointing at one the person actually has.

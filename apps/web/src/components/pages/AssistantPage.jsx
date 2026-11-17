@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useCohort } from '../../context/CohortContext';
 import { CAMPUS_LOCATIONS, DIRECTORY_PEOPLE } from '../../data/seedData';
+import { PreviewTag } from '../common/PreviewTag';
 
 const FILTER_MODES = [
   { id: 'General', labelEn: 'General University', labelAr: 'عام (الجامعة)' },
@@ -24,12 +25,30 @@ const FILTER_MODES = [
 
 const COURSE_SCOPED_MODES = ['Course', 'Materials', 'Assignments', 'Exams'];
 
+// Modes answered by the real Cohort assistant. The others still answer from sample data.
+const LIVE_MODES = ['General', 'Course'];
+const HISTORY_LIMIT = 20; // the API accepts at most 20 earlier turns
+
 export function AssistantPage() {
-  const { role, lang, t, data, setData, navigate, showToast } = useCohort();
+  const { role, lang, t, data, api, navigate, showToast } = useCohort();
   const [filterMode, setFilterMode] = useState('General');
-  const [selectedCourse, setSelectedCourse] = useState(data.courses[0]?.id || 'CS201');
+  const [selectedCourse, setSelectedCourse] = useState(data.courses[0]?.id || '');
   const [selectedItemId, setSelectedItemId] = useState('ALL');
   const [input, setInput] = useState('');
+  // The conversation lives only in this page: it isn't saved on the device, so nobody else using
+  // this browser sees it.
+  const greeting = {
+    id: 'ai-1',
+    who: 'assistant',
+    filter: 'General',
+    text: t(
+      "Hello! I'm the Cohort assistant. Ask me to explain a topic, quiz you, plan your study week or walk you through a university procedure.",
+      'مرحبًا! أنا مساعد Cohort. اطلب مني شرح موضوع أو اختبارك أو تنظيم أسبوعك الدراسي أو توضيح إجراء جامعي.'
+    ),
+  };
+  const [history, setHistory] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const messages = [greeting, ...history];
 
   const isStaff = role === 'Academic Staff';
   const courseObj = useMemo(
@@ -349,21 +368,6 @@ export function AssistantPage() {
       };
     }
 
-    // 7. Specific Course summary
-    if (filterMode === 'Course' && courseObj) {
-      return {
-        text: t(
-          `[${courseObj.id} · ${courseObj.name}] Lecturer: ${courseObj.teacher} · TA: ${courseObj.ta} · Credits: ${courseObj.credits}. Focus: ${courseObj.topic}. Includes ${courseMaterials.length} material(s), ${courseAssignments.length} assignment(s), and ${courseQuizzes.length} quiz/exam item(s). Standing: ${courseObj.grade}% grade, ${courseObj.attendance}% attendance.`,
-          `[${courseObj.id} · ${courseObj.nameAr}] المحاضر: ${courseObj.teacher} · المعيد: ${courseObj.ta}. المحور: ${courseObj.topicAr}. يحتوي على ${courseMaterials.length} مادة و${courseAssignments.length} تكليف و${courseQuizzes.length} اختبار.`
-        ),
-        source: `${courseObj.id} ${t('Course Workspace', 'ملف المقرر')}`,
-        targetPage: 'courses',
-        courseId: courseObj.id,
-        courseTab: 'Overview',
-        actionLabel: t(`Open ${courseObj.id} Workspace`, `فتح مقرر ${courseObj.id}`),
-      };
-    }
-
     // 8. General workspace summary
     return {
       text: t(
@@ -376,44 +380,80 @@ export function AssistantPage() {
     };
   };
 
+  const askAssistant = async (question, filterLabel) => {
+    // Earlier turns from the real assistant only; sample answers would mislead it.
+    const earlier = history
+      .filter((m) => !m.preview && !m.failed)
+      .map((m) => ({ role: m.who === 'user' ? 'user' : 'assistant', content: m.text }))
+      .slice(-HISTORY_LIMIT);
+    const message =
+      filterMode === 'Course' && courseObj
+        ? `[${t('About my course', 'عن مقرري')} ${courseObj.id} · ${courseObj.name}] ${question}`
+        : question;
+    setBusy(true);
+    try {
+      const result = await api.chat({ message, history: earlier, language: 'auto' });
+      setHistory((prev) => [
+        ...prev,
+        {
+          id: `a-${Date.now()}`,
+          who: 'assistant',
+          filter: filterLabel,
+          text: result.answer,
+          limitations: result.limitations,
+        },
+      ]);
+    } catch (error) {
+      setHistory((prev) => [
+        ...prev,
+        { id: `a-${Date.now()}`, who: 'assistant', filter: filterLabel, text: error.message, failed: true },
+      ]);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const submitPrompt = (textValue) => {
     const clean = textValue.trim();
-    if (!clean) return;
+    if (!clean || busy) return;
     const scopeParts = [filterMode];
-    if (COURSE_SCOPED_MODES.includes(filterMode)) scopeParts.push(selectedCourse);
+    if (COURSE_SCOPED_MODES.includes(filterMode) && selectedCourse) scopeParts.push(selectedCourse);
     if (focusedSpecificItem) {
       scopeParts.push(lang === 'ar' && focusedSpecificItem.titleAr ? focusedSpecificItem.titleAr : focusedSpecificItem.title);
     }
     const filterLabel = scopeParts.join(' · ');
-    const reply = buildGroundedReply(clean);
-
-    setData((prev) => ({
-      ...prev,
-      assistantHistory: [
-        ...prev.assistantHistory,
-        { id: `u-${Date.now()}`, who: 'user', filter: filterLabel, text: clean },
-        {
-          id: `a-${Date.now() + 1}`,
-          who: 'assistant',
-          filter: filterLabel,
-          text: reply.text,
-          source: reply.source,
-          targetPage: reply.targetPage,
-          courseId: reply.courseId,
-          courseTab: reply.courseTab,
-          buildingId: reply.buildingId,
-          actionLabel: reply.actionLabel,
-        },
-      ],
-    }));
+    const live = LIVE_MODES.includes(filterMode);
+    const userTurn = { id: `u-${Date.now()}`, who: 'user', filter: filterLabel, text: clean, preview: !live };
     setInput('');
+
+    if (live) {
+      setHistory((prev) => [...prev, userTurn]);
+      askAssistant(clean, filterLabel);
+      return;
+    }
+
+    const reply = buildGroundedReply(clean);
+    setHistory((prev) => [
+      ...prev,
+      userTurn,
+      {
+        id: `a-${Date.now() + 1}`,
+        who: 'assistant',
+        filter: filterLabel,
+        text: reply.text,
+        source: reply.source,
+        targetPage: reply.targetPage,
+        courseId: reply.courseId,
+        courseTab: reply.courseTab,
+        buildingId: reply.buildingId,
+        actionLabel: reply.actionLabel,
+        preview: true,
+      },
+    ]);
   };
 
   const handleClear = () => {
-    setData((prev) => ({
-      ...prev,
-      assistantHistory: prev.assistantHistory.slice(0, 1),
-    }));
+    setHistory([]);
     showToast(t('Cleared assistant history', 'تم مسح سجل المساعد الذكي'));
   };
 
@@ -558,7 +598,7 @@ export function AssistantPage() {
       {/* Conversation History */}
       <div className="cohort-card rounded-2xl p-4 sm:p-5 space-y-4">
         <div className="space-y-3 max-h-[380px] overflow-y-auto pe-1">
-          {data.assistantHistory.map((msg) => (
+          {messages.map((msg) => (
             <div
               key={msg.id}
               className={`flex ${msg.who === 'user' ? 'justify-end' : 'justify-start'}`}
@@ -567,13 +607,17 @@ export function AssistantPage() {
                 className={`max-w-2xl rounded-2xl px-4 py-3 text-sm space-y-1.5 ${
                   msg.who === 'user'
                     ? 'bg-[#B81104] text-[#FFFACD]'
-                    : 'bg-[#FDFBF7] border border-[#E5DCCF] text-[#1A1715]'
+                    : msg.failed
+                      ? 'bg-[#FFE9E5] border border-[#C93636]/30 text-[#8A1F1F]'
+                      : 'bg-[#FDFBF7] border border-[#E5DCCF] text-[#1A1715]'
                 }`}
+                role={msg.failed ? 'alert' : undefined}
               >
                 <div className="flex items-center justify-between gap-3 text-[11px] font-bold opacity-85">
                   <span className="inline-flex items-center gap-1">
                     {msg.who === 'assistant' && <Sparkles className="w-3 h-3 text-[#B81104]" aria-hidden="true" />}
                     <span>{msg.who === 'user' ? t('You', 'أنت') : 'Cohort AI'}</span>
+                    {msg.who === 'assistant' && msg.preview ? <PreviewTag /> : null}
                   </span>
                   <span
                     className={`px-2 py-0.5 rounded-full ${
@@ -583,7 +627,14 @@ export function AssistantPage() {
                     {msg.filter}
                   </span>
                 </div>
-                <p className="leading-relaxed">{msg.text}</p>
+                <p className="leading-relaxed whitespace-pre-line" dir="auto">
+                  {msg.text}
+                </p>
+                {msg.limitations?.map((note) => (
+                  <p key={note} className="text-[11px] text-[#6E645D]" dir="auto">
+                    {note}
+                  </p>
+                ))}
                 {msg.source ? (
                   <div className="pt-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#6E645D] border-t border-[#EFE7DA]/80">
                     <span className="inline-flex items-center gap-1 font-semibold">
@@ -613,6 +664,12 @@ export function AssistantPage() {
               </div>
             </div>
           ))}
+          {busy ? (
+            <p role="status" className="flex items-center gap-2 text-xs font-semibold text-[#6E645D]">
+              <Sparkles className="h-3.5 w-3.5 animate-pulse text-[#B81104]" aria-hidden="true" />
+              {t('Thinking…', 'جارٍ التفكير…')}
+            </p>
+          ) : null}
         </div>
 
         {/* Quick prompts */}
@@ -622,6 +679,7 @@ export function AssistantPage() {
               key={promptText}
               type="button"
               onClick={() => submitPrompt(promptText)}
+              disabled={busy}
               className="px-3 py-1.5 rounded-full bg-[#FFFACD]/70 hover:bg-[#FFFACD] border border-[#B81104]/20 text-xs font-semibold text-[#1A1715] transition-colors text-start"
             >
               {promptText}
@@ -641,6 +699,8 @@ export function AssistantPage() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            maxLength={12000}
+            dir="auto"
             aria-label={t('Ask Cohort AI Assistant', 'اسأل مساعد كوهورت الذكي')}
             placeholder={t(
               `Ask a ${filterMode.toLowerCase()} academic question...`,
@@ -650,7 +710,8 @@ export function AssistantPage() {
           />
           <button
             type="submit"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-[#B81104] text-[#FFFACD] text-sm font-bold hover:bg-[#960D03] transition-colors"
+            disabled={busy || !input.trim()}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-[#B81104] text-[#FFFACD] text-sm font-bold hover:bg-[#960D03] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Send className="w-4 h-4" aria-hidden="true" />
             <span>{t('Ask', 'إرسال')}</span>

@@ -78,9 +78,12 @@ export function Header() {
       id: 'registration',
       label:
         role === 'Student'
-          ? t('Course Registration (Up to 7)', 'تسجيل المقررات (حتى ٧)')
+          ? t('Course Registration', 'تسجيل المقررات')
           : t('Advisee Approvals & Rosters', 'اعتماد تسجيل الطلاب والقوائم'),
-      desc: t('Lecture, Lab & Section scheduling', 'المحاضرات والمعامل والسكاشن'),
+      desc:
+        role === 'Student'
+          ? t('Your courses, sections & class times', 'مقرراتك وشعبك ومواعيدك')
+          : t('Lecture, Lab & Section scheduling', 'المحاضرات والمعامل والسكاشن'),
       Icon: ClipboardCheck,
     },
     {
