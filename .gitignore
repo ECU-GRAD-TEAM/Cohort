@@ -1,5 +1,8 @@
 node_modules/
+dist/
 .env
+.env.local
+.DS_Store
 apps/api/src/generated/
 apps/web/dist/
 .vercel/
