@@ -29,45 +29,73 @@ insert into public.tenants (id, slug, name, data_region) values
   ('0a000000-0000-4000-8000-00000000000a', 'smoke-uni-a', 'Smoke University A', 'eu-west-1'),
   ('0b000000-0000-4000-8000-00000000000b', 'smoke-uni-b', 'Smoke University B', 'eu-west-1');
 
--- Accounts are provisioned through Supabase Auth; the trigger creates users, profiles and roles.
-insert into auth.users (id, email, raw_app_meta_data, raw_user_meta_data) values
+-- Accounts are provisioned through Supabase Auth: trusted app_metadata names the university and the
+-- user type (staff or non_staff), and the triggers create the users and their profiles. A confirmed
+-- email makes the account active. Roles are never granted automatically.
+insert into auth.users (id, email, raw_app_meta_data, raw_user_meta_data, email_confirmed_at) values
   ('a0000000-0000-4000-8000-000000000001', 'admin@a.test',
-   '{"tenant_id": "0a000000-0000-4000-8000-00000000000a", "user_type": "administrator"}', '{"full_name": "Ada Admin"}'),
+   '{"tenant_id": "0a000000-0000-4000-8000-00000000000a", "user_type": "staff"}', '{"full_name": "Ada Admin"}', now()),
   ('a0000000-0000-4000-8000-000000000002', 'teacher@a.test',
-   '{"tenant_id": "0a000000-0000-4000-8000-00000000000a", "user_type": "teaching_staff"}', '{"full_name": "Tariq Teacher"}'),
+   '{"tenant_id": "0a000000-0000-4000-8000-00000000000a", "user_type": "staff"}', '{"full_name": "Tariq Teacher"}', now()),
   ('a0000000-0000-4000-8000-000000000003', 'other.teacher@a.test',
-   '{"tenant_id": "0a000000-0000-4000-8000-00000000000a", "user_type": "teaching_staff"}', '{"full_name": "Tamer Other"}'),
+   '{"tenant_id": "0a000000-0000-4000-8000-00000000000a", "user_type": "staff"}', '{"full_name": "Tamer Other"}', now()),
   ('a0000000-0000-4000-8000-000000000004', 'sara@a.test',
-   '{"tenant_id": "0a000000-0000-4000-8000-00000000000a", "user_type": "student", "institutional_id": "S-1"}', '{"full_name": "Sara Student"}'),
+   '{"tenant_id": "0a000000-0000-4000-8000-00000000000a", "user_type": "non_staff", "institutional_id": "S-1"}', '{"full_name": "Sara Student"}', now()),
   ('a0000000-0000-4000-8000-000000000005', 'samir@a.test',
-   '{"tenant_id": "0a000000-0000-4000-8000-00000000000a", "user_type": "student", "institutional_id": "S-2"}', '{"full_name": "Samir Student"}'),
+   '{"tenant_id": "0a000000-0000-4000-8000-00000000000a", "user_type": "non_staff", "institutional_id": "S-2"}', '{"full_name": "Samir Student"}', now()),
   ('a0000000-0000-4000-8000-000000000006', 'advisor@a.test',
-   '{"tenant_id": "0a000000-0000-4000-8000-00000000000a", "user_type": "teaching_staff"}', '{"full_name": "Amal Advisor"}'),
+   '{"tenant_id": "0a000000-0000-4000-8000-00000000000a", "user_type": "staff"}', '{"full_name": "Amal Advisor"}', now()),
   ('a0000000-0000-4000-8000-000000000007', 'dpo@a.test',
-   '{"tenant_id": "0a000000-0000-4000-8000-00000000000a", "user_type": "administrator"}', '{"full_name": "Dina DPO"}'),
+   '{"tenant_id": "0a000000-0000-4000-8000-00000000000a", "user_type": "staff"}', '{"full_name": "Dina DPO"}', now()),
   ('b0000000-0000-4000-8000-000000000001', 'bob@b.test',
-   '{"tenant_id": "0b000000-0000-4000-8000-00000000000b", "user_type": "student"}', '{"full_name": "Bob Elsewhere"}');
+   '{"tenant_id": "0b000000-0000-4000-8000-00000000000b", "user_type": "non_staff"}', '{"full_name": "Bob Elsewhere"}', now());
 
 do $$
 begin
-  assert (select count(*) from public.users where tenant_id = '0a000000-0000-4000-8000-00000000000a') = 7,
-    'auth sign-up trigger creates platform users';
-  assert (select display_name from public.person_profiles where user_id = 'a0000000-0000-4000-8000-000000000004') = 'Sara Student',
-    'profile takes the display name from user metadata';
-  assert (select count(*) from public.roles where tenant_id = '0a000000-0000-4000-8000-00000000000a' and is_system) = 7,
-    'new tenants get the system roles';
+  assert (select count(*) from public.users where tenant_id = '0a000000-0000-4000-8000-00000000000a' and status = 'active') = 7,
+    'the auth triggers create an active user for each confirmed account';
+  assert (select display_name from public.user_profiles where user_id = 'a0000000-0000-4000-8000-000000000004') = 'Sara Student',
+    'the profile takes the display name from user metadata';
+  assert (select count(*) from public.roles where tenant_id = '0a000000-0000-4000-8000-00000000000a'
+          and key in ('undergraduate', 'instructor', 'it_officer', 'academic_advisor')) = 4,
+    'new tenants get the standard role catalogue';
+  assert (select count(*) from public.user_roles where tenant_id = '0a000000-0000-4000-8000-00000000000a') = 0,
+    'no role is granted automatically';
 end;
 $$;
 
--- The DPO keeps only the data protection role; the advisor also gets the advisor role.
-delete from public.user_roles where user_id = 'a0000000-0000-4000-8000-000000000007';
+-- This university has no data protection role in its catalogue, so it adds one of its own.
+insert into public.roles (tenant_id, key, name, is_system)
+values ('0a000000-0000-4000-8000-00000000000a', 'data_protection_officer', 'Data Protection Officer', false);
+
+-- Roles are granted explicitly: Ada administers (and registers students), the teachers teach, the
+-- students study, Amal advises and Dina protects data.
 insert into public.user_roles (user_id, role_id, tenant_id)
 select u.id, r.id, r.tenant_id
 from (values
-  ('a0000000-0000-4000-8000-000000000007'::uuid, 'data_protection_officer'),
-  ('a0000000-0000-4000-8000-000000000006'::uuid, 'advisor')
-) as u (id, role_key)
-join public.roles r on r.tenant_id = '0a000000-0000-4000-8000-00000000000a' and r.key = u.role_key;
+  ('a0000000-0000-4000-8000-000000000001'::uuid, '0a000000-0000-4000-8000-00000000000a'::uuid, 'it_officer'),
+  ('a0000000-0000-4000-8000-000000000002'::uuid, '0a000000-0000-4000-8000-00000000000a'::uuid, 'instructor'),
+  ('a0000000-0000-4000-8000-000000000003'::uuid, '0a000000-0000-4000-8000-00000000000a'::uuid, 'instructor'),
+  ('a0000000-0000-4000-8000-000000000004'::uuid, '0a000000-0000-4000-8000-00000000000a'::uuid, 'undergraduate'),
+  ('a0000000-0000-4000-8000-000000000005'::uuid, '0a000000-0000-4000-8000-00000000000a'::uuid, 'undergraduate'),
+  ('a0000000-0000-4000-8000-000000000006'::uuid, '0a000000-0000-4000-8000-00000000000a'::uuid, 'academic_advisor'),
+  ('a0000000-0000-4000-8000-000000000007'::uuid, '0a000000-0000-4000-8000-00000000000a'::uuid, 'data_protection_officer'),
+  ('b0000000-0000-4000-8000-000000000001'::uuid, '0b000000-0000-4000-8000-00000000000b'::uuid, 'undergraduate')
+) as u (id, tenant_id, role_key)
+join public.roles r on r.tenant_id = u.tenant_id and r.key = u.role_key;
+
+-- Role permissions are each university's to map. Here the administrator runs the university,
+-- its registration and its exams, but not its grades, and sees individual records only through
+-- break-glass; the data protection officer reads the audit log and manages retention.
+insert into public.role_permissions (role_id, tenant_id, permission_key)
+select r.id, r.tenant_id, p.key
+from public.roles r
+join public.permissions p on p.key not in ('grades.manage', 'audit.read', 'retention.manage')
+where r.tenant_id = '0a000000-0000-4000-8000-00000000000a' and r.key = 'it_officer';
+insert into public.role_permissions (role_id, tenant_id, permission_key)
+select r.id, r.tenant_id, m.permission_key
+from (values ('audit.read'), ('retention.manage')) as m (permission_key)
+join public.roles r on r.tenant_id = '0a000000-0000-4000-8000-00000000000a' and r.key = 'data_protection_officer';
 
 insert into public.faculties (id, tenant_id, code, name) values
   ('10000000-0000-4000-8000-000000000001', '0a000000-0000-4000-8000-00000000000a', 'ENG', 'Engineering'),
@@ -96,9 +124,16 @@ insert into public.courses (id, tenant_id, department_id, code, title, credit_ho
 insert into public.course_prerequisites (course_id, prerequisite_course_id, tenant_id) values
   ('20000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000001', '0a000000-0000-4000-8000-00000000000a');
 insert into public.course_offerings (id, tenant_id, course_id, term_id, status) values
-  ('20000000-0000-4000-8000-000000000011', '0a000000-0000-4000-8000-00000000000a', '20000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000006', 'published'),
-  ('20000000-0000-4000-8000-000000000012', '0a000000-0000-4000-8000-00000000000a', '20000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000006', 'published'),
-  ('20000000-0000-4000-8000-000000000013', '0a000000-0000-4000-8000-00000000000a', '20000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000006', 'published');
+  ('20000000-0000-4000-8000-000000000011', '0a000000-0000-4000-8000-00000000000a', '20000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000006', 'draft'),
+  ('20000000-0000-4000-8000-000000000012', '0a000000-0000-4000-8000-00000000000a', '20000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000006', 'draft'),
+  ('20000000-0000-4000-8000-000000000013', '0a000000-0000-4000-8000-00000000000a', '20000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000006', 'draft');
+-- An offering is published only once its grading components total 100 percent.
+insert into public.grade_components (tenant_id, offering_id, name, category, weight)
+select '0a000000-0000-4000-8000-00000000000a', o.id, c.name, c.category::public.grade_category, c.weight
+from (values ('20000000-0000-4000-8000-000000000011'::uuid), ('20000000-0000-4000-8000-000000000012'::uuid),
+             ('20000000-0000-4000-8000-000000000013'::uuid)) as o (id)
+cross join (values ('Midterm', 'midterm', 30), ('Final exam', 'final_exam', 70)) as c (name, category, weight);
+update public.course_offerings set status = 'published' where tenant_id = '0a000000-0000-4000-8000-00000000000a';
 insert into public.sections (id, tenant_id, offering_id, code, capacity, waitlist_capacity) values
   ('20000000-0000-4000-8000-000000000021', '0a000000-0000-4000-8000-00000000000a', '20000000-0000-4000-8000-000000000011', 'L1', 1, 1),
   ('20000000-0000-4000-8000-000000000022', '0a000000-0000-4000-8000-00000000000a', '20000000-0000-4000-8000-000000000012', 'L1', 30, 0),
@@ -111,6 +146,12 @@ insert into public.timetable_entries (tenant_id, section_id, room_id, weekday, s
   -- MA101 meets in another room but overlaps CS101 L1 on Monday morning.
   ('0a000000-0000-4000-8000-00000000000a', '20000000-0000-4000-8000-000000000023', '10000000-0000-4000-8000-000000000007',
    1, '10:00', '11:00', current_date - 30, current_date + 90);
+-- Class meetings, which registrars assign students to (Monday is day 1).
+insert into public.section_meetings (id, tenant_id, section_id, offering_id, room_id, day_of_week, starts_at, ends_at, meeting_type) values
+  ('20000000-0000-4000-8000-000000000031', '0a000000-0000-4000-8000-00000000000a', '20000000-0000-4000-8000-000000000021', '20000000-0000-4000-8000-000000000011',
+   '10000000-0000-4000-8000-000000000005', 1, '09:00', '10:30', 'lecture'),
+  ('20000000-0000-4000-8000-000000000033', '0a000000-0000-4000-8000-00000000000a', '20000000-0000-4000-8000-000000000023', '20000000-0000-4000-8000-000000000013',
+   '10000000-0000-4000-8000-000000000007', 1, '10:00', '11:00', 'lecture');
 insert into public.advisor_assignments (advisor_id, student_id, tenant_id) values
   ('a0000000-0000-4000-8000-000000000006', 'a0000000-0000-4000-8000-000000000004', '0a000000-0000-4000-8000-00000000000a');
 
@@ -168,31 +209,26 @@ $$;
 reset role;
 
 -- ===========================================================================
--- Registration rules
+-- Enrolment: registrars enrol students and assign their class meetings
 -- ===========================================================================
 
 select set_config('request.jwt.claims', '{"sub": "a0000000-0000-4000-8000-000000000004", "role": "authenticated"}', true);
 set local role authenticated;
 do $$
 declare
-  e public.enrollments;
   failed boolean := false;
 begin
-  e := public.enroll_in_section('20000000-0000-4000-8000-000000000021');
-  assert e.status = 'enrolled', 'the first student gets the only seat';
-
   begin
-    perform public.enroll_in_section('20000000-0000-4000-8000-000000000022');
-  exception when check_violation then
-    failed := sqlerrm like 'Prerequisites%';
+    perform public.enroll_in_section('20000000-0000-4000-8000-000000000021');
+  exception when feature_not_supported then
+    failed := true;
   end;
-  assert failed, 'CS201 requires CS101 first';
+  assert failed, 'students cannot register themselves';
 
   failed := false;
   begin
-    insert into public.enrollments (tenant_id, student_id, section_id, offering_id, status)
-    values ('0a000000-0000-4000-8000-00000000000a', 'a0000000-0000-4000-8000-000000000004',
-            '20000000-0000-4000-8000-000000000022', '20000000-0000-4000-8000-000000000012', 'enrolled');
+    insert into public.enrollments (tenant_id, student_id, offering_id, status)
+    values ('0a000000-0000-4000-8000-00000000000a', 'a0000000-0000-4000-8000-000000000004', '20000000-0000-4000-8000-000000000011', 'enrolled');
   exception when insufficient_privilege then
     failed := true;
   end;
@@ -201,58 +237,58 @@ end;
 $$;
 reset role;
 
-select set_config('request.jwt.claims', '{"sub": "a0000000-0000-4000-8000-000000000005", "role": "authenticated"}', true);
+-- The registrar enrols both students in CS101 and assigns them to the meetings of section L1.
+select set_config('request.jwt.claims', '{"sub": "a0000000-0000-4000-8000-000000000001", "role": "authenticated"}', true);
 set local role authenticated;
 do $$
 declare
-  e public.enrollments;
+  v_student uuid;
+  v_enrollment uuid;
 begin
-  e := public.enroll_in_section('20000000-0000-4000-8000-000000000021');
-  assert e.status = 'waitlisted' and e.waitlist_position = 1, 'the second student goes on the waiting list';
+  foreach v_student in array array['a0000000-0000-4000-8000-000000000004', 'a0000000-0000-4000-8000-000000000005']::uuid[] loop
+    insert into public.enrollments (tenant_id, student_id, offering_id, status)
+    values ('0a000000-0000-4000-8000-00000000000a', v_student, '20000000-0000-4000-8000-000000000011', 'enrolled')
+    returning id into v_enrollment;
+    insert into public.student_meetings (tenant_id, enrollment_id, meeting_id)
+    select m.tenant_id, v_enrollment, m.id from public.section_meetings m
+    where m.section_id = '20000000-0000-4000-8000-000000000021';
+    if v_student = 'a0000000-0000-4000-8000-000000000004' then
+      perform set_config('smoke.enrollment_id', v_enrollment::text, true);
+    end if;
+  end loop;
+  assert (select count(*) from public.student_meetings) = 2, 'the registrar assigns each student the section''s meeting';
+end;
+$$;
+reset role;
+
+select set_config('request.jwt.claims', '{"sub": "a0000000-0000-4000-8000-000000000004", "role": "authenticated"}', true);
+set local role authenticated;
+do $$
+begin
   assert (select count(*) from public.enrollments) = 1, 'students see only their own enrolments';
+  assert private.enrolled_in_section('20000000-0000-4000-8000-000000000021'), 'the student is in the section of their meetings';
+  assert not private.enrolled_in_section('20000000-0000-4000-8000-000000000023'), 'and in no other section';
 end;
 $$;
 reset role;
 
-select set_config('request.jwt.claims', '{"sub": "a0000000-0000-4000-8000-000000000004", "role": "authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub": "a0000000-0000-4000-8000-000000000002", "role": "authenticated"}', true);
 set local role authenticated;
 do $$
 begin
-  perform public.drop_section('20000000-0000-4000-8000-000000000021');
+  assert (select count(*) from public.enrollments) = 2, 'a teacher reads the enrolments of the students they teach';
 end;
 $$;
 reset role;
 
-do $$
-begin
-  assert (select status from public.enrollments
-          where student_id = 'a0000000-0000-4000-8000-000000000005' and section_id = '20000000-0000-4000-8000-000000000021') = 'enrolled',
-    'dropping a seat promotes the head of the waiting list';
-end;
-$$;
-update public.sections set capacity = 10 where id = '20000000-0000-4000-8000-000000000021';
-
-select set_config('request.jwt.claims', '{"sub": "a0000000-0000-4000-8000-000000000004", "role": "authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub": "a0000000-0000-4000-8000-000000000003", "role": "authenticated"}', true);
 set local role authenticated;
 do $$
-declare
-  failed boolean := false;
 begin
-  assert (public.enroll_in_section('20000000-0000-4000-8000-000000000021')).status = 'enrolled', 'a dropped student can register again';
-  begin
-    perform public.enroll_in_section('20000000-0000-4000-8000-000000000023');
-  exception when check_violation then
-    failed := sqlerrm like '%clashes with your timetable%';
-  end;
-  assert failed, 'registration rejects a timetable clash';
+  assert (select count(*) from public.enrollments) = 0, 'other teachers read none of them';
 end;
 $$;
 reset role;
-
-select set_config('smoke.enrollment_id', (
-  select id::text from public.enrollments
-  where student_id = 'a0000000-0000-4000-8000-000000000004' and section_id = '20000000-0000-4000-8000-000000000021'
-), true);
 
 -- ===========================================================================
 -- Course chat follows enrolment
@@ -328,7 +364,7 @@ begin
   insert into public.grade_entries (tenant_id, enrollment_id, student_id, offering_id, score, max_score)
   select e.tenant_id, e.id, e.student_id, e.offering_id, 70, 100
   from public.enrollments e
-  where e.student_id = 'a0000000-0000-4000-8000-000000000004' and e.section_id = '20000000-0000-4000-8000-000000000021'
+  where e.student_id = 'a0000000-0000-4000-8000-000000000004' and e.offering_id = '20000000-0000-4000-8000-000000000011'
   returning id into v_grade;
   perform set_config('smoke.grade_id', v_grade::text, true);
 end;
@@ -544,6 +580,9 @@ end;
 $$;
 reset role;
 
+-- Late answers are allowed unless the assessment's late policy disallows them; this quiz does.
+update public.assessments set late_policy = '{"mode": "disallowed"}'
+where id = '30000000-0000-4000-8000-000000000002';
 update public.submissions set deadline_at = now() - interval '1 second'
 where student_id = 'a0000000-0000-4000-8000-000000000005';
 
@@ -555,7 +594,7 @@ declare
 begin
   update public.submission_answers set response = '"a"';
   get diagnostics v_rows = row_count;
-  assert v_rows = 0, 'answers stop saving at the deadline';
+  assert v_rows = 0, 'answers stop saving at the deadline when late answers are disallowed';
 end;
 $$;
 reset role;
@@ -810,9 +849,9 @@ begin
   assert (select count(*) from public.directory_search('Sara')) = 1, 'the directory finds classmates';
   assert (select email from public.directory_search('Sara')) is null, 'student emails are hidden from other students';
 
-  update public.person_profiles set bio = 'Second-year SWE' where user_id = 'a0000000-0000-4000-8000-000000000005';
+  update public.user_profiles set bio = 'Second-year SWE' where user_id = 'a0000000-0000-4000-8000-000000000005';
   begin
-    update public.person_profiles set department_id = '10000000-0000-4000-8000-000000000002'
+    update public.user_profiles set department_id = '10000000-0000-4000-8000-000000000002'
     where user_id = 'a0000000-0000-4000-8000-000000000005';
   exception when insufficient_privilege then
     failed := true;

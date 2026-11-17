@@ -10,8 +10,8 @@ changes are written to an immutable audit log.
 
 ## Status
 
-Every migration in `supabase/migrations` but the last is applied in GradProj, and the folder
-mirrors GradProj.
+Every migration in `supabase/migrations` up to `20261113131803` is applied in GradProj, and the
+folder mirrors GradProj; the two after it are not applied yet.
 The source of truth is the `supabase_migrations` schema on GradProj
 (`select version, name from supabase_migrations.schema_migrations order by version`). When the
 folder and GradProj disagree, GradProj is right.
@@ -23,7 +23,9 @@ folder and GradProj disagree, GradProj is right.
 | `20261025120000_prisma_compat` | Applied |
 | `20261025120100_api_role` | Applied |
 | Every later migration in `supabase/migrations` (through `20261113124137`) | Applied |
-| `20261113131803_repoint_functions_after_profile_and_enrolment_changes` | **Not yet applied** |
+| `20261113131803_repoint_functions_after_profile_and_enrolment_changes` | Applied |
+| `20261113142258_retire_student_self_registration` | **Not yet applied** |
+| `20261113142259_grant_ecu_it_officer_every_permission` | **Not yet applied** |
 
 `20261113131803` repairs what three of the team's 10–12 November migrations left behind:
 
@@ -39,7 +41,12 @@ folder and GradProj disagree, GradProj is right.
   read by a student or teacher failed. A `SECURITY DEFINER` helper, `teaches_enrollment`, breaks the
   loop; who may read what is unchanged.
 
-Apply it with `npx supabase db push` (below), which applies only that migration.
+`20261113142258` makes `enroll_in_section` and `drop_section` refuse with a clear message: students no
+longer register themselves, registrars enrol them. `20261113142259` gives ECU's `it_officer` role every
+permission again, after `20261109162311` cleared all role permissions.
+
+Apply pending migrations with `npx supabase db push --remote` (below); a dry run first
+(`--dry-run`) lists exactly what it would apply.
 
 `api_role` creates `cohort_api` without a password; set one in GradProj with
 `alter role cohort_api with password '...'`.
@@ -48,7 +55,7 @@ Apply it with `npx supabase db push` (below), which applies only that migration.
 
 ```bash
 npx supabase link --project-ref gejismdqvjuygtxibdhs
-npx supabase db push            # applies only migrations GradProj has not recorded yet
+npx supabase db push --remote   # applies only migrations GradProj has not recorded yet
 
 npx supabase start              # local stack (Docker)
 npx supabase test db            # runs supabase/tests/rls_smoke_test.sql through pg_prove
@@ -64,10 +71,6 @@ migrations only rework GradProj's real records, which `scripts/db/data-only-migr
 `scripts/db/data-check-migrations.txt` handle. To build a database the migrations apply to, run
 `npm run db:test:reset` (see the root README, step 2).
 
-**Known problem:** `tests/rls_smoke_test.sql` still seeds the old user types (`student`,
-`teaching_staff`, ...), so it fails against the current schema, where `user_type` is `staff` or
-`non_staff` and roles are granted explicitly. It needs updating to `staff`/`non_staff` before it
-can run again.
 
 ## Migrations
 
@@ -140,7 +143,7 @@ service role, which bypasses row-level security. Signed-in clients use the `auth
 
 | Function | Who | What |
 | --- | --- | --- |
-| `enroll_in_section`, `drop_section` | Students | Self-registration by section. Since `20261112185500` they fail (they still use the removed `enrollments.section_id`), and nothing in Cohort calls them: registrars now enrol students |
+| `enroll_in_section`, `drop_section` | Students | Retired: they refuse with "Students no longer register themselves". Registrars enrol students and assign their class meetings (`student_meetings`) |
 | `start_attempt`, `submit_attempt` | Students | Server-timed attempts; deterministic questions scored on submission |
 | `check_in` | Students | Attendance by QR code, or name entry for the teacher to confirm |
 | `attendance_qr_token` | Teachers | The current QR code for a session |

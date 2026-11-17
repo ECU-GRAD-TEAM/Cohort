@@ -92,9 +92,9 @@ and `prisma validate` then fails. Change these seven opposite relation fields ba
 
 ### 3. Set the API role's password
 
-GradProj has every migration in this repository (`supabase/migrations` mirrors it) except
-`20261113131803_repoint_functions_after_profile_and_enrolment_changes`; see
-[supabase/README.md](supabase/README.md) for what it fixes and how to apply it. Migration
+GradProj has every migration in this repository (`supabase/migrations` mirrors it) except any
+that [supabase/README.md](supabase/README.md) lists as not yet applied; it also says how to apply
+them. Migration
 `api_role` creates the `cohort_api` login role without a password, so the API cannot connect
 until you set one. In the Supabase Dashboard, open the SQL Editor for GradProj and run:
 
