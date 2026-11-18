@@ -31,6 +31,7 @@ const starters = [
   "Help me plan my study week",
   "Explain a university procedure",
   "Check my degree progress",
+  "Show my graduation audit",
   "What is my academic standing?",
   "Show my enrollment summary",
   "Show my exam schedule",
