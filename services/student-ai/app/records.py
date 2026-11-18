@@ -145,6 +145,19 @@ class StudentRecordRetriever:
                     ["student_enrollment_summary", "student_courses", "enrollments", "course_offerings", "courses", "terms"],
                 )
 
+            if intent == "course_resources":
+                rows = await self._get(client, access_token, "student_course_resources", {
+                    "select": "course_code,course_title,term_code,term_name,academic_year_code,academic_year_name,resource_source,resource_title,resource_description,resource_kind,resource_origin,resource_created_at,available_at,document_version,document_language,effective_from,effective_until,document_published_at",
+                    "student_id": f"eq.{student_id}",
+                    "order": "available_at.desc.nullslast,course_code.asc,resource_title.asc",
+                    "limit": "300",
+                })
+                return (
+                    "Student's officially published and currently released course resources for currently enrolled offerings. Material publication/release and document scope/audience/version access are enforced by Cohort RLS. Private storage paths are intentionally not returned: "
+                    + _json(rows),
+                    ["student_course_resources", "materials", "documents", "document_versions", "enrollments", "course_offerings", "courses", "terms", "academic_years"],
+                )
+
             if intent == "exam_schedule":
                 rows = await self._get(client, access_token, "student_exam_schedule", {
                     "select": "course_code,course_title,term_code,term_name,academic_year_code,academic_year_name,exam_title,assessment_title,assessment_kind,exam_mode,starts_at,ends_at,instructions,seats_released_at,room_code,room_name,building_code,building_name,seat_number,enrollment_status",
