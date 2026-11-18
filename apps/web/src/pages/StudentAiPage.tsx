@@ -32,6 +32,7 @@ const starters = [
   "Explain a university procedure",
   "Check my degree progress",
   "What is my academic standing?",
+  "Show my enrollment summary",
 ];
 
 function createWelcomeMessage(): Message {
