@@ -65,6 +65,18 @@ class StudentRecordRetriever:
                 })
                 return ("Student's official Cohort profile: " + _json(rows), ["student_profile", "users", "user_profiles", "student_academic_progressions", "student_programs", "student_specializations"])
 
+            if intent == "degree_progress":
+                rows = await self._get(client, access_token, "student_degree_progress", {
+                    "select": "program_name,specialization_name,total_required_credits,completed_credits,in_progress_credits,remaining_credits,completion_percentage,required_courses_count,completed_required_courses,in_progress_required_courses,remaining_required_courses,last_updated_at",
+                    "student_id": f"eq.{student_id}",
+                    "limit": "1",
+                })
+                return (
+                    "Student's official degree progress calculated from the assigned program curriculum, required-course rules, elective requirement groups, confirmed specialization selections, and completed/in-progress enrollments. Completed credits exclude currently in-progress credits; remaining credits exclude both completed and in-progress credits: "
+                    + _json(rows),
+                    ["student_degree_progress", "student_profile", "programs", "program_curriculum_courses", "curriculum_requirement_groups", "curriculum_requirement_group_courses", "student_technical_elective_selections", "student_courses", "enrollments", "courses"],
+                )
+
             if intent == "gpa":
                 rows = await self._get(client, access_token, "student_gpa", {
                     "select": "academic_year_code,academic_year_name,term_id,term_code,term_name,term_kind,term_sequence,term_gpa,cumulative_gpa,term_credits_attempted,cumulative_credits_attempted,cumulative_credits_earned,term_quality_points,cumulative_quality_points,gpa_computed_at",
