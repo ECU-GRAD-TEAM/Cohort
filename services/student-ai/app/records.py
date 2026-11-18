@@ -208,6 +208,18 @@ class StudentRecordRetriever:
                     ["student_appointments", "appointments"],
                 )
 
+            if intent == "lost_and_found":
+                rows = await self._get(client, access_token, "lost_and_found", {
+                    "select": "item_id,item_kind,title,description,category,building_id,building_code,building_name,location_text,occurred_at,status,created_at",
+                    "order": "created_at.desc",
+                    "limit": "200",
+                })
+                return (
+                    "Official Cohort lost-and-found reports visible to this authenticated student, newest first. The security-invoker view preserves the existing tenant-scoped RLS policies on lost_items and buildings. Report the item kind, title, description, category, location, occurred date, and official status only as supplied. Reporter identities and photo storage paths are intentionally excluded. This is read-only; do not create, update, or delete lost-and-found reports: "
+                    + _json(rows),
+                    ["lost_and_found", "lost_items", "buildings"],
+                )
+
             if intent == "announcements":
                 rows = await self._get(client, access_token, "announcements", {
                     "select": "id,audience,department_id,offering_id,section_id,role_key,title,body,priority,publish_at,expires_at,created_at,updated_at",
