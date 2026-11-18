@@ -1,0 +1,4 @@
+-- The live database initially created this view in this migration.
+-- The finalized, replayable CREATE OR REPLACE definition is consolidated in
+-- 20261118182541_include_unselected_degree_requirement_groups.sql so a fresh
+-- migration replay reaches the same final schema without intermediate drift.
