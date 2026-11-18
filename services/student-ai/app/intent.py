@@ -6,7 +6,7 @@ import re
 from typing import Awaitable, Callable
 
 ALLOWED_INTENTS = frozenset({
-    "profile", "gpa", "attendance", "grades", "enrollments", "timetable", "degree_progress", "academic_standing", "exam_schedule", "course_resources", "assessment_results", "academic_calendar", "support_requests",
+    "profile", "gpa", "attendance", "grades", "enrollments", "timetable", "degree_progress", "academic_standing", "exam_schedule", "course_resources", "assessment_results", "academic_calendar", "support_requests", "appointments",
 })
 
 INTENT_INSTRUCTIONS = """Identify every distinct personal Cohort-record lookup required to answer
@@ -23,6 +23,7 @@ Allowed intent values:
 - "exam_schedule": the student's own exam dates/times, exam room, seat number, exam instructions, or exam schedule. Include this for questions about upcoming or past exams.
 - "academic_calendar": institution or faculty academic calendar dates, registration windows, add/drop periods, teaching periods, holidays, general academic deadlines, term dates, or result publication dates. Use this for official calendar events, not the student's individual exam timetable.
 - "support_requests": the student's own support tickets, complaints, IT/advising/academic requests, ticket status, priority, SLA deadline, first response, resolution, or publicly visible support comments. Use only for requests submitted by the student; internal staff notes are never exposed.
+- "appointments": the student's own requested, confirmed, cancelled, completed, or missed appointments with university staff; appointment dates/times, meeting mode, topic, location, or cancellation reason. Use only appointments requested by the student; do not infer staff names, and do not claim to book, reschedule, or cancel.
 - "course_resources": course materials, lecture slides, notes, videos, links, published course documents, resource availability, or learning materials for the student's enrolled courses.
 - "degree_progress": the student's degree/programme progress, completed or remaining credits, required courses remaining, graduation requirements, or completion percentage.
 - "academic_standing": the student's own official academic standing, good standing, dean's list, academic warning, probation, suspension, dismissal, or current academic status.
