@@ -42,6 +42,7 @@ const starters = [
   "Show my weekly timetable",
   "Show my appointments",
   "Show my notifications",
+  "Show my emergency alerts",
 ];
 
 function createWelcomeMessage(): Message {
