@@ -112,16 +112,16 @@ class StudentRecordRetriever:
                 )
 
             if intent == "assessment_results":
-                rows = await self._get(client, access_token, "student_assessments", {
-                    "select": "course_code,course_title,academic_year_name,term_name,component_type,component_name,assessment_title,score,max_score,score_percentage,component_weight,result_status,recorded_at,attempt_number,offering_id",
+                rows = await self._get(client, access_token, "student_assessment_results", {
+                    "select": "course_code,course_title,term_code,term_name,academic_year_code,academic_year_name,component_type,component_name,component_weight,assessment_title,assessment_kind,assessment_delivery,opens_at,due_at,closes_at,grades_released_at,score,max_score,score_percentage,feedback,result_status,recorded_at,attempt_number",
                     "student_id": f"eq.{student_id}",
                     "order": "recorded_at.desc.nullslast",
                     "limit": "300",
                 })
                 return (
-                    "Officially released individual assessment results only. Unreleased and superseded results are excluded by the underlying view. Instructor feedback is not available from this source: "
+                    "Officially published individual assessment results, including instructor feedback only when the grade entry is published. Unreleased and superseded grades are excluded by the database view: "
                     + _json(rows),
-                    ["student_assessments", "grade_entries", "student_courses", "assessments", "grade_components"],
+                    ["student_assessment_results", "grade_entries", "student_courses", "assessments", "grade_components"],
                 )
 
             if intent == "grades":
