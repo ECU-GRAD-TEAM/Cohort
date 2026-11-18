@@ -208,6 +208,18 @@ class StudentRecordRetriever:
                     ["student_appointments", "appointments"],
                 )
 
+            if intent == "announcements":
+                rows = await self._get(client, access_token, "announcements", {
+                    "select": "id,audience,department_id,offering_id,section_id,role_key,title,body,priority,publish_at,expires_at,created_at,updated_at",
+                    "order": "publish_at.desc",
+                    "limit": "200",
+                })
+                return (
+                    "Official Cohort announcements visible to this authenticated student. The announcements table's existing RLS policy enforces tenant isolation, publication/expiry windows, and audience eligibility for institution, department, course offering, section, and role audiences. Only rows returned by that policy are visible here. Report title, body, audience, priority, publication/expiry and related IDs exactly as supplied. Attachments and internal author information are intentionally omitted. This is read-only; do not publish, edit, delete, or change announcement preferences: "
+                    + _json(rows),
+                    ["announcements"],
+                )
+
             if intent == "student_events":
                 rows = await self._get(client, access_token, "student_events", {
                     "select": "event_id,event_kind,title,description,starts_at,ends_at,location_text,building_code,building_name,room_code,room_name,capacity,waitlist_enabled,registration_opens_at,registration_closes_at,has_registration_record,registration_status,registered_at",
