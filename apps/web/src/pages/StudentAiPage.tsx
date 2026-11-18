@@ -47,6 +47,7 @@ const starters = [
   "Show my event registrations",
   "Show my announcements",
   "Show lost and found items",
+  "Show my surveys",
 ];
 
 function createWelcomeMessage(): Message {
