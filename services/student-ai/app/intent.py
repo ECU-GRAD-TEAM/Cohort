@@ -6,7 +6,7 @@ import re
 from typing import Awaitable, Callable
 
 ALLOWED_INTENTS = frozenset({
-    "profile", "gpa", "attendance", "grades", "enrollments", "timetable", "degree_progress", "academic_standing", "exam_schedule", "course_resources", "assessment_results", "academic_calendar", "support_requests", "appointments", "notifications",
+    "profile", "gpa", "attendance", "grades", "enrollments", "timetable", "degree_progress", "academic_standing", "exam_schedule", "course_resources", "assessment_results", "academic_calendar", "support_requests", "appointments", "notifications", "graduation_audit",
 })
 
 INTENT_INSTRUCTIONS = """Identify every distinct personal Cohort-record lookup required to answer
@@ -26,6 +26,7 @@ Allowed intent values:
 - "appointments": the student's own requested, confirmed, cancelled, completed, or missed appointments with university staff; appointment dates/times, meeting mode, topic, location, or cancellation reason. Use only appointments requested by the student; do not infer staff names, and do not claim to book, reschedule, or cancel.
 - "notifications": the student's own Cohort notifications, unread/read notifications, notification history, academic reminders, deadline alerts, appointment updates, support ticket updates, notification severity, category, or received time. Use only official notification records; do not mark notifications read or change preferences.
 - "course_resources": course materials, lecture slides, notes, videos, links, published course documents, resource availability, or learning materials for the student's enrolled courses.
+- "graduation_audit": the student's official graduation audit, graduation eligibility decision, last audit date, audit status, recorded audit CGPA/credits, or unmet graduation requirements. Use the official audit status; pending and requires_manual_review are not approval. Do not infer degree completion from degree progress.
 - "degree_progress": the student's degree/programme progress, completed or remaining credits, required courses remaining, graduation requirements, or completion percentage.
 - "academic_standing": the student's own official academic standing, good standing, dean's list, academic warning, probation, suspension, dismissal, or current academic status.
 
