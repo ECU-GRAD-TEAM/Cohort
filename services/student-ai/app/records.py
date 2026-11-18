@@ -111,6 +111,19 @@ class StudentRecordRetriever:
                     ["student_attendance_summary", "attendance_records", "attendance_sessions", "sections", "course_offerings", "courses", "terms", "academic_years"],
                 )
 
+            if intent == "assessment_results":
+                rows = await self._get(client, access_token, "student_assessments", {
+                    "select": "course_code,course_title,academic_year_name,term_name,component_type,component_name,assessment_title,score,max_score,score_percentage,component_weight,result_status,recorded_at,attempt_number,offering_id",
+                    "student_id": f"eq.{student_id}",
+                    "order": "recorded_at.desc.nullslast",
+                    "limit": "300",
+                })
+                return (
+                    "Officially released individual assessment results only. Unreleased and superseded results are excluded by the underlying view. Instructor feedback is not available from this source: "
+                    + _json(rows),
+                    ["student_assessments", "grade_entries", "student_courses", "assessments", "grade_components"],
+                )
+
             if intent == "grades":
                 course_rows = await self._get(client, access_token, "student_courses", {
                     "select": "course_code,course_title,academic_year_name,term_name,credit_hours,enrollment_status,final_percentage,final_grade_letter,final_grade_points,gpa_exclusion_reason,recorded_at,attempt_number,offering_id",
