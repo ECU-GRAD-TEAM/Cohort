@@ -58,6 +58,17 @@ class GeminiMultiIntentTests(unittest.TestCase):
         self.assertIn("official lost_and_found view", INTENT_INSTRUCTIONS)
         self.assertIn("Do not reveal reporter identities", INTENT_INSTRUCTIONS)
 
+    def test_surveys_intent_is_allowed(self):
+        async def model_call(_messages):
+            return '{"intents":["surveys"]}'
+
+        self.assertEqual(
+            asyncio.run(classify_intents("Show my surveys and whether I participated", model_call)),
+            ["surveys"],
+        )
+        self.assertIn("survey_participation", INTENT_INSTRUCTIONS)
+        self.assertIn("Never retrieve or disclose survey_responses", INTENT_INSTRUCTIONS)
+
     def test_general_question_returns_no_intents(self):
         async def model_call(_messages):
             return '{"intents":[]}'
