@@ -127,13 +127,23 @@ class StudentRecordRetriever:
                 return ("Student course results and individual assessment components: " + _json({"course_results": course_rows, "assessments": assessment_rows}), ["student_courses", "student_assessments", "enrollments", "grade_entries"])
 
             if intent == "enrollments":
-                rows = await self._get(client, access_token, "student_courses", {
+                summary_rows = await self._get(client, access_token, "student_enrollment_summary", {
+                    "select": "term_code,term_name,total_enrollments,enrolled_courses_count,waitlisted_courses_count,dropped_courses_count,withdrawn_courses_count,completed_courses_count,failed_courses_count,incomplete_courses_count,registered_credit_hours,last_updated_at",
+                    "student_id": f"eq.{student_id}",
+                    "order": "term_name.desc",
+                    "limit": "30",
+                })
+                course_rows = await self._get(client, access_token, "student_courses", {
                     "select": "course_code,course_title,credit_hours,term_code,term_name,academic_year_name,enrollment_status,final_percentage,final_grade_letter,final_grade_points,attempt_number,offering_id",
                     "student_id": f"eq.{student_id}",
                     "order": "recorded_at.desc.nullslast",
                     "limit": "100",
                 })
-                return ("Student course enrollments and final results: " + _json(rows), ["student_courses", "enrollments", "course_offerings", "courses", "terms"])
+                return (
+                    "Student's term-level enrollment summary and course-level enrollment records. Registered credit hours include only status 'enrolled'; waitlisted, dropped, withdrawn, completed, failed, and incomplete statuses are separate. The enrollment_status enum has no pending state, so do not claim pending enrollment counts: "
+                    + _json({"term_summaries": summary_rows, "courses": course_rows}),
+                    ["student_enrollment_summary", "student_courses", "enrollments", "course_offerings", "courses", "terms"],
+                )
 
             if intent == "timetable":
                 rows = await self._get(client, access_token, "student_timetable", {
