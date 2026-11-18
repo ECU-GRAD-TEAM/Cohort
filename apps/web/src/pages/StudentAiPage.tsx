@@ -37,6 +37,7 @@ const starters = [
   "Show my course resources",
   "Show my assessment results",
   "Show important academic dates",
+  "Show my support requests",
 ];
 
 function createWelcomeMessage(): Message {
