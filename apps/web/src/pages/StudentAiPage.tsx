@@ -30,6 +30,7 @@ const starters = [
   "Create a quick practice quiz",
   "Help me plan my study week",
   "Explain a university procedure",
+  "Check my degree progress",
 ];
 
 function createWelcomeMessage(): Message {
