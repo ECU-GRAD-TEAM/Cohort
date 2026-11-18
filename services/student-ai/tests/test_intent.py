@@ -25,6 +25,17 @@ class GeminiMultiIntentTests(unittest.TestCase):
         self.assertIn("institutional_id", INTENT_INSTRUCTIONS)
         self.assertIn("Never use or reveal the internal student_id UUID", INTENT_INSTRUCTIONS)
 
+    def test_student_events_intent_is_allowed(self):
+        async def model_call(_messages):
+            return '{"intents":["student_events"]}'
+
+        self.assertEqual(
+            asyncio.run(classify_intents("Show university events and my registrations", model_call)),
+            ["student_events"],
+        )
+        self.assertIn("published activities", INTENT_INSTRUCTIONS)
+        self.assertIn("do not register, cancel, or modify participation", INTENT_INSTRUCTIONS)
+
     def test_general_question_returns_no_intents(self):
         async def model_call(_messages):
             return '{"intents":[]}'
