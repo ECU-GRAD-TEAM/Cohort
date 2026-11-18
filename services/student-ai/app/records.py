@@ -171,6 +171,19 @@ class StudentRecordRetriever:
                     ["student_course_resources", "materials", "documents", "document_versions", "enrollments", "course_offerings", "courses", "terms", "academic_years"],
                 )
 
+            if intent == "academic_calendar":
+                rows = await self._get(client, access_token, "student_academic_calendar", {
+                    "select": "term_code,term_name,academic_year_code,academic_year_name,academic_year_status,calendar_name,calendar_timezone,event_kind,event_title,description,location,starts_on,ends_on,event_state",
+                    "student_id": f"eq.{student_id}",
+                    "order": "starts_on.asc,event_title.asc",
+                    "limit": "300",
+                })
+                return (
+                    "Official tenant calendar events applicable to the student's faculty, including term-linked and institution-wide events. Event dates, descriptions, and locations come from Cohort; event_state is calculated from the database current_date. The source schema has no separate event publication or audience flag, so do not claim a distinct publication status: "
+                    + _json(rows),
+                    ["student_academic_calendar", "academic_calendar_events", "academic_calendars", "terms", "academic_years", "student_profile"],
+                )
+
             if intent == "exam_schedule":
                 rows = await self._get(client, access_token, "student_exam_schedule", {
                     "select": "course_code,course_title,term_code,term_name,academic_year_code,academic_year_name,exam_title,assessment_title,assessment_kind,exam_mode,starts_at,ends_at,instructions,seats_released_at,room_code,room_name,building_code,building_name,seat_number,enrollment_status",
