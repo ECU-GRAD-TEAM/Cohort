@@ -40,6 +40,7 @@ const starters = [
   "Show my support requests",
   "Show my weekly timetable",
   "Show my appointments",
+  "Show my notifications",
 ];
 
 function createWelcomeMessage(): Message {
