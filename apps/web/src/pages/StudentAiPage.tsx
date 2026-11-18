@@ -36,6 +36,7 @@ const starters = [
   "Show my exam schedule",
   "Show my course resources",
   "Show my assessment results",
+  "Show important academic dates",
 ];
 
 function createWelcomeMessage(): Message {
