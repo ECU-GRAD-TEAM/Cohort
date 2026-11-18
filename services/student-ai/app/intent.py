@@ -19,7 +19,7 @@ Allowed intent values:
 - "grades": final course grades, course marks, or overall results.
 - "assessment_results": individual quiz, assignment, exam, lab, or other assessment marks, maximum marks, percentages, and released assessment details.
 - "enrollments": courses the student is registered/enrolled in, course registration status, waitlist position/status, dropped/withdrawn/completed courses, or registered credit hours.
-- "timetable": the student's class schedule, next class, lecture/tutorial times, or rooms.
+- "timetable": the student's recurring class schedule, weekly timetable, classes on a named weekday, next class in their weekly schedule, lecture/tutorial times, section, or classroom/building locations. Use the official timetable record; day_of_week is PostgreSQL numbering (0=Sunday, 1=Monday, ..., 6=Saturday). A recurring weekly meeting does not provide a calendar date, so do not infer an exact upcoming date.
 - "exam_schedule": the student's own exam dates/times, exam room, seat number, exam instructions, or exam schedule. Include this for questions about upcoming or past exams.
 - "academic_calendar": institution or faculty academic calendar dates, registration windows, add/drop periods, teaching periods, holidays, general academic deadlines, term dates, or result publication dates. Use this for official calendar events, not the student's individual exam timetable.
 - "support_requests": the student's own support tickets, complaints, IT/advising/academic requests, ticket status, priority, SLA deadline, first response, resolution, or publicly visible support comments. Use only for requests submitted by the student; internal staff notes are never exposed.
