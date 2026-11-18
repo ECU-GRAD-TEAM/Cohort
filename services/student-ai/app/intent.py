@@ -6,7 +6,7 @@ import re
 from typing import Awaitable, Callable
 
 ALLOWED_INTENTS = frozenset({
-    "profile", "gpa", "attendance", "grades", "enrollments", "timetable", "degree_progress", "academic_standing", "exam_schedule",
+    "profile", "gpa", "attendance", "grades", "enrollments", "timetable", "degree_progress", "academic_standing", "exam_schedule", "course_resources",
 })
 
 INTENT_INSTRUCTIONS = """Identify every distinct personal Cohort-record lookup required to answer
@@ -20,6 +20,7 @@ Allowed intent values:
 - "enrollments": courses the student is registered/enrolled in, course registration status, waitlist position/status, dropped/withdrawn/completed courses, or registered credit hours.
 - "timetable": the student's class schedule, next class, lecture/tutorial times, or rooms.
 - "exam_schedule": the student's own exam dates/times, exam room, seat number, exam instructions, or exam schedule. Include this for questions about upcoming or past exams.
+- "course_resources": course materials, lecture slides, notes, videos, links, published course documents, resource availability, or learning materials for the student's enrolled courses.
 - "degree_progress": the student's degree/programme progress, completed or remaining credits, required courses remaining, graduation requirements, or completion percentage.
 - "academic_standing": the student's own official academic standing, good standing, dean's list, academic warning, probation, suspension, dismissal, or current academic status.
 
