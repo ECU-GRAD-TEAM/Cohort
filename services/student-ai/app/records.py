@@ -145,6 +145,19 @@ class StudentRecordRetriever:
                     ["student_enrollment_summary", "student_courses", "enrollments", "course_offerings", "courses", "terms"],
                 )
 
+            if intent == "exam_schedule":
+                rows = await self._get(client, access_token, "student_exam_schedule", {
+                    "select": "course_code,course_title,term_code,term_name,academic_year_code,academic_year_name,exam_title,assessment_title,assessment_kind,exam_mode,starts_at,ends_at,instructions,seats_released_at,room_code,room_name,building_code,building_name,seat_number,enrollment_status",
+                    "student_id": f"eq.{student_id}",
+                    "order": "starts_at.asc",
+                    "limit": "200",
+                })
+                return (
+                    "Student's official exam schedule, including academic term and year. Room and seat details are only available after the university releases seat assignments: "
+                    + _json(rows),
+                    ["student_exam_schedule", "exam_sessions", "seat_assignments", "assessments", "enrollments", "course_offerings", "courses", "terms", "academic_years", "rooms", "buildings"],
+                )
+
             if intent == "timetable":
                 rows = await self._get(client, access_token, "student_timetable", {
                     "select": "course_code,course_title,term_name,section_code,day_of_week,starts_at,ends_at,meeting_type,room_code,room_name,building_code,building_name",
