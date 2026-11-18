@@ -31,6 +31,7 @@ const starters = [
   "Help me plan my study week",
   "Explain a university procedure",
   "Check my degree progress",
+  "What is my academic standing?",
 ];
 
 function createWelcomeMessage(): Message {
