@@ -207,16 +207,57 @@ class StudentRecordRetriever:
                     ["student_appointments", "appointments"],
                 )
 
+            if intent == "emergency_alerts":
+                # First resolve only this student's deliveries. RLS independently
+                # enforces user_id = auth.uid() and the active tenant.
+                deliveries = await self._get(client, access_token, "emergency_alert_deliveries", {
+                    "select": "alert_id,channel,delivered_at,failed_reason,acknowledged_at",
+                    "user_id": f"eq.{student_id}",
+                    "order": "delivered_at.desc.nullslast",
+                    "limit": "200",
+                })
+                alert_ids = list(dict.fromkeys(
+                    row.get("alert_id") for row in deliveries
+                    if isinstance(row.get("alert_id"), str)
+                    and re.fullmatch(r"[0-9a-fA-F-]{36}", row["alert_id"])
+                ))
+                alerts: list[dict[str, Any]] = []
+                if alert_ids:
+                    alerts = await self._get(client, access_token, "emergency_alerts", {
+                        "select": "id,title,body,severity,building_id,issued_at,expires_at,cancelled_at",
+                        "id": "in.(" + ",".join(alert_ids) + ")",
+                        "order": "issued_at.desc",
+                        "limit": "200",
+                    })
+                delivery_by_alert: dict[str, list[dict[str, Any]]] = {}
+                for delivery in deliveries:
+                    alert_id = delivery.get("alert_id")
+                    if isinstance(alert_id, str):
+                        delivery_by_alert.setdefault(alert_id, []).append({
+                            "channel": delivery.get("channel"),
+                            "delivered_at": delivery.get("delivered_at"),
+                            "failed_reason": delivery.get("failed_reason"),
+                            "acknowledged_at": delivery.get("acknowledged_at"),
+                        })
+                for alert in alerts:
+                    alert["my_deliveries"] = delivery_by_alert.get(alert.get("id"), [])
+                return (
+                    "Official Cohort emergency alerts linked to this student's own delivery records, newest first. Delivery channel, delivery failure, and acknowledgement are included only when recorded. Alert rows are fetched only for alert IDs returned by the student's RLS-protected deliveries. Use the supplied severity, instructions, building, issue/expiry/cancellation timestamps and delivery records only; do not claim to acknowledge an alert or change delivery status: "
+                    + _json(alerts),
+                    ["emergency_alert_deliveries", "emergency_alerts"],
+                )
+
             if intent == "notifications":
-                rows = await self._get(client, access_token, "student_notifications", {
-                    "select": "notification_id,category,severity,title,body,link,created_at,is_read,read_at",
+                rows = await self._get(client, access_token, "notifications", {
+                    "select": "id,category,severity,title,body,link,created_at,read_at",
+                    "user_id": f"eq.{student_id}",
                     "order": "created_at.desc",
                     "limit": "100",
                 })
                 return (
-                    "The student's own official Cohort notifications, newest first. Severity values are info, warning, critical, and emergency. is_read is derived from whether read_at is set. Use supplied categories, titles, message bodies, links, and timestamps only. This is read-only: do not claim to mark notifications as read, delete them, or change notification preferences: "
+                    "The student's own official Cohort notifications, newest first. Severity values are info, warning, critical, and emergency. is_read is true only when read_at is set. Use supplied categories, titles, message bodies, links, and timestamps only. This is read-only: do not claim to mark notifications as read, delete them, or change notification preferences: "
                     + _json(rows),
-                    ["student_notifications", "notifications"],
+                    ["notifications"],
                 )
 
             if intent == "academic_calendar":
