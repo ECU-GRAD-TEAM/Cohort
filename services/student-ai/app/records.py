@@ -65,6 +65,18 @@ class StudentRecordRetriever:
                 })
                 return ("Student's official Cohort profile: " + _json(rows), ["student_profile", "users", "user_profiles", "student_academic_progressions", "student_programs", "student_specializations"])
 
+            if intent == "graduation_audit":
+                rows = await self._get(client, access_token, "student_graduation_audit", {
+                    "select": "audit_id,program_code,program_name,degree_level,audit_status,credits_earned,cgpa,unmet_requirements,audited_at,created_at,minimum_total_credits,minimum_cgpa,minimum_attendance_percentage,require_all_core_courses,block_unresolved_incomplete_grades,policy_effective_from,policy_effective_until",
+                    "order": "audited_at.desc",
+                    "limit": "50",
+                })
+                return (
+                    "The student's official Cohort graduation-audit history, newest audit first. audit_status is authoritative and may be pending, eligible, not_eligible, or requires_manual_review. Report eligibility only when the official status is eligible; pending and requires_manual_review are not approvals. Summarize unmet_requirements exactly as supplied. credits_earned and cgpa are the values recorded by that audit, not necessarily current values. Policy thresholds are from the currently linked policy record; do not assume they are a historical snapshot or use them to override the audit_status. Do not infer graduation or award of a degree: "
+                    + _json(rows),
+                    ["student_graduation_audit", "graduation_audits", "programs", "program_academic_policies"],
+                )
+
             if intent == "degree_progress":
                 rows = await self._get(client, access_token, "student_degree_progress", {
                     "select": "program_name,specialization_name,total_required_credits,completed_credits,in_progress_credits,remaining_credits,completion_percentage,required_courses_count,completed_required_courses,in_progress_required_courses,remaining_required_courses,last_updated_at",
