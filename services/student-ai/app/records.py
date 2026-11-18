@@ -211,12 +211,16 @@ class StudentRecordRetriever:
 
             if intent == "timetable":
                 rows = await self._get(client, access_token, "student_timetable", {
-                    "select": "course_code,course_title,term_name,section_code,day_of_week,starts_at,ends_at,meeting_type,room_code,room_name,building_code,building_name",
+                    "select": "course_code,course_title,term_code,term_name,section_code,day_of_week,starts_at,ends_at,meeting_type,room_code,room_name,building_code,building_name,assigned_at",
                     "student_id": f"eq.{student_id}",
-                    "order": "day_of_week.asc,starts_at.asc",
-                    "limit": "200",
+                    "order": "term_code.asc,day_of_week.asc,starts_at.asc",
+                    "limit": "300",
                 })
-                return ("Student's assigned timetable: " + _json(rows), ["student_timetable", "student_meetings", "section_meetings", "rooms", "buildings"])
+                return (
+                    "Student's assigned class timetable from Cohort. day_of_week uses PostgreSQL numbering: 0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday. Convert this to weekday names when answering; sort by term, weekday, and start time. Filter to a requested term or weekday only after interpreting the student's request. Do not infer dates or a next-class date from recurring weekly meeting times. Missing room/building fields mean Cohort has not supplied that location: "
+                    + _json(rows),
+                    ["student_timetable", "student_meetings", "section_meetings", "rooms", "buildings", "enrollments", "course_offerings", "terms"],
+                )
 
         return ("No personal record lookup was required for this prompt.", [])
 
