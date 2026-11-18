@@ -47,6 +47,17 @@ class GeminiMultiIntentTests(unittest.TestCase):
         self.assertIn("audience rules", INTENT_INSTRUCTIONS)
         self.assertIn("Do not publish, edit, delete", INTENT_INSTRUCTIONS)
 
+    def test_lost_and_found_intent_is_allowed(self):
+        async def model_call(_messages):
+            return '{"intents":["lost_and_found"]}'
+
+        self.assertEqual(
+            asyncio.run(classify_intents("Show lost and found items", model_call)),
+            ["lost_and_found"],
+        )
+        self.assertIn("official lost_and_found view", INTENT_INSTRUCTIONS)
+        self.assertIn("Do not reveal reporter identities", INTENT_INSTRUCTIONS)
+
     def test_general_question_returns_no_intents(self):
         async def model_call(_messages):
             return '{"intents":[]}'
