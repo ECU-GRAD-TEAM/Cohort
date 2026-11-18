@@ -297,6 +297,35 @@ class StudentRecordRetriever:
                     ["notifications"],
                 )
 
+
+            if intent == "surveys":
+                # Survey visibility is governed by the surveys table's RLS.
+                # Participation is fetched separately and RLS limits it to auth.uid().
+                rows = await self._get(client, access_token, "surveys", {
+                    "select": "id,title,description,offering_id,is_anonymous,questions,opens_at,closes_at,created_at",
+                    "order": "opens_at.desc",
+                    "limit": "200",
+                })
+                participation = await self._get(client, access_token, "survey_participation", {
+                    "select": "survey_id,responded_at",
+                    "user_id": f"eq.{student_id}",
+                    "order": "responded_at.desc",
+                    "limit": "500",
+                })
+                participation_by_survey = {
+                    row["survey_id"]: row.get("responded_at")
+                    for row in participation
+                    if isinstance(row.get("survey_id"), str)
+                }
+                for survey in rows:
+                    survey["my_responded_at"] = participation_by_survey.get(survey.get("id"))
+                    survey["has_participated"] = survey.get("id") in participation_by_survey
+                return (
+                    "Official Cohort surveys visible to this authenticated student, ordered by opening date. The surveys table RLS enforces tenant, institution-wide opening, course-offering enrollment, creator, and survey-manager visibility. The student's own participation timestamp is fetched separately under survey_participation RLS. Determine upcoming/open/closed from opens_at and closes_at relative to the current date/time; do not infer that a survey is open merely because it is visible. questions contains survey structure, not submitted answers. Never retrieve or disclose survey_responses, any other student's participation, or individual answers; preserve the anonymous setting. This is read-only: do not submit, edit, or withdraw responses: "
+                    + _json(rows),
+                    ["surveys", "survey_participation"],
+                )
+
             if intent == "academic_calendar":
                 rows = await self._get(client, access_token, "student_academic_calendar", {
                     "select": "term_code,term_name,academic_year_code,academic_year_name,academic_year_status,calendar_name,calendar_timezone,event_kind,event_title,description,location,starts_on,ends_on,event_state",
