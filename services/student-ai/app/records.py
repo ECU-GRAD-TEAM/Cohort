@@ -208,6 +208,18 @@ class StudentRecordRetriever:
                     ["student_appointments", "appointments"],
                 )
 
+            if intent == "student_events":
+                rows = await self._get(client, access_token, "student_events", {
+                    "select": "event_id,event_kind,title,description,starts_at,ends_at,location_text,building_code,building_name,room_code,room_name,capacity,waitlist_enabled,registration_opens_at,registration_closes_at,has_registration_record,registration_status,registered_at",
+                    "order": "starts_at.asc",
+                    "limit": "200",
+                })
+                return (
+                    "Official Cohort events visible to this student, ordered by start time. The database enforces published-event visibility and tenant scope through security-invoker RLS. Registration status is returned only for the authenticated student's own registration record. Registration status values are registered, waitlisted, cancelled, and attended. has_registration_record indicates that a registration row exists; it does not mean the registration is currently active. Capacity and waitlist_enabled are source fields, not a guarantee that registration is open or seats remain. This is read-only; do not register, cancel, or change participation: "
+                    + _json(rows),
+                    ["student_events", "events", "event_registrations", "rooms", "buildings"],
+                )
+
             if intent == "emergency_alerts":
                 # First resolve only this student's deliveries. RLS independently
                 # enforces user_id = auth.uid() and the active tenant.
