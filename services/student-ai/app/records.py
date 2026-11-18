@@ -183,6 +183,18 @@ class StudentRecordRetriever:
                     ["student_support_requests", "tickets", "ticket_comments", "departments"],
                 )
 
+            if intent == "appointments":
+                rows = await self._get(client, access_token, "student_appointments", {
+                    "select": "appointment_id,starts_at,ends_at,status,meeting_mode,topic,location,cancel_reason,created_at",
+                    "order": "starts_at.desc",
+                    "limit": "100",
+                })
+                return (
+                    "The student's own official Cohort appointments. Status values are requested, confirmed, cancelled, completed, and no_show. Meeting modes are in_person and online. Use only the supplied timestamps, topic, location, and cancellation reason. The current profile RLS does not let a student read arbitrary staff profiles, so no staff name is exposed by this view. This is read-only; do not claim to book, reschedule, or cancel appointments: "
+                    + _json(rows),
+                    ["student_appointments", "appointments"],
+                )
+
             if intent == "academic_calendar":
                 rows = await self._get(client, access_token, "student_academic_calendar", {
                     "select": "term_code,term_name,academic_year_code,academic_year_name,academic_year_status,calendar_name,calendar_timezone,event_kind,event_title,description,location,starts_on,ends_on,event_state",
