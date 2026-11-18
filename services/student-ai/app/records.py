@@ -77,6 +77,18 @@ class StudentRecordRetriever:
                     ["student_degree_progress", "student_profile", "programs", "program_curriculum_courses", "curriculum_requirement_groups", "curriculum_requirement_group_courses", "student_technical_elective_selections", "student_courses", "enrollments", "courses"],
                 )
 
+            if intent == "academic_standing":
+                rows = await self._get(client, access_token, "student_academic_standing", {
+                    "select": "academic_standing,standing_reason,standing_term_code,standing_term_name,standing_decided_at,cumulative_gpa,term_gpa,gpa_computed_at,enrollment_status,last_updated_at",
+                    "student_id": f"eq.{student_id}",
+                    "limit": "1",
+                })
+                return (
+                    "Student's latest official Cohort academic standing and latest recorded GPA snapshot. Standing is an official recorded value; GPA does not imply a standing. Cohort currently exposes no dedicated academic-warning count or academic-restriction records, so do not infer or report either: "
+                    + _json(rows),
+                    ["student_academic_standing", "academic_standings", "gpa_snapshots", "terms", "student_profile", "users"],
+                )
+
             if intent == "gpa":
                 rows = await self._get(client, access_token, "student_gpa", {
                     "select": "academic_year_code,academic_year_name,term_id,term_code,term_name,term_kind,term_sequence,term_gpa,cumulative_gpa,term_credits_attempted,cumulative_credits_attempted,cumulative_credits_earned,term_quality_points,cumulative_quality_points,gpa_computed_at",
