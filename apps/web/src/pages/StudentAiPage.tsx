@@ -35,6 +35,7 @@ const starters = [
   "Show my enrollment summary",
   "Show my exam schedule",
   "Show my course resources",
+  "Show my assessment results",
 ];
 
 function createWelcomeMessage(): Message {
