@@ -6,7 +6,7 @@ import re
 from typing import Awaitable, Callable
 
 ALLOWED_INTENTS = frozenset({
-    "profile", "gpa", "attendance", "grades", "enrollments", "timetable",
+    "profile", "gpa", "attendance", "grades", "enrollments", "timetable", "degree_progress",
 })
 
 INTENT_INSTRUCTIONS = """Identify every distinct personal Cohort-record lookup required to answer
@@ -19,6 +19,7 @@ Allowed intent values:
 - "grades": the student's marks, scores, published assessment results, or course grades.
 - "enrollments": courses the student is registered/enrolled in, or their registration status.
 - "timetable": the student's class schedule, next class, lecture/tutorial times, or rooms.
+- "degree_progress": the student's degree/programme progress, completed or remaining credits, required courses remaining, graduation requirements, or completion percentage.
 
 Rules:
 - Include ALL applicable intents, not just the primary one.
