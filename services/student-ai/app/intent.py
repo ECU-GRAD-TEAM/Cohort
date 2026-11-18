@@ -17,7 +17,7 @@ Allowed intent values:
 - "gpa": the student's GPA, CGPA, grade-point average, or cumulative average.
 - "attendance": the student's attendance, absences, lateness, or attendance percentage.
 - "grades": the student's marks, scores, published assessment results, or course grades.
-- "enrollments": courses the student is registered/enrolled in, or their registration status.
+- "enrollments": courses the student is registered/enrolled in, course registration status, waitlist position/status, dropped/withdrawn/completed courses, or registered credit hours.
 - "timetable": the student's class schedule, next class, lecture/tutorial times, or rooms.
 - "degree_progress": the student's degree/programme progress, completed or remaining credits, required courses remaining, graduation requirements, or completion percentage.
 - "academic_standing": the student's own official academic standing, good standing, dean's list, academic warning, probation, suspension, dismissal, or current academic status.
