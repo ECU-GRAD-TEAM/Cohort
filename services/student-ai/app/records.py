@@ -75,14 +75,17 @@ class StudentRecordRetriever:
                 return ("Student GPA and cumulative GPA by academic year and term: " + _json(rows), ["student_gpa", "gpa_snapshots", "terms", "academic_years"])
 
             if intent == "attendance":
-                rows = await self._get(client, access_token, "student_assessments", {
-                    "select": "course_code,course_title,academic_year_name,term_name,component_name,component_type,score,max_score,score_percentage,component_weight,result_status,recorded_at,attempt_number",
+                rows = await self._get(client, access_token, "student_attendance_summary", {
+                    "select": "course_id,course_code,course_title,term_id,term_code,term_name,academic_year_id,academic_year_name,total_sessions,attended_sessions,absent_sessions,late_sessions,excused_sessions,attendance_percentage,absence_percentage,last_attendance_date",
                     "student_id": f"eq.{student_id}",
-                    "component_type": "eq.attendance",
-                    "order": "recorded_at.desc.nullslast",
+                    "order": "academic_year_name.desc,term_name.desc,course_code.asc",
                     "limit": "200",
                 })
-                return ("Student attendance component records by course and term: " + _json(rows), ["student_assessments", "attendance_records", "attendance_sessions"])
+                return (
+                    "Student's confirmed attendance summary by course, term, and academic year. Pending, rejected, and unconfirmed attendance records are excluded. Present and late count as attended; excused sessions are reported separately and excluded from attendance/absence percentage denominators: "
+                    + _json(rows),
+                    ["student_attendance_summary", "attendance_records", "attendance_sessions", "sections", "course_offerings", "courses", "terms", "academic_years"],
+                )
 
             if intent == "grades":
                 course_rows = await self._get(client, access_token, "student_courses", {
