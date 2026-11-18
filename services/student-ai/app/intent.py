@@ -6,7 +6,7 @@ import re
 from typing import Awaitable, Callable
 
 ALLOWED_INTENTS = frozenset({
-    "profile", "gpa", "attendance", "grades", "enrollments", "timetable", "degree_progress", "academic_standing", "exam_schedule", "course_resources",
+    "profile", "gpa", "attendance", "grades", "enrollments", "timetable", "degree_progress", "academic_standing", "exam_schedule", "course_resources", "assessment_results",
 })
 
 INTENT_INSTRUCTIONS = """Identify every distinct personal Cohort-record lookup required to answer
@@ -16,7 +16,8 @@ Allowed intent values:
 - "profile": the student's own profile, institutional/university/student ID or student number, full name, university email, programme, confirmed specialization, department, faculty, academic level, or enrollment/account status. Treat "my ID", "what is my ID", "student ID", "university ID", "institutional ID", "student number", and "registration number" as profile lookups.
 - "gpa": the student's GPA, CGPA, grade-point average, or cumulative average.
 - "attendance": the student's attendance, absences, lateness, or attendance percentage.
-- "grades": the student's marks, scores, published assessment results, or course grades.
+- "grades": final course grades, course marks, or overall results.
+- "assessment_results": individual quiz, assignment, exam, lab, or other assessment marks, maximum marks, percentages, and released assessment details.
 - "enrollments": courses the student is registered/enrolled in, course registration status, waitlist position/status, dropped/withdrawn/completed courses, or registered credit hours.
 - "timetable": the student's class schedule, next class, lecture/tutorial times, or rooms.
 - "exam_schedule": the student's own exam dates/times, exam room, seat number, exam instructions, or exam schedule. Include this for questions about upcoming or past exams.
