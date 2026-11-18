@@ -46,6 +46,7 @@ const starters = [
   "Show university events",
   "Show my event registrations",
   "Show my announcements",
+  "Show lost and found items",
 ];
 
 function createWelcomeMessage(): Message {
