@@ -195,6 +195,18 @@ class StudentRecordRetriever:
                     ["student_appointments", "appointments"],
                 )
 
+            if intent == "notifications":
+                rows = await self._get(client, access_token, "student_notifications", {
+                    "select": "notification_id,category,severity,title,body,link,created_at,is_read,read_at",
+                    "order": "created_at.desc",
+                    "limit": "100",
+                })
+                return (
+                    "The student's own official Cohort notifications, newest first. Severity values are info, warning, critical, and emergency. is_read is derived from whether read_at is set. Use supplied categories, titles, message bodies, links, and timestamps only. This is read-only: do not claim to mark notifications as read, delete them, or change notification preferences: "
+                    + _json(rows),
+                    ["student_notifications", "notifications"],
+                )
+
             if intent == "academic_calendar":
                 rows = await self._get(client, access_token, "student_academic_calendar", {
                     "select": "term_code,term_name,academic_year_code,academic_year_name,academic_year_status,calendar_name,calendar_timezone,event_kind,event_title,description,location,starts_on,ends_on,event_state",
