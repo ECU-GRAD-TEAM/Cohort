@@ -34,6 +34,7 @@ const starters = [
   "What is my academic standing?",
   "Show my enrollment summary",
   "Show my exam schedule",
+  "Show my course resources",
 ];
 
 function createWelcomeMessage(): Message {
