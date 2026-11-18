@@ -171,6 +171,18 @@ class StudentRecordRetriever:
                     ["student_course_resources", "materials", "documents", "document_versions", "enrollments", "course_offerings", "courses", "terms", "academic_years"],
                 )
 
+            if intent == "support_requests":
+                rows = await self._get(client, access_token, "student_support_requests", {
+                    "select": "request_id,request_kind,category,subject,description,status,priority,department_code,department_name,sla_due_at,first_response_at,resolved_at,created_at,updated_at,public_comments",
+                    "order": "created_at.desc",
+                    "limit": "100",
+                })
+                return (
+                    "Official Cohort support requests submitted by the student and publicly visible ticket comments. Internal staff comments and AI triage metadata are excluded. Status, priority, timestamps, department, and SLA deadline are returned as recorded by Cohort. This is a read-only view; do not claim to create, update, or close requests: "
+                    + _json(rows),
+                    ["student_support_requests", "tickets", "ticket_comments", "departments"],
+                )
+
             if intent == "academic_calendar":
                 rows = await self._get(client, access_token, "student_academic_calendar", {
                     "select": "term_code,term_name,academic_year_code,academic_year_name,academic_year_status,calendar_name,calendar_timezone,event_kind,event_title,description,location,starts_on,ends_on,event_state",
