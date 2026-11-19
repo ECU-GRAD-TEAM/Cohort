@@ -73,7 +73,7 @@ key. For each authenticated chat request:
 5. Python retrieves each selected record category and passes the resulting context to
    Gemini to compose the answer.
 
-Supported personal record intents include profile (including the official institutional ID/student number), GPA/CGPA, attendance, published grades, course enrollments, the student's assigned timetable, degree progress, academic standing, exam schedule, course resources, assessment results, academic calendar, support requests, appointments, notifications, emergency alerts, events, announcements, lost-and-found listings, surveys, graduation audits, and the student's officially assigned specialization with related curriculum and own elective-selection records. Multiple categories can be retrieved
+Supported personal record intents include profile (including the official institutional ID/student number), GPA/CGPA, attendance, published grades, course enrollments, the student's assigned timetable, degree progress, academic standing, exam schedule, course resources, assessment results, academic calendar, support requests, appointments, notifications, emergency alerts, events, announcements, lost-and-found listings, surveys, graduation audits, the student's officially assigned specialization with related curriculum and own elective-selection records, and the student's official course history across terms including repeated attempts. Multiple categories can be retrieved
 for one message. Classification is performed by Gemini only; there is no local keyword
 or regex intent shortcut. Invalid or malformed classifier output fails closed to no
 record lookup.
