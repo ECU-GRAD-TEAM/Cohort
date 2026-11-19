@@ -221,9 +221,11 @@ currently enrolled courses remain in progress. Prerequisite satisfaction uses th
 completed attempt and any prerequisite minimum grade-points threshold; a corequisite may also
 be met by a currently enrolled attempt.
 
-An unsatisfied prerequisite is described only as a potential planning/registration issue, not a
-guaranteed registration block, because waivers, transfer credit, equivalencies and registrar
-overrides may exist outside the returned records. Missing programme/curriculum/credit data is
+The existing aggregate progress view excludes graduation_project-category groups from its
+totals; any such detailed group is shown separately and is not included in aggregate credits or
+course counts. An unsatisfied prerequisite is described only as a potential planning/registration
+issue, not a guaranteed registration block, because waivers, transfer credit, equivalencies and
+registrar overrides may exist outside the returned records. Missing programme/curriculum/credit data is
 reported as unavailable rather than estimated. This feature is read-only and does not register,
 add/drop courses, or modify academic records. Retrieval uses the student's JWT and existing RLS;
 no service-role key is used.
