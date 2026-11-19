@@ -69,6 +69,17 @@ class GeminiMultiIntentTests(unittest.TestCase):
         self.assertIn("survey_participation", INTENT_INSTRUCTIONS)
         self.assertIn("Never retrieve or disclose survey_responses", INTENT_INSTRUCTIONS)
 
+    def test_student_specialization_intent_is_allowed(self):
+        async def model_call(_messages):
+            return '{"intents":["student_specialization"]}'
+
+        self.assertEqual(
+            asyncio.run(classify_intents("What is my officially assigned specialization and which courses are required?", model_call)),
+            ["student_specialization"],
+        )
+        self.assertIn("student_specializations", INTENT_INSTRUCTIONS)
+        self.assertIn("never infer a specialization from courses", INTENT_INSTRUCTIONS)
+
     def test_general_question_returns_no_intents(self):
         async def model_call(_messages):
             return '{"intents":[]}'
