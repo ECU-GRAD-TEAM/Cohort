@@ -114,6 +114,18 @@ class GeminiMultiIntentTests(unittest.TestCase):
         self.assertIn("kind=assignment", INTENT_INSTRUCTIONS)
         self.assertIn("never submit, edit, delete", INTENT_INSTRUCTIONS)
 
+    def test_support_requests_intent_is_allowed_and_read_only(self):
+        async def model_call(_messages):
+            return '{"intents":["support_requests"]}'
+
+        self.assertEqual(
+            asyncio.run(classify_intents("Show my support tickets and their latest replies", model_call)),
+            ["support_requests"],
+        )
+        self.assertIn("student_support_requests", INTENT_INSTRUCTIONS)
+        self.assertIn("internal staff notes", INTENT_INSTRUCTIONS)
+        self.assertIn("Do not claim to create, edit, or close a ticket", INTENT_INSTRUCTIONS)
+
     def test_instructor_office_hours_intent_is_allowed_and_read_only(self):
         async def model_call(_messages):
             return '{"intents":["instructor_office_hours"]}'
