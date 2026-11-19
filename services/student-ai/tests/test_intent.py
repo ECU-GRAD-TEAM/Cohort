@@ -187,6 +187,23 @@ class GeminiMultiIntentTests(unittest.TestCase):
         self.assertIn("Never expose storage paths", INTENT_INSTRUCTIONS)
         self.assertIn("Never claim to read or summarize files", INTENT_INSTRUCTIONS)
 
+
+    def test_degree_progress_intent_covers_curriculum_and_prerequisites(self):
+        async def model_call(_messages):
+            return '{"intents":["degree_progress"]}'
+
+        self.assertEqual(
+            asyncio.run(classify_intents(
+                "How many credits do I have left and what are the prerequisites for CS301?",
+                model_call,
+            )),
+            ["degree_progress"],
+        )
+        self.assertIn("student_degree_progress security-invoker view", INTENT_INSTRUCTIONS)
+        self.assertIn("course_prerequisites", INTENT_INSTRUCTIONS)
+        self.assertIn("potential registration issue", INTENT_INSTRUCTIONS)
+        self.assertIn("never register, add/drop courses", INTENT_INSTRUCTIONS)
+
     def test_general_question_returns_no_intents(self):
         async def model_call(_messages):
             return '{"intents":[]}'
