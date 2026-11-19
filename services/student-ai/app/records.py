@@ -405,22 +405,96 @@ class StudentRecordRetriever:
                 return ("Student course results and individual assessment components: " + _json({"course_results": course_rows, "assessments": assessment_rows}), ["student_courses", "student_assessments", "enrollments", "grade_entries"])
 
             if intent == "enrollments":
+                # Query enrollment rows directly: student_courses intentionally excludes
+                # waitlisted rows, while enrollments carries the authoritative status and
+                # waitlist_position. RLS limits these rows to the authenticated student.
+                enrollment_rows = await self._get(client, access_token, "enrollments", {
+                    "select": "id,offering_id,course_id,term_id,status,waitlist_position,enrolled_at,status_changed_at,final_percentage,final_grade_letter,final_grade_points",
+                    "student_id": f"eq.{student_id}",
+                    "order": "enrolled_at.desc",
+                    "limit": "300",
+                })
                 summary_rows = await self._get(client, access_token, "student_enrollment_summary", {
                     "select": "term_code,term_name,total_enrollments,enrolled_courses_count,waitlisted_courses_count,dropped_courses_count,withdrawn_courses_count,completed_courses_count,failed_courses_count,incomplete_courses_count,registered_credit_hours,last_updated_at",
                     "student_id": f"eq.{student_id}",
                     "order": "term_name.desc",
                     "limit": "30",
                 })
-                course_rows = await self._get(client, access_token, "student_courses", {
-                    "select": "course_code,course_title,credit_hours,term_code,term_name,academic_year_name,enrollment_status,final_percentage,final_grade_letter,final_grade_points,attempt_number,offering_id",
-                    "student_id": f"eq.{student_id}",
-                    "order": "recorded_at.desc.nullslast",
-                    "limit": "100",
-                })
+
+                offering_ids = list(dict.fromkeys(
+                    row["offering_id"] for row in enrollment_rows
+                    if isinstance(row.get("offering_id"), str)
+                    and re.fullmatch(r"[0-9a-fA-F-]{36}", row["offering_id"])
+                ))
+                offerings: list[dict[str, Any]] = []
+                if offering_ids:
+                    offerings = await self._get(client, access_token, "course_offerings", {
+                        "select": "id,course_id,term_id",
+                        "id": "in.(" + ",".join(offering_ids) + ")",
+                        "limit": "300",
+                    })
+
+                offering_by_id = {row["id"]: row for row in offerings if isinstance(row.get("id"), str)}
+                course_ids = list(dict.fromkeys(
+                    row.get("course_id") or offering_by_id.get(row.get("offering_id"), {}).get("course_id")
+                    for row in enrollment_rows
+                    if isinstance(
+                        row.get("course_id") or offering_by_id.get(row.get("offering_id"), {}).get("course_id"),
+                        str,
+                    )
+                ))
+                term_ids = list(dict.fromkeys(
+                    row.get("term_id") or offering_by_id.get(row.get("offering_id"), {}).get("term_id")
+                    for row in enrollment_rows
+                    if isinstance(
+                        row.get("term_id") or offering_by_id.get(row.get("offering_id"), {}).get("term_id"),
+                        str,
+                    )
+                ))
+
+                courses: list[dict[str, Any]] = []
+                terms: list[dict[str, Any]] = []
+                if course_ids:
+                    courses = await self._get(client, access_token, "courses", {
+                        "select": "id,code,title,credit_hours",
+                        "id": "in.(" + ",".join(course_ids) + ")",
+                        "limit": "300",
+                    })
+                if term_ids:
+                    # Term catalogue access is tenant-scoped; IDs originate only from
+                    # this student's enrollment rows or their linked offerings.
+                    terms = await self._get(client, access_token, "terms", {
+                        "select": "id,code,name,starts_on,ends_on,registration_opens_at,registration_closes_at,add_drop_ends_at,status",
+                        "id": "in.(" + ",".join(term_ids) + ")",
+                        "limit": "100",
+                    })
+
+                course_by_id = {row["id"]: row for row in courses if isinstance(row.get("id"), str)}
+                term_by_id = {row["id"]: row for row in terms if isinstance(row.get("id"), str)}
+                detailed_enrollments = []
+                for row in enrollment_rows:
+                    offering = offering_by_id.get(row.get("offering_id"), {})
+                    course_id = row.get("course_id") or offering.get("course_id")
+                    term_id = row.get("term_id") or offering.get("term_id")
+                    detailed_enrollments.append({
+                        **row,
+                        "course": course_by_id.get(course_id),
+                        "term": term_by_id.get(term_id),
+                    })
+
                 return (
-                    "Student's term-level enrollment summary and course-level enrollment records. Registered credit hours include only status 'enrolled'; waitlisted, dropped, withdrawn, completed, failed, and incomplete statuses are separate. The enrollment_status enum has no pending state, so do not claim pending enrollment counts: "
-                    + _json({"term_summaries": summary_rows, "courses": course_rows}),
-                    ["student_enrollment_summary", "student_courses", "enrollments", "course_offerings", "courses", "terms"],
+                    "The student's official Cohort enrollment records and term-level summary. "
+                    "Enrollment rows are filtered by this student's ID under their authenticated JWT. "
+                    "Report each row's recorded status exactly (enrolled, waitlisted, dropped, withdrawn, "
+                    "completed, failed, or incomplete), and include waitlist_position only when present. "
+                    "Course code, title, and credit hours come from the linked official course catalogue. "
+                    "Term dates and registration/add-drop deadlines come only from the linked term record "
+                    "when present; do not infer that registration is open or closed without comparing the "
+                    "recorded timestamps to the current date/time. registered_credit_hours in the summary "
+                    "counts only enrolled rows. No pending enrollment status exists in the database. "
+                    "This lookup is read-only: "
+                    + _json({"term_summaries": summary_rows, "enrollments": detailed_enrollments}),
+                    ["enrollments", "student_enrollment_summary", "course_offerings", "courses", "terms"],
                 )
 
             if intent == "course_resources":
