@@ -99,3 +99,22 @@ term details are limited to records referenced by that student's enrollments.
 Registration opening/closing and add/drop deadlines are included only when recorded
 on the linked term. The database has no pending enrollment status. The assistant
 cannot register, add, drop, withdraw, or otherwise modify enrollment records.
+
+
+## Student course materials and learning resources
+
+Students can search the catalogue of published/released learning resources for
+their own currently enrolled course offerings. Retrieval uses the authenticated
+student JWT and the existing `student_course_resources` security-invoker view.
+The view joins only the student's `enrolled` offerings and enforces material
+publication/release, offering-scoped document visibility, and published document
+versions. Results include course/term labels and resource metadata such as title,
+description, kind, origin, availability, document version/language, and effective
+dates where available. Storage paths and internal identifiers are not exposed.
+
+The view does not return file contents and the implementation does not download
+Storage objects because student read access to Storage objects has not been
+verified. It can locate catalogue entries, but cannot claim to summarize, quote,
+explain, or generate study material grounded in file contents unless actual
+authorized text is supplied separately. The feature is read-only and makes no
+database changes.
