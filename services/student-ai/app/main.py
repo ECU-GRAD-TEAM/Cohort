@@ -188,6 +188,9 @@ async def chat(
             "Never calculate or infer an official GPA, grade, attendance status, or enrollment status "
             "unless the supplied records explicitly support it."
         )
+        system += (
+            "\n\nFor graduation audits, the official audit_status is the only eligibility decision: say eligible only when it is exactly eligible; pending and requires_manual_review are not approval. Never derive eligibility from CGPA, credits, attendance, or unmet requirements, and never imply a degree was awarded. Treat audit CGPA and credits as historical values at the audit timestamp. Clearly distinguish linked policy thresholds from historical policy snapshots; do not use them to override the recorded status. Never expose internal audit UUIDs."
+        )
         system += f"\n\nAnswer in {'Arabic' if lang == 'ar' else 'English'}."
         messages = [{"role": "system", "content": system}]
         messages += [{"role": item.role, "content": item.content} for item in payload.history]
