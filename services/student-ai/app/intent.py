@@ -6,7 +6,7 @@ import re
 from typing import Awaitable, Callable
 
 ALLOWED_INTENTS = frozenset({
-    "profile", "gpa", "attendance", "grades", "enrollments", "timetable", "degree_progress", "academic_standing", "exam_schedule", "course_resources", "assessment_results", "academic_calendar", "support_requests", "appointments", "notifications", "emergency_alerts", "student_events", "announcements", "lost_and_found", "surveys", "graduation_audit",
+    "profile", "gpa", "attendance", "grades", "enrollments", "timetable", "degree_progress", "academic_standing", "exam_schedule", "course_resources", "assessment_results", "academic_calendar", "support_requests", "appointments", "notifications", "emergency_alerts", "student_events", "announcements", "lost_and_found", "surveys", "graduation_audit", "student_specialization",
 })
 
 INTENT_INSTRUCTIONS = """Identify every distinct personal Cohort-record lookup required to answer
@@ -31,7 +31,7 @@ Allowed intent values:
 - "lost_and_found": the university's lost-and-found reports, lost or found item listings, item descriptions, categories, building/location, occurred dates, and current report status. Use the official lost_and_found view and its tenant-scoped RLS. Do not reveal reporter identities or photo storage paths; do not create, update, or delete reports.
 - "surveys": official university or course surveys visible to this student, including title, description, questions/structure, opening and closing dates, anonymous setting, and whether the student personally participated and when. Use the surveys table RLS and the student's own survey_participation rows. Never retrieve or disclose survey_responses, other students' participation, or individual answers; do not submit, edit, or withdraw responses.
 - "course_resources": course materials, lecture slides, notes, videos, links, published course documents, resource availability, or learning materials for the student's enrolled courses.
-- "graduation_audit": the student's official graduation audit, graduation eligibility decision, last audit date, audit status, recorded audit CGPA/credits, or unmet graduation requirements. Use the official audit status; pending and requires_manual_review are not approval. Do not infer degree completion from degree progress.
+- "student_specialization": the student's officially assigned specialization, specialization/programme name and description, assignment status and dates, required/optional specialization course catalogue, and the student's own technical elective selections and recorded enrollment attempts. Use student_specializations as the authoritative assignment; never infer a specialization from courses or pending requests. Do not read tenant-wide specialization request records.\n- "graduation_audit": the student's official graduation audit, graduation eligibility decision, last audit date, audit status, recorded audit CGPA/credits, or unmet graduation requirements. Use the official audit status; pending and requires_manual_review are not approval. Do not infer degree completion from degree progress.
 - "degree_progress": the student's degree/programme progress, completed or remaining credits, required courses remaining, graduation requirements, or completion percentage.
 - "academic_standing": the student's own official academic standing, good standing, dean's list, academic warning, probation, suspension, dismissal, or current academic status.
 
