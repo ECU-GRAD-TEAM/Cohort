@@ -78,7 +78,7 @@ class GeminiMultiIntentTests(unittest.TestCase):
             ["student_specialization"],
         )
         self.assertIn("student_specializations", INTENT_INSTRUCTIONS)
-        self.assertIn("never infer a specialization from courses", INTENT_INSTRUCTIONS)
+        self.assertIn("Never infer a specialization from courses", INTENT_INSTRUCTIONS)
 
     def test_general_question_returns_no_intents(self):
         async def model_call(_messages):
