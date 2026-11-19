@@ -134,6 +134,7 @@ export function QuickAccessDock({
         t("Show my instructors and their office hours", "اعرض مدرسي ومواعيد ساعاتهم المكتبية"),
         t("Show my support tickets and their latest replies", "اعرض تذاكر الدعم والردود الأخيرة عليها"),
         t("Show my complaints and incident reports", "اعرض شكاواي وبلاغات الحوادث"),
+        t("Show my enrolled courses, registration statuses and waitlist positions", "اعرض مقرراتي المسجلة وحالات التسجيل ومراكز قوائم الانتظار"),
       ];
 
   async function sendQuickAi(customText?: string) {
