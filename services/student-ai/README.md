@@ -78,6 +78,19 @@ for one message. Classification is performed by Gemini only; there is no local k
 or regex intent shortcut. Invalid or malformed classifier output fails closed to no
 record lookup.
 
+## Student graduation audits
+
+The graduation-audit intent reads only the student_graduation_audit security-invoker view
+using the student's JWT. The view scopes each row to auth.uid() and the active tenant;
+the underlying graduation_audits table also has an explicit student-ownership SELECT policy.
+The assistant reports the official audit_status verbatim: only eligible means eligible,
+while pending and requires_manual_review are not approval. It never independently calculates
+or promises eligibility from CGPA, credits, attendance, or unmet requirements, and it never
+claims that a degree has been awarded. Credits and CGPA are historical values recorded at the
+audit timestamp. Linked policy thresholds are not guaranteed to be historical snapshots and
+must not override the recorded status. Internal audit UUIDs are excluded from the AI context.
+The feature is read-only and supports English and Arabic.
+
 The Fastify-to-FastAPI identity forwarding contract and the database RLS policies must
 be verified in the deployed environment. The internal key must never be exposed to the
 browser. Do not treat a forwarded user ID alone as authorization.
