@@ -136,6 +136,7 @@ export function QuickAccessDock({
         t("Show my complaints and incident reports", "اعرض شكاواي وبلاغات الحوادث"),
         t("Show my enrolled courses, registration statuses and waitlist positions", "اعرض مقرراتي المسجلة وحالات التسجيل ومراكز قوائم الانتظار"),
         t("Find course materials and lecture slides", "ابحث عن مواد المقررات وشرائح المحاضرات"),
+        t("Show my degree progress, remaining requirements and course prerequisites", "اعرض تقدمي الدراسي والمتطلبات المتبقية والمتطلبات السابقة للمقررات"),
       ];
 
   async function sendQuickAi(customText?: string) {
