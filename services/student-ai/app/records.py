@@ -185,7 +185,7 @@ class StudentRecordRetriever:
 
             if intent == "graduation_audit":
                 rows = await self._get(client, access_token, "student_graduation_audit", {
-                    "select": "audit_id,program_code,program_name,degree_level,audit_status,credits_earned,cgpa,unmet_requirements,audited_at,created_at,minimum_total_credits,minimum_cgpa,minimum_attendance_percentage,require_all_core_courses,block_unresolved_incomplete_grades,policy_effective_from,policy_effective_until",
+                    "select": "program_code,program_name,degree_level,audit_status,credits_earned,cgpa,unmet_requirements,audited_at,created_at,minimum_total_credits,minimum_cgpa,minimum_attendance_percentage,require_all_core_courses,block_unresolved_incomplete_grades,policy_effective_from,policy_effective_until",
                     "order": "audited_at.desc",
                     "limit": "50",
                 })
