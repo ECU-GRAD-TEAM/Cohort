@@ -174,6 +174,19 @@ class GeminiMultiIntentTests(unittest.TestCase):
         self.assertIn("void records are ineffective", INTENT_INSTRUCTIONS)
         self.assertIn("Keep currencies separate", INTENT_INSTRUCTIONS)
 
+
+    def test_course_resources_intent_is_allowed_and_read_only(self):
+        async def model_call(_messages):
+            return '{"intents":["course_resources"]}'
+
+        self.assertEqual(
+            asyncio.run(classify_intents("Find lecture slides for CS101", model_call)),
+            ["course_resources"],
+        )
+        self.assertIn("student_course_resources security-invoker view", INTENT_INSTRUCTIONS)
+        self.assertIn("Never expose storage paths", INTENT_INSTRUCTIONS)
+        self.assertIn("Never claim to read or summarize files", INTENT_INSTRUCTIONS)
+
     def test_general_question_returns_no_intents(self):
         async def model_call(_messages):
             return '{"intents":[]}'
