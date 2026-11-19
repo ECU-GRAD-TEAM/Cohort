@@ -118,3 +118,22 @@ verified. It can locate catalogue entries, but cannot claim to summarize, quote,
 explain, or generate study material grounded in file contents unless actual
 authorized text is supplied separately. The feature is read-only and makes no
 database changes.
+
+
+## Student academic advising and degree progress
+
+Students can review the official aggregate degree-progress summary, completed and in-progress
+credits, remaining credits where calculable, required curriculum courses, active curriculum
+requirement groups and their course options, and the study-plan level/semester assigned to each
+requirement. They can also ask about official prerequisite and corequisite rules for courses in
+their assigned programme. The summary comes from the existing security-invoker
+`student_degree_progress` view; detail is retrieved using the authenticated student's JWT and
+existing RLS from the student's own profile and enrollment records plus the assigned programme's
+published catalogue structures.
+
+Choice-group alternatives must not be described as individually mandatory. Course completion
+requires a recorded `completed` enrollment and satisfaction of any curriculum minimum grade
+points. An unmet prerequisite is only a potential registration issue, not a guaranteed block,
+because waivers, transfer credit, equivalencies, or registrar overrides may not be represented.
+Missing or incomplete official data must be disclosed rather than estimated. The assistant is
+strictly read-only and cannot register, add/drop courses, or change academic records.
