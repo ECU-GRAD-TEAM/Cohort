@@ -66,3 +66,11 @@ Students can view instructor role assignments for sections in their own assigned
 and associated official office-hour schedules. The lookup uses the student's JWT and existing
 RLS policies. Instructor names and direct contact details are not exposed because current
 profile/contact policies permit students to read only their own records. The feature is read-only.
+
+## Student support tickets and requests
+
+Students can review only their own submitted support tickets and requests, including
+category, subject, description, recorded status and priority, assigned department,
+SLA/response/resolution timestamps, and publicly visible comment history. Internal
+staff comments and AI triage metadata are excluded. The assistant is read-only and
+cannot create, edit, or close tickets.
