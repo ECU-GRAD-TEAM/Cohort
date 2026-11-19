@@ -74,3 +74,14 @@ category, subject, description, recorded status and priority, assigned departmen
 SLA/response/resolution timestamps, and publicly visible comment history. Internal
 staff comments and AI triage metadata are excluded. The assistant is read-only and
 cannot create, edit, or close tickets.
+
+
+## Student complaints and incident reports
+
+Students can review their own complaint-kind tickets and public replies through
+the existing security-invoker support view and their authenticated JWT. Internal
+notes, AI triage metadata, and internal identifiers are excluded. Operational
+incident records remain restricted to operations staff by existing RLS; the
+assistant must explicitly disclose that limitation and must not treat an empty
+complaint result as evidence that no incident report exists. The feature is
+read-only.

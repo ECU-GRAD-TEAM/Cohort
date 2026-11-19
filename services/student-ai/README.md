@@ -154,3 +154,17 @@ policies restrict students to their own profile/contact records, so instructor n
 email addresses, and phone numbers are not queried or disclosed. The office_hours source
 does not contain meeting-link or contact columns. The assistant must state these limitations
 rather than infer instructor identities or contact details. This feature is read-only.
+
+
+## Student complaints and incident-report limitation
+
+The `complaints_incidents` intent reads only complaint-kind rows
+(`request_kind=complaint`) from the existing `student_support_requests`
+security-invoker view using the authenticated student's JWT. It includes only
+that student's complaint tickets and public replies; internal comments, AI triage
+metadata, and internal ticket UUIDs are excluded. The `incidents` and
+`incident_tickets` tables are restricted by current RLS to operations staff,
+so incident-report records cannot be retrieved or confirmed by the student
+assistant. An empty complaint result must not be described as proof that no
+incident report exists. This feature is read-only and does not create or modify
+complaints or incident reports.

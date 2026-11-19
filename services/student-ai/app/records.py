@@ -448,6 +448,19 @@ class StudentRecordRetriever:
                     ["student_support_requests", "tickets", "ticket_comments", "departments"],
                 )
 
+            if intent == "complaints_incidents":
+                rows = await self._get(client, access_token, "student_support_requests", {
+                    "select": "request_kind,category,subject,description,status,priority,department_code,department_name,sla_due_at,first_response_at,resolved_at,created_at,updated_at,public_comments",
+                    "request_kind": "eq.complaint",
+                    "order": "created_at.desc",
+                    "limit": "100",
+                })
+                return (
+                    "Official Cohort complaint tickets submitted by this student, filtered to request_kind=complaint under the student's JWT and the student_support_requests security-invoker view. Report only returned complaint fields and public comments. Internal comments, AI triage metadata, and internal UUIDs are excluded. Preserve recorded ticket statuses exactly. Important limitation: incidents and incident_tickets are operations-staff-only tables under current RLS, so this assistant cannot retrieve or confirm incident-report records; an empty complaint list does not mean no incident report exists. Do not imply complaint and incident records are interchangeable. This is read-only: "
+                    + _json(rows),
+                    ["student_support_requests", "tickets", "ticket_comments", "departments"],
+                )
+
             if intent == "appointments":
                 rows = await self._get(client, access_token, "student_appointments", {
                     "select": "appointment_id,starts_at,ends_at,status,meeting_mode,topic,location,cancel_reason,created_at",

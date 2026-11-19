@@ -133,6 +133,7 @@ export function QuickAccessDock({
         t("Show my assignments and due dates", "اعرض واجباتي ومواعيد تسليمها"),
         t("Show my instructors and their office hours", "اعرض مدرسي ومواعيد ساعاتهم المكتبية"),
         t("Show my support tickets and their latest replies", "اعرض تذاكر الدعم والردود الأخيرة عليها"),
+        t("Show my complaints and incident reports", "اعرض شكاواي وبلاغات الحوادث"),
       ];
 
   async function sendQuickAi(customText?: string) {

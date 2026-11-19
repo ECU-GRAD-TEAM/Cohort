@@ -126,6 +126,18 @@ class GeminiMultiIntentTests(unittest.TestCase):
         self.assertIn("internal staff notes", INTENT_INSTRUCTIONS)
         self.assertIn("Do not claim to create, edit, or close a ticket", INTENT_INSTRUCTIONS)
 
+    def test_complaints_incidents_intent_is_allowed_and_read_only(self):
+        async def model_call(_messages):
+            return '{"intents":["complaints_incidents"]}'
+
+        self.assertEqual(
+            asyncio.run(classify_intents("Show my complaints and incident reports", model_call)),
+            ["complaints_incidents"],
+        )
+        self.assertIn('request_kind=complaint', INTENT_INSTRUCTIONS)
+        self.assertIn("operations staff", INTENT_INSTRUCTIONS)
+        self.assertIn("Do not infer that none exist", INTENT_INSTRUCTIONS)
+
     def test_instructor_office_hours_intent_is_allowed_and_read_only(self):
         async def model_call(_messages):
             return '{"intents":["instructor_office_hours"]}'
