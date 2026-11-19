@@ -139,3 +139,14 @@ course counts. An unmet prerequisite is only a potential registration issue, not
 block, because waivers, transfer credit, equivalencies, or registrar overrides may not be represented.
 Missing or incomplete official data must be disclosed rather than estimated. The assistant is
 strictly read-only and cannot register, add/drop courses, or change academic records.
+
+## Graduation audit and eligibility
+
+Use only the student's official student_graduation_audit security-invoker view with the
+authenticated student's JWT. The view must remain scoped to the authenticated student and tenant.
+Report the recorded audit status as authoritative: only eligible is an eligibility decision;
+pending and requires_manual_review are not approvals. Do not calculate or promise eligibility
+from GPA, credits, attendance, or unmet requirements. Distinguish historical credits/CGPA at the
+audit timestamp from current values. Linked policy thresholds are not guaranteed historical
+snapshots and must never override the recorded audit status. Do not expose internal audit UUIDs
+or claim a degree has been awarded. This capability is read-only and available in English and Arabic.
