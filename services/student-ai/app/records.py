@@ -165,6 +165,23 @@ class StudentRecordRetriever:
                      "student_technical_elective_selections", "programs", "courses", "student_courses"],
                 )
 
+            if intent == "student_course_history":
+                rows = await self._get(client, access_token, "student_courses", {
+                    "select": "course_code,course_title,credit_hours,term_code,term_name,academic_year_code,academic_year_name,enrollment_status,final_percentage,final_grade_letter,final_grade_points,attempt_number,recorded_at,gpa_exclusion_reason",
+                    "student_id": f"eq.{student_id}",
+                    "order": "academic_year_code.asc,term_code.asc,course_code.asc,attempt_number.asc",
+                    "limit": "500",
+                })
+                return (
+                    "Official Cohort course history for this student. Each row is a separate enrollment attempt. "
+                    "Report course, credits, academic year, term, status, recorded final grade, and attempt number "
+                    "only when present. Do not infer pass, failure, completion, GPA, or earned credits beyond supplied "
+                    "fields. The view excludes waitlisted enrollments. Missing grade fields mean no final grade is "
+                    "recorded in this view; do not describe that as zero. This is read-only: "
+                    + _json(rows),
+                    ["student_courses", "enrollments", "course_offerings", "courses", "terms", "academic_years"],
+                )
+
             if intent == "graduation_audit":
                 rows = await self._get(client, access_token, "student_graduation_audit", {
                     "select": "audit_id,program_code,program_name,degree_level,audit_status,credits_earned,cgpa,unmet_requirements,audited_at,created_at,minimum_total_credits,minimum_cgpa,minimum_attendance_percentage,require_all_core_courses,block_unresolved_incomplete_grades,policy_effective_from,policy_effective_until",
