@@ -429,6 +429,7 @@ class StudentRecordRetriever:
                         "The progress summary comes from the existing security-invoker student_degree_progress view.",
                         "Completed course state requires an enrollment status of completed and, when the curriculum specifies it, a final grade meeting minimum_grade_points.",
                         "Choice-group options are alternatives; required_course_count and credit-hour constraints define the group requirement. Do not describe every option as mandatory.",
+                        "The existing student_degree_progress view excludes graduation_project-category groups from its aggregate totals. If such a group is returned in the detail catalogue, describe it separately and do not imply its credits or courses are included in the aggregate summary.",
                         "An unsatisfied prerequisite is a potential planning issue, not a guaranteed registration block; waivers, transfer credit, equivalencies, or registrar overrides may not be represented.",
                         "Only this student's own enrollment rows were used. No academic records were modified.",
                     ],
