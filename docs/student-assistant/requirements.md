@@ -50,3 +50,11 @@ When uncertain, search authorized Cohort records and official documents; if stil
 and refer the student to a relevant human contact without inventing contact details. Sensitive academic
 situations receive factual information, empathy, practical suggestions and referral to verified human
 support; no diagnosis or guaranteed outcomes. Assistant actions are information and suggestions only.
+
+
+## Student assignments record lookup
+
+The assistant can list official assignment-kind assessments visible to the authenticated student,
+including instructions, deadlines, late policy, the student's own submission status and submission
+date, and marks/feedback only after the university releases them. The feature is read-only and does
+not submit or change assignments.

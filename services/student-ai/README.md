@@ -73,7 +73,7 @@ key. For each authenticated chat request:
 5. Python retrieves each selected record category and passes the resulting context to
    Gemini to compose the answer.
 
-Supported personal record intents include profile (including the official institutional ID/student number), GPA/CGPA, attendance, published grades, course enrollments, the student's assigned timetable, degree progress, academic standing, exam schedule, course resources, assessment results, academic calendar, support requests, appointments, notifications, emergency alerts, events, announcements, lost-and-found listings, surveys, graduation audits, the student's officially assigned specialization with related curriculum and own elective-selection records, and the student's official course history across terms including repeated attempts, and the student's official financial summary and transaction history by academic term. Multiple categories can be retrieved
+Supported personal record intents include profile (including the official institutional ID/student number), GPA/CGPA, attendance, published grades, course enrollments, the student's assigned timetable, degree progress, academic standing, exam schedule, course resources, assessment results, academic calendar, support requests, appointments, notifications, emergency alerts, events, announcements, lost-and-found listings, surveys, graduation audits, the student's officially assigned specialization with related curriculum and own elective-selection records, and the student's official course history across terms including repeated attempts, and the student's official financial summary and transaction history by academic term, and the student's assignment assessments, own submission status and released marks/feedback. Multiple categories can be retrieved
 for one message. Classification is performed by Gemini only; there is no local keyword
 or regex intent shortcut. Invalid or malformed classifier output fails closed to no
 record lookup.
@@ -81,6 +81,16 @@ record lookup.
 The Fastify-to-FastAPI identity forwarding contract and the database RLS policies must
 be verified in the deployed environment. The internal key must never be exposed to the
 browser. Do not treat a forwarded user ID alone as authorization.
+
+## Student assignments
+
+The assignments intent reads published assignment-kind assessments visible to the authenticated
+student through the existing assessments RLS policy. It joins the student's own submission attempts
+and published grade entries using the student's JWT. Assignment instructions, due/closing timestamps,
+and the recorded late policy are returned where present. Marks and feedback are included only after
+the assessment's grades_released_at timestamp has passed and only when the student's grade entry
+is published. Draft assessments, other students' submissions, and unreleased grades are not exposed.
+This feature is read-only; it cannot submit or modify assignments.
 
 ## Student financial transactions
 

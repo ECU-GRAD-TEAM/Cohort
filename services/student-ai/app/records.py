@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import re
+from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import quote
 
@@ -238,6 +239,141 @@ class StudentRecordRetriever:
                     "Student's confirmed attendance summary by course, term, and academic year. Pending, rejected, and unconfirmed attendance records are excluded. Present and late count as attended; excused sessions are reported separately and excluded from attendance/absence percentage denominators: "
                     + _json(rows),
                     ["student_attendance_summary", "attendance_records", "attendance_sessions", "sections", "course_offerings", "courses", "terms", "academic_years"],
+                )
+
+            if intent == "assignments":
+                # Assessments RLS exposes only non-draft assessments for offerings/sections
+                # in which this authenticated student is enrolled.
+                assignments = await self._get(client, access_token, "assessments", {
+                    "select": "id,offering_id,title,instructions,status,opens_at,due_at,closes_at,late_policy,grades_released_at",
+                    "kind": "eq.assignment",
+                    "status": "neq.draft",
+                    "order": "due_at.asc.nullslast",
+                    "limit": "300",
+                })
+                assessment_ids = list(dict.fromkeys(
+                    row["id"] for row in assignments
+                    if isinstance(row.get("id"), str)
+                    and re.fullmatch(r"[0-9a-fA-F-]{36}", row["id"])
+                ))
+                offering_ids = list(dict.fromkeys(
+                    row["offering_id"] for row in assignments
+                    if isinstance(row.get("offering_id"), str)
+                    and re.fullmatch(r"[0-9a-fA-F-]{36}", row["offering_id"])
+                ))
+                if not assessment_ids:
+                    return (
+                        "No published assignment assessments are currently visible in Cohort "
+                        "for the authenticated student's enrolled courses. This does not mean "
+                        "that no assignments exist outside Cohort.",
+                        ["assessments", "enrollments"],
+                    )
+
+                offerings: list[dict[str, Any]] = []
+                courses: list[dict[str, Any]] = []
+                terms: list[dict[str, Any]] = []
+                if offering_ids:
+                    offering_filter = "in.(" + ",".join(offering_ids) + ")"
+                    offerings = await self._get(client, access_token, "course_offerings", {
+                        "select": "id,course_id,term_id",
+                        "id": offering_filter,
+                        "limit": "300",
+                    })
+                    course_ids = list(dict.fromkeys(
+                        row["course_id"] for row in offerings
+                        if isinstance(row.get("course_id"), str)
+                        and re.fullmatch(r"[0-9a-fA-F-]{36}", row["course_id"])
+                    ))
+                    term_ids = list(dict.fromkeys(
+                        row["term_id"] for row in offerings
+                        if isinstance(row.get("term_id"), str)
+                        and re.fullmatch(r"[0-9a-fA-F-]{36}", row["term_id"])
+                    ))
+                    if course_ids:
+                        courses = await self._get(client, access_token, "courses", {
+                            "select": "id,code,title",
+                            "id": "in.(" + ",".join(course_ids) + ")",
+                            "limit": "300",
+                        })
+                    if term_ids:
+                        terms = await self._get(client, access_token, "terms", {
+                            "select": "id,code,name,starts_on,ends_on",
+                            "id": "in.(" + ",".join(term_ids) + ")",
+                            "limit": "100",
+                        })
+
+                submissions = await self._get(client, access_token, "submissions", {
+                    "select": "assessment_id,attempt_no,status,started_at,deadline_at,submitted_at,is_late,late_minutes,late_penalty_amount,late_policy_snapshot",
+                    "student_id": f"eq.{student_id}",
+                    "assessment_id": "in.(" + ",".join(assessment_ids) + ")",
+                    "order": "started_at.desc",
+                    "limit": "500",
+                })
+
+                # Do not expose a published grade until the explicit assessment
+                # release timestamp has passed. Grade-entry RLS restricts rows to
+                # this student's published results.
+                now = datetime.now(timezone.utc)
+                released_ids: list[str] = []
+                for assignment in assignments:
+                    release_at = assignment.get("grades_released_at")
+                    if not isinstance(release_at, str):
+                        continue
+                    try:
+                        release_time = datetime.fromisoformat(release_at.replace("Z", "+00:00"))
+                    except ValueError:
+                        continue
+                    if release_time.tzinfo is None:
+                        release_time = release_time.replace(tzinfo=timezone.utc)
+                    if release_time <= now:
+                        released_ids.append(assignment["id"])
+
+                published_grades: list[dict[str, Any]] = []
+                if released_ids:
+                    published_grades = await self._get(client, access_token, "grade_entries", {
+                        "select": "assessment_id,score,max_score,feedback,published_at",
+                        "student_id": f"eq.{student_id}",
+                        "status": "eq.published",
+                        "assessment_id": "in.(" + ",".join(dict.fromkeys(released_ids)) + ")",
+                        "order": "published_at.desc.nullslast",
+                        "limit": "500",
+                    })
+
+                course_by_id = {row.get("id"): row for row in courses}
+                term_by_id = {row.get("id"): row for row in terms}
+                offering_by_id = {row.get("id"): row for row in offerings}
+                submissions_by_assessment: dict[str, list[dict[str, Any]]] = {}
+                for submission in submissions:
+                    key = submission.get("assessment_id")
+                    if isinstance(key, str):
+                        submissions_by_assessment.setdefault(key, []).append(submission)
+                grades_by_assessment: dict[str, list[dict[str, Any]]] = {}
+                for grade in published_grades:
+                    key = grade.get("assessment_id")
+                    if isinstance(key, str):
+                        grades_by_assessment.setdefault(key, []).append(grade)
+
+                for assignment in assignments:
+                    offering = offering_by_id.get(assignment.get("offering_id"), {})
+                    assignment["course"] = course_by_id.get(offering.get("course_id"))
+                    assignment["term"] = term_by_id.get(offering.get("term_id"))
+                    assignment["my_submissions"] = submissions_by_assessment.get(assignment["id"], [])
+                    assignment["my_published_grades"] = grades_by_assessment.get(assignment["id"], [])
+
+                return (
+                    "Official Cohort assignment assessments for the authenticated student, ordered by due date. "
+                    "Only non-draft assignment-kind assessments visible under the student's enrollment/section RLS "
+                    "are included. Each row includes its course and academic term where those catalogue records "
+                    "are available, the recorded instructions and opening/due/closing timestamps, and the official "
+                    "late_policy. my_submissions contains only this student's own attempts and recorded submission "
+                    "status, timestamp, deadline snapshot and late indicators. my_published_grades contains only "
+                    "this student's published grade entries and is populated only after grades_released_at has passed; "
+                    "never reveal draft or unreleased marks/feedback. Timestamps include their source timezone offset; "
+                    "do not convert to another timezone unless an authoritative student timezone is available. "
+                    "Classify upcoming/overdue/completed only from the supplied timestamps and submission status. "
+                    "This is read-only: never submit, edit, delete, or claim to submit assignments: "
+                    + _json(assignments),
+                    ["assessments", "submissions", "grade_entries", "course_offerings", "courses", "terms", "enrollments"],
                 )
 
             if intent == "assessment_results":

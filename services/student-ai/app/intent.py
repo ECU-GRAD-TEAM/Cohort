@@ -6,7 +6,7 @@ import re
 from typing import Awaitable, Callable
 
 ALLOWED_INTENTS = frozenset({
-    "profile", "gpa", "attendance", "grades", "enrollments", "timetable", "degree_progress", "academic_standing", "exam_schedule", "course_resources", "assessment_results", "academic_calendar", "support_requests", "appointments", "notifications", "emergency_alerts", "student_events", "announcements", "lost_and_found", "surveys", "graduation_audit", "student_specialization", "student_course_history", "student_financial_summary", "student_financial_transactions",
+    "profile", "gpa", "attendance", "grades", "enrollments", "timetable", "degree_progress", "academic_standing", "exam_schedule", "course_resources", "assessment_results", "academic_calendar", "support_requests", "appointments", "notifications", "emergency_alerts", "student_events", "announcements", "lost_and_found", "surveys", "graduation_audit", "student_specialization", "student_course_history", "student_financial_summary", "student_financial_transactions", "assignments",
 })
 
 INTENT_INSTRUCTIONS = """Identify every distinct personal Cohort-record lookup required to answer
@@ -18,6 +18,7 @@ Allowed intent values:
 - "attendance": the student's attendance, absences, lateness, or attendance percentage.
 - "grades": final course grades, course marks, or overall results.
 - "assessment_results": individual quiz, assignment, exam, lab, or other assessment marks, maximum marks, percentages, and released assessment details.
+- "assignments": the student's own published assignment assessments across currently enrolled courses, including title, instructions, opening/due/closing timestamps, late-submission policy, own submission status/date/late flag, and instructor feedback/marks only after the assessment's grade-release time and the grade entry is published. Use the assessments table filtered to kind=assignment (its RLS excludes drafts and non-enrolled offerings), the student's own submissions rows, and published grade_entries rows for this student only. Never retrieve another student's submissions or unpublished grades. This is read-only: never submit, edit, delete, or claim to submit an assignment.
 - "enrollments": courses the student is registered/enrolled in, course registration status, waitlist position/status, dropped/withdrawn/completed courses, or registered credit hours.
 - "timetable": the student's recurring class schedule, weekly timetable, classes on a named weekday, next class in their weekly schedule, lecture/tutorial times, section, or classroom/building locations. Use the official timetable record; day_of_week is PostgreSQL numbering (0=Sunday, 1=Monday, ..., 6=Saturday). A recurring weekly meeting does not provide a calendar date, so do not infer an exact upcoming date.
 - "exam_schedule": the student's own exam dates/times, exam room, seat number, exam instructions, or exam schedule. Include this for questions about upcoming or past exams.

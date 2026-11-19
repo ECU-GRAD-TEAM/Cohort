@@ -103,6 +103,17 @@ class GeminiMultiIntentTests(unittest.TestCase):
         self.assertIn("never report a zero balance", INTENT_INSTRUCTIONS)
         self.assertIn("pending transactions", INTENT_INSTRUCTIONS)
 
+    def test_assignments_intent_is_allowed_and_read_only(self):
+        async def model_call(_messages):
+            return '{"intents":["assignments"]}'
+
+        self.assertEqual(
+            asyncio.run(classify_intents("Show my assignments and due dates", model_call)),
+            ["assignments"],
+        )
+        self.assertIn("kind=assignment", INTENT_INSTRUCTIONS)
+        self.assertIn("never submit, edit, delete", INTENT_INSTRUCTIONS)
+
     def test_student_financial_transactions_intent_is_allowed(self):
         async def model_call(_messages):
             return '{"intents":["student_financial_transactions"]}'

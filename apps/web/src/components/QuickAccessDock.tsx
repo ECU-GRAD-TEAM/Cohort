@@ -130,6 +130,7 @@ export function QuickAccessDock({
         t("Show my course history and grades by term", "اعرض سجل مقرراتي ودرجاتي حسب الفصل"),
         t("Show my financial summary and payment history", "اعرض ملخص حسابي المالي وسجل المدفوعات"),
         t("Show my financial transactions by term", "اعرض معاملاتي المالية حسب الفصل"),
+        t("Show my assignments and due dates", "اعرض واجباتي ومواعيد تسليمها"),
       ];
 
   async function sendQuickAi(customText?: string) {
