@@ -129,3 +129,15 @@ charges and refunds increase the balance; payments, scholarships, and discounts
 reduce it. Pending transactions are displayed separately and are not treated as
 posted or paid. Totals remain separated by currency. If no official transactions
 exist, the assistant must say the balance is unavailable—not report a zero balance.
+
+
+## Instructor assignments and office hours
+
+The instructor_office_hours intent resolves section assignments only from the authenticated
+student's own student_timetable rows, then reads section_instructors and office_hours with
+the same student JWT. It returns instructor role labels and official office-hour schedule
+fields without exposing staff UUIDs. Current user_profiles and person_profile_emails RLS
+policies restrict students to their own profile/contact records, so instructor names,
+email addresses, and phone numbers are not queried or disclosed. The office_hours source
+does not contain meeting-link or contact columns. The assistant must state these limitations
+rather than infer instructor identities or contact details. This feature is read-only.

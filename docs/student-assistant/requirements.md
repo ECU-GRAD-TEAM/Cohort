@@ -58,3 +58,11 @@ The assistant can list official assignment-kind assessments visible to the authe
 including instructions, deadlines, late policy, the student's own submission status and submission
 date, and marks/feedback only after the university releases them. The feature is read-only and does
 not submit or change assignments.
+
+
+## Instructor and office-hour lookup
+
+Students can view instructor role assignments for sections in their own assigned timetable
+and associated official office-hour schedules. The lookup uses the student's JWT and existing
+RLS policies. Instructor names and direct contact details are not exposed because current
+profile/contact policies permit students to read only their own records. The feature is read-only.

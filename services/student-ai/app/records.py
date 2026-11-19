@@ -656,6 +656,103 @@ class StudentRecordRetriever:
                     ["student_financial_summary", "student_financial_transaction_history", "student_financial_transactions", "terms", "users"],
                 )
 
+            if intent == "instructor_office_hours":
+                # Resolve only sections visible in the authenticated student's timetable.
+                timetable = await self._get(client, access_token, "student_timetable", {
+                    "select": "course_code,course_title,term_code,term_name,section_id,section_code",
+                    "student_id": f"eq.{student_id}",
+                    "order": "term_code.asc,course_code.asc,section_code.asc",
+                    "limit": "300",
+                })
+                section_ids = list(dict.fromkeys(
+                    row["section_id"] for row in timetable
+                    if isinstance(row.get("section_id"), str)
+                    and re.fullmatch(r"[0-9a-fA-F-]{36}", row["section_id"])
+                ))
+                if not section_ids:
+                    return (
+                        "Cohort has no assigned timetable sections available for this student, "
+                        "so instructor assignments and course-specific office hours cannot be resolved. "
+                        "This does not establish that the courses have no instructors or office hours.",
+                        ["student_timetable", "student_meetings", "enrollments"],
+                    )
+
+                # section_instructors is tenant-readable; constrain it to this student's section IDs.
+                assignments = await self._get(client, access_token, "section_instructors", {
+                    "select": "section_id,user_id,role",
+                    "section_id": "in.(" + ",".join(section_ids) + ")",
+                    "limit": "300",
+                })
+                staff_ids = list(dict.fromkeys(
+                    row["user_id"] for row in assignments
+                    if isinstance(row.get("user_id"), str)
+                    and re.fullmatch(r"[0-9a-fA-F-]{36}", row["user_id"])
+                ))
+                office_hours: list[dict[str, Any]] = []
+                if staff_ids:
+                    office_hours = await self._get(client, access_token, "office_hours", {
+                        "select": "staff_id,weekday,starts_at,ends_at,mode,location,slot_minutes,valid_from,valid_until",
+                        "staff_id": "in.(" + ",".join(staff_ids) + ")",
+                        "order": "weekday.asc,starts_at.asc",
+                        "limit": "500",
+                    })
+
+                hours_by_staff: dict[str, list[dict[str, Any]]] = {}
+                for hours in office_hours:
+                    staff_id = hours.get("staff_id")
+                    if isinstance(staff_id, str):
+                        hours_by_staff.setdefault(staff_id, []).append({
+                            "weekday": hours.get("weekday"),
+                            "starts_at": hours.get("starts_at"),
+                            "ends_at": hours.get("ends_at"),
+                            "mode": hours.get("mode"),
+                            "location": hours.get("location"),
+                            "slot_minutes": hours.get("slot_minutes"),
+                            "valid_from": hours.get("valid_from"),
+                            "valid_until": hours.get("valid_until"),
+                        })
+                assignments_by_section: dict[str, list[dict[str, Any]]] = {}
+                for assignment in assignments:
+                    section_id, staff_id = assignment.get("section_id"), assignment.get("user_id")
+                    if isinstance(section_id, str) and isinstance(staff_id, str):
+                        assignments_by_section.setdefault(section_id, []).append({
+                            "role": assignment.get("role"),
+                            "office_hours": hours_by_staff.get(staff_id, []),
+                        })
+
+                courses: list[dict[str, Any]] = []
+                seen_sections: set[str] = set()
+                for row in timetable:
+                    section_id = row.get("section_id")
+                    if not isinstance(section_id, str) or section_id in seen_sections:
+                        continue
+                    seen_sections.add(section_id)
+                    courses.append({
+                        "course_code": row.get("course_code"),
+                        "course_title": row.get("course_title"),
+                        "term_code": row.get("term_code"),
+                        "term_name": row.get("term_name"),
+                        "section_code": row.get("section_code"),
+                        "instructor_assignments": assignments_by_section.get(section_id, []),
+                    })
+
+                return (
+                    "Official instructor assignments and office-hour schedules for sections in this authenticated "
+                    "student's own timetable. Instructor assignments are sourced from section_instructors and "
+                    "office hours from office_hours under the student's JWT and existing tenant RLS. Weekday values "
+                    "use PostgreSQL numbering (0=Sunday through 6=Saturday). Apply valid_from and valid_until before "
+                    "describing a schedule as current; a null valid_until means no end date is recorded. The office "
+                    "hours table has no email, phone, or meeting-link columns. Current user_profiles and "
+                    "person_profile_emails RLS policies allow students to read only their own profile/contact records, "
+                    "so instructor names and direct contact details are intentionally not queried or exposed. "
+                    "Do not reveal staff UUIDs or infer identities from role labels. If no assignment or office-hour "
+                    "rows are returned, report that the information is unavailable in these records, not that the "
+                    "instructor or schedule does not exist. This is read-only; do not book appointments or modify "
+                    "office hours: " + _json(courses),
+                    ["student_timetable", "student_meetings", "section_meetings", "enrollments",
+                     "section_instructors", "office_hours", "user_profiles", "person_profile_emails"],
+                )
+
             if intent == "timetable":
                 rows = await self._get(client, access_token, "student_timetable", {
                     "select": "course_code,course_title,term_code,term_name,section_code,day_of_week,starts_at,ends_at,meeting_type,room_code,room_name,building_code,building_name,assigned_at",
