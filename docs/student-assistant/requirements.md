@@ -133,7 +133,9 @@ published catalogue structures.
 
 Choice-group alternatives must not be described as individually mandatory. Course completion
 requires a recorded `completed` enrollment and satisfaction of any curriculum minimum grade
-points. An unmet prerequisite is only a potential registration issue, not a guaranteed block,
-because waivers, transfer credit, equivalencies, or registrar overrides may not be represented.
+points. The existing aggregate progress view excludes graduation_project-category groups from its
+totals; these may be described separately but must not be included in the aggregate credit or
+course counts. An unmet prerequisite is only a potential registration issue, not a guaranteed
+block, because waivers, transfer credit, equivalencies, or registrar overrides may not be represented.
 Missing or incomplete official data must be disclosed rather than estimated. The assistant is
 strictly read-only and cannot register, add/drop courses, or change academic records.
