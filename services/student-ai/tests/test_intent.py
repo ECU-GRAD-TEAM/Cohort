@@ -80,6 +80,18 @@ class GeminiMultiIntentTests(unittest.TestCase):
         self.assertIn("student_specializations", INTENT_INSTRUCTIONS)
         self.assertIn("Never infer a specialization from courses", INTENT_INSTRUCTIONS)
 
+    def test_enrollments_intent_includes_waitlist_and_is_read_only(self):
+        async def model_call(_messages):
+            return '{"intents":["enrollments"]}'
+
+        self.assertEqual(
+            asyncio.run(classify_intents("Show my registered courses and waitlist positions", model_call)),
+            ["enrollments"],
+        )
+        self.assertIn("waitlist_position", INTENT_INSTRUCTIONS)
+        self.assertIn("student_enrollment_summary security-invoker view", INTENT_INSTRUCTIONS)
+        self.assertIn("Strictly read-only", INTENT_INSTRUCTIONS)
+
     def test_student_course_history_intent_is_allowed(self):
         async def model_call(_messages):
             return '{"intents":["student_course_history"]}'
