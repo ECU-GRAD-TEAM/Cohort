@@ -204,6 +204,20 @@ class GeminiMultiIntentTests(unittest.TestCase):
         self.assertIn("potential registration issue", INTENT_INSTRUCTIONS)
         self.assertIn("never register, add/drop courses", INTENT_INSTRUCTIONS)
 
+    def test_graduation_audit_intent_is_official_and_read_only(self):
+        async def model_call(_messages):
+            return '{"intents":["graduation_audit"]}'
+
+        self.assertEqual(
+            asyncio.run(classify_intents("Am I eligible to graduate? Show my audit history.", model_call)),
+            ["graduation_audit"],
+        )
+        self.assertIn("student_graduation_audit security-invoker view", INTENT_INSTRUCTIONS)
+        self.assertIn("pending and requires_manual_review are not approval", INTENT_INSTRUCTIONS)
+        self.assertIn("Never independently calculate or promise eligibility", INTENT_INSTRUCTIONS)
+        self.assertIn("Do not expose internal audit UUIDs", INTENT_INSTRUCTIONS)
+        self.assertIn("Strictly read-only", INTENT_INSTRUCTIONS)
+
     def test_general_question_returns_no_intents(self):
         async def model_call(_messages):
             return '{"intents":[]}'
