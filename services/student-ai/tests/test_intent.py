@@ -91,6 +91,18 @@ class GeminiMultiIntentTests(unittest.TestCase):
         self.assertIn("official student_courses view", INTENT_INSTRUCTIONS)
         self.assertIn("report each attempt separately", INTENT_INSTRUCTIONS)
 
+    def test_student_financial_summary_intent_is_allowed(self):
+        async def model_call(_messages):
+            return '{"intents":["student_financial_summary"]}'
+
+        self.assertEqual(
+            asyncio.run(classify_intents("What is my outstanding balance and payment history?", model_call)),
+            ["student_financial_summary"],
+        )
+        self.assertIn("student_financial_transaction_history", INTENT_INSTRUCTIONS)
+        self.assertIn("never report a zero balance", INTENT_INSTRUCTIONS)
+        self.assertIn("pending transactions", INTENT_INSTRUCTIONS)
+
     def test_general_question_returns_no_intents(self):
         async def model_call(_messages):
             return '{"intents":[]}'

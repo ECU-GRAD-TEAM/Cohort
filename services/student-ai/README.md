@@ -73,7 +73,7 @@ key. For each authenticated chat request:
 5. Python retrieves each selected record category and passes the resulting context to
    Gemini to compose the answer.
 
-Supported personal record intents include profile (including the official institutional ID/student number), GPA/CGPA, attendance, published grades, course enrollments, the student's assigned timetable, degree progress, academic standing, exam schedule, course resources, assessment results, academic calendar, support requests, appointments, notifications, emergency alerts, events, announcements, lost-and-found listings, surveys, graduation audits, the student's officially assigned specialization with related curriculum and own elective-selection records, and the student's official course history across terms including repeated attempts. Multiple categories can be retrieved
+Supported personal record intents include profile (including the official institutional ID/student number), GPA/CGPA, attendance, published grades, course enrollments, the student's assigned timetable, degree progress, academic standing, exam schedule, course resources, assessment results, academic calendar, support requests, appointments, notifications, emergency alerts, events, announcements, lost-and-found listings, surveys, graduation audits, the student's officially assigned specialization with related curriculum and own elective-selection records, and the student's official course history across terms including repeated attempts, and the student's official financial summary and transaction history by academic term. Multiple categories can be retrieved
 for one message. Classification is performed by Gemini only; there is no local keyword
 or regex intent shortcut. Invalid or malformed classifier output fails closed to no
 record lookup.
@@ -91,7 +91,22 @@ This does not replace a review of Google's data handling and retention terms.
 The FastAPI `/v1/chat` endpoint returns one complete JSON response. Provider requests
 are asynchronous, but token-by-token streaming is not exposed to Fastify or React.
 
-Current scope includes conversational tutoring and read-only retrieval of the five
-personal record categories above. Official-document RAG citations, conversation
+Current scope includes conversational tutoring and read-only retrieval of the supported personal record categories above. Official-document RAG citations, conversation
 persistence, selective memory, budgets, audit persistence, and provider privacy controls
 remain outside this service's current implementation.
+
+
+## Student financial summary
+
+The financial assistant intent reads only `student_financial_summary` and
+`student_financial_transaction_history` using the authenticated student's JWT.
+The underlying `student_financial_transactions` ledger is tenant-scoped and protected
+by RLS; authenticated students have SELECT only and cannot insert, update, or delete
+financial records. Finance-system ingestion and authorized staff posting must be
+performed through a separately secured university workflow.
+
+Only posted transactions contribute to the outstanding balance:
+charges and refunds increase the balance; payments, scholarships, and discounts
+reduce it. Pending transactions are displayed separately and are not treated as
+posted or paid. Totals remain separated by currency. If no official transactions
+exist, the assistant must say the balance is unavailable—not report a zero balance.

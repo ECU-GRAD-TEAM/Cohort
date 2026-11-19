@@ -127,6 +127,7 @@ export function QuickAccessDock({
         t("Create a quick practice quiz", "اختبرني بكويز سريع"),
         t("Plan my exam study schedule", "نظم جدول مذاكرتي للامتحان"),
         t("Show my specialization and required courses", "اعرض تخصصي والمقررات المطلوبة"),\n        t("Show my course history and grades by term", "اعرض سجل مقرراتي ودرجاتي حسب الفصل"),
+        t("Show my financial summary and payment history", "اعرض ملخص حسابي المالي وسجل المدفوعات"),
       ];
 
   async function sendQuickAi(customText?: string) {

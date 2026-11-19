@@ -468,6 +468,38 @@ class StudentRecordRetriever:
                     ["student_exam_schedule", "exam_sessions", "seat_assignments", "assessments", "enrollments", "course_offerings", "courses", "terms", "academic_years", "rooms", "buildings"],
                 )
 
+            if intent == "student_financial_summary":
+                summary = await self._get(client, access_token, "student_financial_summary", {
+                    "select": "currency_code,posted_transaction_count,pending_transaction_count,posted_charge_total,posted_payment_total,posted_scholarship_total,posted_discount_total,posted_refund_total,outstanding_balance,pending_transaction_amount,latest_transaction_at",
+                    "student_id": f"eq.{student_id}",
+                    "limit": "20",
+                })
+                history = await self._get(client, access_token, "student_financial_transaction_history", {
+                    "select": "transaction_id,transaction_type,status,amount,currency_code,description,reference_number,occurred_at,posted_at,term_code,term_name",
+                    "student_id": f"eq.{student_id}",
+                    "order": "occurred_at.desc",
+                    "limit": "500",
+                })
+                if not summary:
+                    context_note = (
+                        "No official financial transactions are currently returned for this student by Cohort. "
+                        "This does not establish a zero balance; the balance is unavailable and must not be inferred."
+                    )
+                else:
+                    context_note = (
+                        "Official financial summary from Cohort. outstanding_balance is calculated only from posted "
+                        "charges and refunds minus posted payments, scholarships, and discounts. Pending amounts are "
+                        "reported separately and excluded from the balance. Refunds increase the amount owed. "
+                        "Currency totals must never be combined across currencies."
+                    )
+                return (
+                    context_note
+                    + " Summary: " + _json(summary)
+                    + " Transaction history by academic term: " + _json(history)
+                    + " This is read-only; do not initiate payments or modify financial records.",
+                    ["student_financial_summary", "student_financial_transaction_history", "student_financial_transactions", "terms", "users"],
+                )
+
             if intent == "timetable":
                 rows = await self._get(client, access_token, "student_timetable", {
                     "select": "course_code,course_title,term_code,term_name,section_code,day_of_week,starts_at,ends_at,meeting_type,room_code,room_name,building_code,building_name,assigned_at",
