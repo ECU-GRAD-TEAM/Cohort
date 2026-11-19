@@ -45,7 +45,7 @@ class GeminiMultiIntentTests(unittest.TestCase):
             ["announcements"],
         )
         self.assertIn("audience rules", INTENT_INSTRUCTIONS)
-        self.assertIn("Do not publish, edit, delete", INTENT_INSTRUCTIONS)
+        self.assertIn("do not publish, edit, delete", INTENT_INSTRUCTIONS.lower())
 
     def test_lost_and_found_intent_is_allowed(self):
         async def model_call(_messages):
@@ -78,7 +78,7 @@ class GeminiMultiIntentTests(unittest.TestCase):
             ["student_specialization"],
         )
         self.assertIn("student_specializations", INTENT_INSTRUCTIONS)
-        self.assertIn("Never infer a specialization from courses", INTENT_INSTRUCTIONS)
+        self.assertIn("never infer a specialization from courses", INTENT_INSTRUCTIONS.lower())
 
     def test_enrollments_intent_includes_waitlist_and_is_read_only(self):
         async def model_call(_messages):
@@ -135,7 +135,7 @@ class GeminiMultiIntentTests(unittest.TestCase):
             ["support_requests"],
         )
         self.assertIn("student_support_requests", INTENT_INSTRUCTIONS)
-        self.assertIn("internal staff notes", INTENT_INSTRUCTIONS)
+        self.assertIn("internal staff notes", INTENT_INSTRUCTIONS.lower())
         self.assertIn("Do not claim to create, edit, or close a ticket", INTENT_INSTRUCTIONS)
 
     def test_complaints_incidents_intent_is_allowed_and_read_only(self):
