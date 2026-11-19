@@ -66,6 +66,105 @@ class StudentRecordRetriever:
                 })
                 return ("Student's official Cohort profile: " + _json(rows), ["student_profile", "users", "user_profiles", "student_academic_progressions", "student_programs", "student_specializations"])
 
+            if intent == "student_specialization":
+                # The assigned specialization is authoritative. Do not use the
+                # tenant-readable request table: it can contain other students'
+                # pending selections. Technical elective selections have an own-row RLS policy.
+                assignments = await self._get(client, access_token, "student_specializations", {
+                    "select": "program_id,specialization_id,status,starts_on,ends_on",
+                    "student_id": f"eq.{student_id}",
+                    "limit": "20",
+                })
+                specialization_ids = list(dict.fromkeys(
+                    row["specialization_id"] for row in assignments
+                    if isinstance(row.get("specialization_id"), str)
+                    and re.fullmatch(r"[0-9a-fA-F-]{36}", row["specialization_id"])
+                ))
+                program_ids = list(dict.fromkeys(
+                    row["program_id"] for row in assignments
+                    if isinstance(row.get("program_id"), str)
+                    and re.fullmatch(r"[0-9a-fA-F-]{36}", row["program_id"])
+                ))
+
+                specializations: list[dict[str, Any]] = []
+                programs: list[dict[str, Any]] = []
+                specialization_courses: list[dict[str, Any]] = []
+                technical_selections: list[dict[str, Any]] = []
+                course_ids: list[str] = []
+                if specialization_ids:
+                    id_filter = "in.(" + ",".join(specialization_ids) + ")"
+                    specializations = await self._get(client, access_token, "specializations", {
+                        "select": "id,program_id,code,name,description,is_active",
+                        "id": id_filter,
+                        "limit": "50",
+                    })
+                    specialization_courses = await self._get(client, access_token, "specialization_courses", {
+                        "select": "specialization_id,course_id,is_required",
+                        "specialization_id": id_filter,
+                        "limit": "300",
+                    })
+                    technical_selections = await self._get(client, access_token, "student_technical_elective_selections", {
+                        "select": "specialization_id,requirement_group_id,course_id,status,selected_at,withdrawn_at",
+                        "student_id": f"eq.{student_id}",
+                        "specialization_id": id_filter,
+                        "order": "selected_at.desc",
+                        "limit": "200",
+                    })
+                    course_ids.extend(
+                        row["course_id"] for row in specialization_courses + technical_selections
+                        if isinstance(row.get("course_id"), str)
+                        and re.fullmatch(r"[0-9a-fA-F-]{36}", row["course_id"])
+                    )
+                if program_ids:
+                    programs = await self._get(client, access_token, "programs", {
+                        "select": "id,code,name,degree_level",
+                        "id": "in.(" + ",".join(program_ids) + ")",
+                        "limit": "20",
+                    })
+
+                course_ids = list(dict.fromkeys(course_ids))
+                courses: list[dict[str, Any]] = []
+                course_attempts: list[dict[str, Any]] = []
+                if course_ids:
+                    course_filter = "in.(" + ",".join(course_ids) + ")"
+                    courses = await self._get(client, access_token, "courses", {
+                        "select": "id,code,title,credit_hours",
+                        "id": course_filter,
+                        "limit": "300",
+                    })
+                    # Only this student's own enrollment records are requested.
+                    course_attempts = await self._get(client, access_token, "student_courses", {
+                        "select": "course_id,enrollment_status,term_code,term_name,final_grade_letter,recorded_at,attempt_number",
+                        "student_id": f"eq.{student_id}",
+                        "course_id": course_filter,
+                        "order": "recorded_at.desc.nullslast",
+                        "limit": "300",
+                    })
+
+                context = {
+                    "assignments": assignments,
+                    "specializations": specializations,
+                    "programs": programs,
+                    "required_and_optional_specialization_courses": specialization_courses,
+                    "my_technical_elective_selections": technical_selections,
+                    "course_catalogue": courses,
+                    "my_enrollment_attempts_for_these_courses": course_attempts,
+                }
+                return (
+                    "The student's official Cohort specialization assignment and related curriculum records. "
+                    "Only student_specializations rows returned under this student's JWT are assigned specializations; "
+                    "status is the official program_membership_status (active, completed, withdrawn, transferred). "
+                    "specialization_courses describes the specialization course catalogue; is_required distinguishes "
+                    "required from optional courses. Technical elective selections are restricted by RLS to this student. "
+                    "Enrollment attempts are restricted to this student and are supplied as recorded; do not calculate "
+                    "completion percentages or claim a course is complete unless an explicit completed enrollment status "
+                    "is present. Do not infer a specialization from course choices or pending requests. If assignments "
+                    "are empty, say no official specialization assignment is recorded. This is read-only: "
+                    + _json(context),
+                    ["student_specializations", "specializations", "specialization_courses",
+                     "student_technical_elective_selections", "programs", "courses", "student_courses"],
+                )
+
             if intent == "graduation_audit":
                 rows = await self._get(client, access_token, "student_graduation_audit", {
                     "select": "audit_id,program_code,program_name,degree_level,audit_status,credits_earned,cgpa,unmet_requirements,audited_at,created_at,minimum_total_credits,minimum_cgpa,minimum_attendance_percentage,require_all_core_courses,block_unresolved_incomplete_grades,policy_effective_from,policy_effective_until",
