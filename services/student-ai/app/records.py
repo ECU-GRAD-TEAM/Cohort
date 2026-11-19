@@ -438,12 +438,12 @@ class StudentRecordRetriever:
 
             if intent == "support_requests":
                 rows = await self._get(client, access_token, "student_support_requests", {
-                    "select": "request_id,request_kind,category,subject,description,status,priority,department_code,department_name,sla_due_at,first_response_at,resolved_at,created_at,updated_at,public_comments",
+                    "select": "request_kind,category,subject,description,status,priority,department_code,department_name,sla_due_at,first_response_at,resolved_at,created_at,updated_at,public_comments",
                     "order": "created_at.desc",
                     "limit": "100",
                 })
                 return (
-                    "Official Cohort support requests submitted by the student and publicly visible ticket comments. Internal staff comments and AI triage metadata are excluded. Status, priority, timestamps, department, and SLA deadline are returned as recorded by Cohort. This is a read-only view; do not claim to create, update, or close requests: "
+                    "Official Cohort support requests submitted by the student and publicly visible ticket comments. Internal staff comments, AI triage metadata, and the internal ticket UUID are excluded. No separate human-readable ticket reference is recorded in this source. Report the ticket category, subject, description, official status, priority, department, timestamps, SLA deadline, and public comment history only as returned. Preserve status values exactly (open, in_progress, waiting_on_requester, escalated, resolved, closed); do not invent a pending status. This is a read-only view; do not claim to create, update, or close requests: "
                     + _json(rows),
                     ["student_support_requests", "tickets", "ticket_comments", "departments"],
                 )
