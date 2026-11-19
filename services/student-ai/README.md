@@ -206,3 +206,24 @@ course, title, kind, description, and term, but must not claim to summarize or
 explain file contents or generate source-grounded notes, flashcards, or questions
 unless actual document text is separately supplied in authorized context. No
 database schema change or migration is required. The feature is read-only.
+
+
+## Student academic advising and degree progress
+
+The `degree_progress` intent uses the existing `student_degree_progress` security-invoker view
+for the official credit/course aggregate, then reads the authenticated student's own
+`student_profile`, active programme curriculum, requirement groups, study-plan level labels,
+course prerequisite/corequisite catalogue, and own enrollment attempts. It reports required
+curriculum courses separately from selectable requirement-group options, including group course
+counts and credit-hour constraints. A course is treated as completed only when an official
+enrollment status is `completed` and any curriculum minimum grade-points threshold is met;
+currently enrolled courses remain in progress. Prerequisite satisfaction uses the recorded
+completed attempt and any prerequisite minimum grade-points threshold; a corequisite may also
+be met by a currently enrolled attempt.
+
+An unsatisfied prerequisite is described only as a potential planning/registration issue, not a
+guaranteed registration block, because waivers, transfer credit, equivalencies and registrar
+overrides may exist outside the returned records. Missing programme/curriculum/credit data is
+reported as unavailable rather than estimated. This feature is read-only and does not register,
+add/drop courses, or modify academic records. Retrieval uses the student's JWT and existing RLS;
+no service-role key is used.
