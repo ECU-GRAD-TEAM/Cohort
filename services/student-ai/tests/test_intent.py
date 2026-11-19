@@ -103,6 +103,18 @@ class GeminiMultiIntentTests(unittest.TestCase):
         self.assertIn("never report a zero balance", INTENT_INSTRUCTIONS)
         self.assertIn("pending transactions", INTENT_INSTRUCTIONS)
 
+    def test_student_financial_transactions_intent_is_allowed(self):
+        async def model_call(_messages):
+            return '{"intents":["student_financial_transactions"]}'
+
+        self.assertEqual(
+            asyncio.run(classify_intents("Show my pending payments for Fall 2026", model_call)),
+            ["student_financial_transactions"],
+        )
+        self.assertIn("student_financial_transaction_history", INTENT_INSTRUCTIONS)
+        self.assertIn("void records are ineffective", INTENT_INSTRUCTIONS)
+        self.assertIn("Keep currencies separate", INTENT_INSTRUCTIONS)
+
     def test_general_question_returns_no_intents(self):
         async def model_call(_messages):
             return '{"intents":[]}'

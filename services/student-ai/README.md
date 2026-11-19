@@ -82,6 +82,15 @@ The Fastify-to-FastAPI identity forwarding contract and the database RLS policie
 be verified in the deployed environment. The internal key must never be exposed to the
 browser. Do not treat a forwarded user ID alone as authorization.
 
+## Student financial transactions
+
+The dedicated transaction-history intent reads only `student_financial_transaction_history`
+with the authenticated student's JWT. It returns the student's recorded ledger entries,
+newest first, with academic term, transaction type, status, amount, currency, reference,
+and description where available. The assistant may filter returned rows by requested term,
+type, or status, but must keep currencies separate and distinguish posted, pending, and
+void transactions. This remains read-only; payments and ledger changes are not supported.
+
 ## Data handling and API behavior
 
 Gemini Interactions requests use `store=False`. Cohort sends its recent conversation

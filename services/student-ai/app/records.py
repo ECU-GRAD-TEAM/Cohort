@@ -468,6 +468,26 @@ class StudentRecordRetriever:
                     ["student_exam_schedule", "exam_sessions", "seat_assignments", "assessments", "enrollments", "course_offerings", "courses", "terms", "academic_years", "rooms", "buildings"],
                 )
 
+            if intent == "student_financial_transactions":
+                rows = await self._get(client, access_token, "student_financial_transaction_history", {
+                    "select": "transaction_id,transaction_type,status,amount,currency_code,description,reference_number,occurred_at,posted_at,term_id,term_code,term_name",
+                    "student_id": f"eq.{student_id}",
+                    "order": "occurred_at.desc",
+                    "limit": "500",
+                })
+                return (
+                    "Official Cohort financial transaction history for this student, newest first. "
+                    "Each row is an individual recorded charge, payment, scholarship, discount, or refund. "
+                    "Report amount and currency exactly as supplied; never combine different currencies. "
+                    "Show transaction type, status, date, academic term, description, and reference number only "
+                    "when present. Distinguish posted, pending, and void records. Pending transactions are not "
+                    "payments and do not affect the posted balance; void records are not effective transactions. "
+                    "Filter by a requested term, type, or status only using returned fields. Do not infer missing "
+                    "transactions, payment completion, or a balance from this history. This is read-only: "
+                    + _json(rows),
+                    ["student_financial_transaction_history", "student_financial_transactions", "terms"],
+                )
+
             if intent == "student_financial_summary":
                 summary = await self._get(client, access_token, "student_financial_summary", {
                     "select": "currency_code,posted_transaction_count,pending_transaction_count,posted_charge_total,posted_payment_total,posted_scholarship_total,posted_discount_total,posted_refund_total,outstanding_balance,pending_transaction_amount,latest_transaction_at",
