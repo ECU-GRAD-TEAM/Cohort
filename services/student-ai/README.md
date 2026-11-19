@@ -186,3 +186,23 @@ and a waitlist position only when present. Course code, title, credit hours, enr
 timestamps, and term registration/add-drop dates are shown only when returned by the
 official linked records. The database has no pending enrollment status. No registration,
 add/drop, withdrawal, or other record changes are supported.
+
+
+## Student course materials and learning resources
+
+The `course_resources` intent reads the existing `student_course_resources`
+security-invoker view with the authenticated student's JWT. The view joins only
+the student's own `enrolled` course offerings and returns published/released
+materials plus published offering-scoped course-material documents with their
+latest published document-version metadata. It supplies course and term labels,
+resource title/description/kind, origin, availability, language, and effective
+dates where available. The view enforces the student's own enrollment, material
+publication/release time, document scope/status, and published-version rules.
+
+This is a **resource-catalogue lookup**, not document-content retrieval. The view
+deliberately omits Storage paths and file/page text; student Storage-object read
+access has not been verified. The assistant can locate catalogue entries by
+course, title, kind, description, and term, but must not claim to summarize or
+explain file contents or generate source-grounded notes, flashcards, or questions
+unless actual document text is separately supplied in authorized context. No
+database schema change or migration is required. The feature is read-only.
