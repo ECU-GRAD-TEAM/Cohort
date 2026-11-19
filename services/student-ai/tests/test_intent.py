@@ -136,7 +136,7 @@ class GeminiMultiIntentTests(unittest.TestCase):
         )
         self.assertIn("student_support_requests", INTENT_INSTRUCTIONS)
         self.assertIn("internal staff notes", INTENT_INSTRUCTIONS.lower())
-        self.assertIn("Do not claim to create, edit, or close a ticket", INTENT_INSTRUCTIONS)
+        self.assertIn("do not claim to create, edit, or close a ticket", INTENT_INSTRUCTIONS.lower())
 
     def test_complaints_incidents_intent_is_allowed_and_read_only(self):
         async def model_call(_messages):
@@ -148,7 +148,7 @@ class GeminiMultiIntentTests(unittest.TestCase):
         )
         self.assertIn('request_kind=complaint', INTENT_INSTRUCTIONS)
         self.assertIn("operations staff", INTENT_INSTRUCTIONS)
-        self.assertIn("Do not infer that none exist", INTENT_INSTRUCTIONS)
+        self.assertIn("do not infer that none exist", INTENT_INSTRUCTIONS.lower())
 
     def test_instructor_office_hours_intent_is_allowed_and_read_only(self):
         async def model_call(_messages):
