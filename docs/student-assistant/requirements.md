@@ -85,3 +85,17 @@ incident records remain restricted to operations staff by existing RLS; the
 assistant must explicitly disclose that limitation and must not treat an empty
 complaint result as evidence that no incident report exists. The feature is
 read-only.
+
+
+
+## Student enrollment and registration status
+
+Students can review their own official enrollment rows, including course code/title,
+credit hours, academic term, recorded enrollment status, waitlist position when
+present, and enrollment/status-change timestamps. Term-level counts and registered
+credit hours come from the existing student_enrollment_summary security-invoker view.
+The lookup uses the authenticated student's JWT and existing RLS; linked course and
+term details are limited to records referenced by that student's enrollments.
+Registration opening/closing and add/drop deadlines are included only when recorded
+on the linked term. The database has no pending enrollment status. The assistant
+cannot register, add, drop, withdraw, or otherwise modify enrollment records.
