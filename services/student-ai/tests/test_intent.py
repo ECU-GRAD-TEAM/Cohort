@@ -80,6 +80,17 @@ class GeminiMultiIntentTests(unittest.TestCase):
         self.assertIn("student_specializations", INTENT_INSTRUCTIONS)
         self.assertIn("Never infer a specialization from courses", INTENT_INSTRUCTIONS)
 
+    def test_student_course_history_intent_is_allowed(self):
+        async def model_call(_messages):
+            return '{"intents":["student_course_history"]}'
+
+        self.assertEqual(
+            asyncio.run(classify_intents("Show my course history and repeated attempts", model_call)),
+            ["student_course_history"],
+        )
+        self.assertIn("official student_courses view", INTENT_INSTRUCTIONS)
+        self.assertIn("report each attempt separately", INTENT_INSTRUCTIONS)
+
     def test_general_question_returns_no_intents(self):
         async def model_call(_messages):
             return '{"intents":[]}'
