@@ -131,6 +131,19 @@ posted or paid. Totals remain separated by currency. If no official transactions
 exist, the assistant must say the balance is unavailable—not report a zero balance.
 
 
+## Student support tickets and requests
+
+The `support_requests` intent reads the existing `student_support_requests`
+security-invoker view with the authenticated student's JWT. It returns only tickets
+submitted by that student, including category, subject, description, recorded status
+and priority, assigned department, SLA/response/resolution timestamps, and public
+comment history. The view filters comments to `is_internal = false`; internal staff
+notes and AI triage metadata are not exposed. Ticket statuses are the database values
+`open`, `in_progress`, `waiting_on_requester`, `escalated`, `resolved`, and
+`closed`. There is no separate human-readable ticket reference field, so the assistant
+must not present the internal UUID as a reference. This feature is read-only and cannot
+create, edit, or close tickets.
+
 ## Instructor assignments and office hours
 
 The instructor_office_hours intent resolves section assignments only from the authenticated
