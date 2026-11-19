@@ -168,3 +168,21 @@ so incident-report records cannot be retrieved or confirmed by the student
 assistant. An empty complaint result must not be described as proof that no
 incident report exists. This feature is read-only and does not create or modify
 complaints or incident reports.
+
+
+
+## Student enrollment and registration status
+
+The `enrollments` intent reads the student's own rows directly from `enrollments`
+using the authenticated student JWT and existing row-level security. It joins only
+course and term records referenced by those enrollment rows or their linked course
+offerings. The `student_enrollment_summary` security-invoker view supplies term-level
+counts and registered credit hours.
+
+The direct enrollment rows are necessary because the `student_courses` course-history
+view excludes waitlisted enrollments. The assistant reports the database's recorded
+statuses (enrolled, waitlisted, dropped, withdrawn, completed, failed, or incomplete)
+and a waitlist position only when present. Course code, title, credit hours, enrollment
+timestamps, and term registration/add-drop dates are shown only when returned by the
+official linked records. The database has no pending enrollment status. No registration,
+add/drop, withdrawal, or other record changes are supported.
