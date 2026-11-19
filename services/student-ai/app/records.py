@@ -196,15 +196,252 @@ class StudentRecordRetriever:
                 )
 
             if intent == "degree_progress":
-                rows = await self._get(client, access_token, "student_degree_progress", {
+                # The aggregate is computed by the existing security-invoker view.
+                # Detail queries are restricted to the programme in the authenticated
+                # student's own profile and to that student's own enrollment rows.
+                progress_rows = await self._get(client, access_token, "student_degree_progress", {
                     "select": "program_name,specialization_name,total_required_credits,completed_credits,in_progress_credits,remaining_credits,completion_percentage,required_courses_count,completed_required_courses,in_progress_required_courses,remaining_required_courses,last_updated_at",
                     "student_id": f"eq.{student_id}",
                     "limit": "1",
                 })
+                profile_rows = await self._get(client, access_token, "student_profile", {
+                    "select": "program_id,program_name,specialization_id,specialization_name,academic_level",
+                    "student_id": f"eq.{student_id}",
+                    "limit": "1",
+                })
+                profile = profile_rows[0] if profile_rows else {}
+                program_id = profile.get("program_id")
+                if not isinstance(program_id, str) or not re.fullmatch(r"[0-9a-fA-F-]{36}", program_id):
+                    return (
+                        "No active programme is available in the student's official profile, so detailed "
+                        "degree progress, curriculum requirements, and programme prerequisites cannot be calculated. "
+                        "Do not infer a programme from course history: " + _json({"progress": progress_rows, "profile": profile_rows}),
+                        ["student_degree_progress", "student_profile"],
+                    )
+
+                curriculum = await self._get(client, access_token, "program_curriculum_courses", {
+                    "select": "course_id,academic_level_id,requirement_type,minimum_grade_points",
+                    "program_id": f"eq.{program_id}",
+                    "is_active": "eq.true",
+                    "limit": "500",
+                })
+                groups = await self._get(client, access_token, "curriculum_requirement_groups", {
+                    "select": "id,academic_level_id,code,title,category,required_course_count,minimum_credit_hours,maximum_credit_hours,is_required,notes,sort_order",
+                    "program_id": f"eq.{program_id}",
+                    "is_active": "eq.true",
+                    "order": "sort_order.asc",
+                    "limit": "200",
+                })
+                group_ids = list(dict.fromkeys(
+                    row["id"] for row in groups
+                    if isinstance(row.get("id"), str) and re.fullmatch(r"[0-9a-fA-F-]{36}", row["id"])
+                ))
+                group_options: list[dict[str, Any]] = []
+                if group_ids:
+                    group_options = await self._get(client, access_token, "curriculum_requirement_group_courses", {
+                        "select": "requirement_group_id,course_id,is_active",
+                        "requirement_group_id": "in.(" + ",".join(group_ids) + ")",
+                        "is_active": "eq.true",
+                        "limit": "500",
+                    })
+
+                elective_selections = await self._get(client, access_token, "student_technical_elective_selections", {
+                    "select": "requirement_group_id,course_id,status,selected_at,withdrawn_at",
+                    "student_id": f"eq.{student_id}",
+                    "program_id": f"eq.{program_id}",
+                    "limit": "200",
+                })
+                enrollment_rows = await self._get(client, access_token, "enrollments", {
+                    "select": "course_id,offering_id,status,final_grade_points,final_grade_letter,credit_hours_attempted,term_id,status_changed_at,enrolled_at",
+                    "student_id": f"eq.{student_id}",
+                    "order": "enrolled_at.desc",
+                    "limit": "500",
+                })
+                offering_ids = list(dict.fromkeys(
+                    row["offering_id"] for row in enrollment_rows
+                    if not row.get("course_id") and isinstance(row.get("offering_id"), str)
+                    and re.fullmatch(r"[0-9a-fA-F-]{36}", row["offering_id"])
+                ))
+                offerings: list[dict[str, Any]] = []
+                if offering_ids:
+                    offerings = await self._get(client, access_token, "course_offerings", {
+                        "select": "id,course_id",
+                        "id": "in.(" + ",".join(offering_ids) + ")",
+                        "limit": "500",
+                    })
+                offering_courses = {
+                    row["id"]: row.get("course_id") for row in offerings
+                    if isinstance(row.get("id"), str)
+                }
+                attempts_by_course: dict[str, list[dict[str, Any]]] = {}
+                for attempt in enrollment_rows:
+                    course_id = attempt.get("course_id") or offering_courses.get(attempt.get("offering_id"))
+                    if isinstance(course_id, str) and re.fullmatch(r"[0-9a-fA-F-]{36}", course_id):
+                        attempts_by_course.setdefault(course_id, []).append({
+                            "status": attempt.get("status"),
+                            "final_grade_points": attempt.get("final_grade_points"),
+                            "final_grade_letter": attempt.get("final_grade_letter"),
+                            "term_id": attempt.get("term_id"),
+                            "status_changed_at": attempt.get("status_changed_at"),
+                            "enrolled_at": attempt.get("enrolled_at"),
+                        })
+
+                curriculum_course_ids = [
+                    row["course_id"] for row in curriculum
+                    if isinstance(row.get("course_id"), str) and re.fullmatch(r"[0-9a-fA-F-]{36}", row["course_id"])
+                ]
+                option_course_ids = [
+                    row["course_id"] for row in group_options
+                    if isinstance(row.get("course_id"), str) and re.fullmatch(r"[0-9a-fA-F-]{36}", row["course_id"])
+                ]
+                selected_course_ids = [
+                    row["course_id"] for row in elective_selections
+                    if row.get("status") == "selected" and isinstance(row.get("course_id"), str)
+                    and re.fullmatch(r"[0-9a-fA-F-]{36}", row["course_id"])
+                ]
+                programme_course_ids = list(dict.fromkeys(curriculum_course_ids + option_course_ids + selected_course_ids))
+                prerequisite_rows: list[dict[str, Any]] = []
+                if programme_course_ids:
+                    prerequisite_rows = await self._get(client, access_token, "course_prerequisites", {
+                        "select": "course_id,prerequisite_course_id,kind,minimum_grade_points",
+                        "course_id": "in.(" + ",".join(programme_course_ids) + ")",
+                        "limit": "1000",
+                    })
+                all_course_ids = list(dict.fromkeys(
+                    programme_course_ids + [
+                        row["prerequisite_course_id"] for row in prerequisite_rows
+                        if isinstance(row.get("prerequisite_course_id"), str)
+                        and re.fullmatch(r"[0-9a-fA-F-]{36}", row["prerequisite_course_id"])
+                    ]
+                ))
+                courses: list[dict[str, Any]] = []
+                if all_course_ids:
+                    courses = await self._get(client, access_token, "courses", {
+                        "select": "id,code,title,credit_hours,level",
+                        "id": "in.(" + ",".join(all_course_ids) + ")",
+                        "limit": "1000",
+                    })
+                course_by_id = {
+                    row["id"]: row for row in courses if isinstance(row.get("id"), str)
+                }
+                level_ids = list(dict.fromkeys(
+                    row["academic_level_id"] for row in curriculum + groups
+                    if isinstance(row.get("academic_level_id"), str)
+                    and re.fullmatch(r"[0-9a-fA-F-]{36}", row["academic_level_id"])
+                ))
+                levels: list[dict[str, Any]] = []
+                if level_ids:
+                    levels = await self._get(client, access_token, "academic_semesters", {
+                        "select": "id,code,name,sequence_number,period_unit,stage_key",
+                        "id": "in.(" + ",".join(level_ids) + ")",
+                        "limit": "200",
+                    })
+                level_by_id = {row["id"]: row for row in levels if isinstance(row.get("id"), str)}
+
+                def course_state(course_id: str, minimum_grade_points: Any = None) -> dict[str, Any]:
+                    attempts = attempts_by_course.get(course_id, [])
+                    completed = any(
+                        item.get("status") == "completed"
+                        and (minimum_grade_points is None or (
+                            item.get("final_grade_points") is not None
+                            and float(item["final_grade_points"]) >= float(minimum_grade_points)
+                        ))
+                        for item in attempts
+                    )
+                    in_progress = any(item.get("status") == "enrolled" for item in attempts)
+                    return {
+                        "status": "completed" if completed else ("in_progress" if in_progress else "not_recorded_as_completed"),
+                        "attempt_statuses": list(dict.fromkeys(
+                            item.get("status") for item in attempts if item.get("status") is not None
+                        )),
+                    }
+
+                course_progress = []
+                for row in curriculum:
+                    course_id = row.get("course_id")
+                    course = course_by_id.get(course_id, {})
+                    state = course_state(course_id, row.get("minimum_grade_points")) if isinstance(course_id, str) else {"status": "unavailable", "attempt_statuses": []}
+                    course_progress.append({
+                        "requirement_type": row.get("requirement_type"),
+                        "minimum_grade_points": row.get("minimum_grade_points"),
+                        "study_plan_level": level_by_id.get(row.get("academic_level_id")),
+                        "course": {key: course.get(key) for key in ("code", "title", "credit_hours", "level")},
+                        **state,
+                    })
+
+                group_progress = []
+                for group in groups:
+                    options = []
+                    for option in group_options:
+                        if option.get("requirement_group_id") != group.get("id"):
+                            continue
+                        course_id = option.get("course_id")
+                        course = course_by_id.get(course_id, {})
+                        state = course_state(course_id) if isinstance(course_id, str) else {"status": "unavailable", "attempt_statuses": []}
+                        options.append({
+                            "course": {key: course.get(key) for key in ("code", "title", "credit_hours", "level")},
+                            **state,
+                            "selected_as_technical_elective": any(
+                                selection.get("requirement_group_id") == group.get("id")
+                                and selection.get("course_id") == course_id
+                                and selection.get("status") == "selected"
+                                for selection in elective_selections
+                            ),
+                        })
+                    group_progress.append({
+                        "code": group.get("code"),
+                        "title": group.get("title"),
+                        "category": group.get("category"),
+                        "is_required": group.get("is_required"),
+                        "required_course_count": group.get("required_course_count"),
+                        "minimum_credit_hours": group.get("minimum_credit_hours"),
+                        "maximum_credit_hours": group.get("maximum_credit_hours"),
+                        "notes": group.get("notes"),
+                        "study_plan_level": level_by_id.get(group.get("academic_level_id")),
+                        "options": options,
+                    })
+
+                prerequisites = []
+                for rule in prerequisite_rows:
+                    target = course_by_id.get(rule.get("course_id"), {})
+                    required = course_by_id.get(rule.get("prerequisite_course_id"), {})
+                    rule_minimum = rule.get("minimum_grade_points")
+                    required_state = course_state(rule.get("prerequisite_course_id"), rule_minimum)
+                    prerequisites.append({
+                        "course": {key: target.get(key) for key in ("code", "title")},
+                        "kind": rule.get("kind"),
+                        "minimum_grade_points": rule_minimum,
+                        "prerequisite_course": {key: required.get(key) for key in ("code", "title")},
+                        "recorded_satisfaction": (
+                            required_state["status"] == "completed"
+                            or (rule.get("kind") == "corequisite" and required_state["status"] == "in_progress")
+                        ),
+                        "prerequisite_course_status": required_state["status"],
+                    })
+
+                context = {
+                    "official_progress_summary": progress_rows,
+                    "official_student_programme": profile_rows,
+                    "programme_curriculum_courses": course_progress,
+                    "curriculum_requirement_groups_and_options": group_progress,
+                    "official_prerequisite_and_corequisite_rules": prerequisites,
+                    "data_notes": [
+                        "The progress summary comes from the existing security-invoker student_degree_progress view.",
+                        "Completed course state requires an enrollment status of completed and, when the curriculum specifies it, a final grade meeting minimum_grade_points.",
+                        "Choice-group options are alternatives; required_course_count and credit-hour constraints define the group requirement. Do not describe every option as mandatory.",
+                        "An unsatisfied prerequisite is a potential planning issue, not a guaranteed registration block; waivers, transfer credit, equivalencies, or registrar overrides may not be represented.",
+                        "Only this student's own enrollment rows were used. No academic records were modified.",
+                    ],
+                }
                 return (
-                    "Student's official degree progress calculated from the assigned program curriculum, required-course rules, elective requirement groups, confirmed specialization selections, and completed/in-progress enrollments. Completed credits exclude currently in-progress credits; remaining credits exclude both completed and in-progress credits: "
-                    + _json(rows),
-                    ["student_degree_progress", "student_profile", "programs", "program_curriculum_courses", "curriculum_requirement_groups", "curriculum_requirement_group_courses", "student_technical_elective_selections", "student_courses", "enrollments", "courses"],
+                    "Official read-only academic advising context for this student. Use the aggregate progress values as supplied; "
+                    "distinguish completed from in-progress credits. Explain curriculum by study-plan level, keep required courses "
+                    "separate from choice-group options, and state prerequisite/corequisite rules as recorded. A prerequisite not "
+                    "satisfied in Cohort is only a potential issue, not proof that registration will be blocked: "
+                    + _json(context),
+                    ["student_degree_progress", "student_profile", "program_curriculum_courses", "curriculum_requirement_groups",
+                     "curriculum_requirement_group_courses", "student_technical_elective_selections", "academic_semesters",
+                     "course_prerequisites", "courses", "enrollments", "course_offerings"],
                 )
 
             if intent == "academic_standing":
