@@ -204,6 +204,19 @@ class GeminiMultiIntentTests(unittest.TestCase):
         self.assertIn("potential registration issue", INTENT_INSTRUCTIONS)
         self.assertIn("never register, add/drop courses", INTENT_INSTRUCTIONS)
 
+    def test_course_catalog_intent_is_read_only_and_distinguishes_availability(self):
+        async def model_call(_messages):
+            return '{"intents":["course_catalog"]}'
+
+        self.assertEqual(
+            asyncio.run(classify_intents("Find courses available next semester with prerequisites.", model_call)),
+            ["course_catalog"],
+        )
+        self.assertIn("student_available_courses security-invoker view", INTENT_INSTRUCTIONS)
+        self.assertIn("catalogue presence does not mean a course is offered", INTENT_INSTRUCTIONS)
+        self.assertIn("Section capacity is not remaining seat availability", INTENT_INSTRUCTIONS)
+        self.assertIn("Strictly read-only", INTENT_INSTRUCTIONS)
+
     def test_graduation_audit_intent_is_official_and_read_only(self):
         async def model_call(_messages):
             return '{"intents":["graduation_audit"]}'

@@ -140,6 +140,16 @@ block, because waivers, transfer credit, equivalencies, or registrar overrides m
 Missing or incomplete official data must be disclosed rather than estimated. The assistant is
 strictly read-only and cannot register, add/drop courses, or change academic records.
 
+## Course catalogue and available offerings
+
+Use the student_available_courses security-invoker view with the authenticated student's JWT.
+Distinguish active catalogue courses from published term offerings. Only published offerings
+are presented as offered in a term. A null registration-window result means dates are insufficient
+to determine whether registration is open. Do not infer remaining seats from section capacity
+without authoritative enrolled and waitlisted counts. Do not infer programme eligibility or
+registration approval. The capability is read-only, bilingual, and cannot register, add/drop,
+or reserve seats.
+
 ## Graduation audit and eligibility
 
 Use only the student's official student_graduation_audit security-invoker view with the

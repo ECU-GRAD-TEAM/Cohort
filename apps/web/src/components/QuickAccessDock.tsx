@@ -138,6 +138,7 @@ export function QuickAccessDock({
         t("Find course materials and lecture slides", "ابحث عن مواد المقررات وشرائح المحاضرات"),
         t("Show my degree progress, remaining requirements and course prerequisites", "اعرض تقدمي الدراسي والمتطلبات المتبقية والمتطلبات السابقة للمقررات"),
         t("Show my latest graduation audit and eligibility status", "اعرض آخر مراجعة تخرج وحالة أهليتي للتخرج"),
+        t("Browse the course catalogue and published offerings", "تصفح دليل المقررات والطرح المنشور للفصول الدراسية"),
       ];
 
   async function sendQuickAi(customText?: string) {

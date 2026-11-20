@@ -445,6 +445,23 @@ class StudentRecordRetriever:
                      "course_prerequisites", "courses", "enrollments", "course_offerings"],
                 )
 
+            if intent == "course_catalog":
+                rows = await self._get(client, access_token, "student_available_courses", {
+                    "select": "course_code,course_title,course_description,credit_hours,course_level,department_code,department_name,offering_id,offering_status,term_code,term_name,term_status,term_starts_on,term_ends_on,registration_opens_at,registration_closes_at,add_drop_ends_at,academic_year_code,academic_year_name,offering_visibility,registration_window_open,sections,prerequisites",
+                    "order": "course_code.asc,academic_year_code.desc,term_code.asc",
+                    "limit": "300",
+                })
+                return (
+                    "Official Cohort course catalogue and published course offerings. "
+                    "Rows with offering_visibility=catalog_only are active catalogue courses, not offerings open for registration. "
+                    "Only offering_status=published represents a published offering. "
+                    "registration_window_open is authoritative only when true or false; null means the database does not have enough official timing data to determine it. "
+                    "Section capacity is not remaining seat availability; do not calculate open seats without authoritative enrolled and waitlisted counts. "
+                    "Do not register, add/drop, reserve seats, or claim a course is suitable for the student's programme without official programme eligibility data: "
+                    + _json(rows),
+                    ["student_available_courses", "courses", "course_offerings", "terms", "academic_years", "departments", "sections", "course_prerequisites"],
+                )
+
             if intent == "academic_standing":
                 rows = await self._get(client, access_token, "student_academic_standing", {
                     "select": "academic_standing,standing_reason,standing_term_code,standing_term_name,standing_decided_at,cumulative_gpa,term_gpa,gpa_computed_at,enrollment_status,last_updated_at",

@@ -78,6 +78,18 @@ for one message. Classification is performed by Gemini only; there is no local k
 or regex intent shortcut. Invalid or malformed classifier output fails closed to no
 record lookup.
 
+## Course catalogue and published offerings
+
+The course_catalog intent reads the student_available_courses security-invoker view using
+the student's JWT. It includes active catalogue courses and only published offerings, with
+department, term, registration-window, section capacity and prerequisite/corequisite details.
+Catalogue-only courses must not be described as offered in a term. A null registration-window
+value means the official dates are insufficient to determine whether registration is open.
+Section capacity is not remaining seat availability; no open-seat count is inferred without
+authoritative enrollment and waitlist counts. The assistant does not infer programme eligibility
+or registration approval and cannot register, add/drop, or reserve a seat. The capability is
+read-only and supports English and Arabic.
+
 ## Student graduation audits
 
 The graduation-audit intent reads only the student_graduation_audit security-invoker view
