@@ -10,12 +10,15 @@ dependencies = [
     "python-dotenv>=1.0.1,<2.0.0",
     "google-genai>=2.3.0,<3.0.0",
     "httpx>=0.28.1,<1.0.0",
+    "pypdf==5.6.1",
+    "python-docx==1.1.2",
 ]
 
 [project.optional-dependencies]
 playground = [
     "streamlit>=1.42.0,<2.0.0",
 ]
+test = ["pytest>=8.3.5,<9.0.0"]
 
 [tool.setuptools.packages.find]
 where = ["."]
