@@ -254,3 +254,14 @@ registrar overrides may exist outside the returned records. Missing programme/cu
 reported as unavailable rather than estimated. This feature is read-only and does not register,
 add/drop courses, or modify academic records. Retrieval uses the student's JWT and existing RLS;
 no service-role key is used.
+
+
+## Official document retrieval (Phase 2)
+
+The assistant supports permission-aware retrieval from published PDF and DOCX documents. The student chat service embeds the question with `gemini-embedding-001` (1024 dimensions) and calls the existing `match_chunks` hybrid vector/keyword RPC with the student's verified access token. Database RLS applies tenant, department, role, published-version, and enrolled-offering scope before passages are returned. Answers cite source title, version, and PDF page when available.
+
+### Ingestion worker
+
+Configure `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, and `AI_DOCUMENTS_BUCKET` only in a separately protected ingestion-worker environment. Never add the service-role key to the FastAPI chat service or browser. Upload source files to the private `university-documents` bucket, create the corresponding `documents` and `document_versions` rows through the university's authorized document workflow, and set `storage_path`, `published_at`, `effective_from`, and the document's published status. Then run `python -m app.ingest_documents`. The worker extracts page-aware PDF text and DOCX paragraphs/tables, chunks content with overlap, generates 1024-dimensional retrieval-document embeddings, and writes chunk/embedding rows. It is idempotent for unchanged content hashes. Scanned PDFs without an embedded text layer require OCR before ingestion; OCR is not included.
+
+The bucket is private and student reads are restricted to published, effective document versions visible under the linked document's RLS policy. The ingestion worker is a privileged server-side process; isolate it from the student-facing API and do not expose its credentials.
