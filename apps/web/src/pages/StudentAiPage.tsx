@@ -14,6 +14,7 @@ type Message = {
   role: "user" | "assistant";
   content: string;
   limitations?: string[];
+  sources?: string[];
   attachments?: ChatAttachment[];
   edited?: boolean;
 };
@@ -191,6 +192,7 @@ export function StudentAiPage() {
           role: "assistant",
           content: result.answer,
           limitations: result.limitations,
+          sources: result.sources,
         },
       ]);
     } catch (cause) {
@@ -413,6 +415,12 @@ export function StudentAiPage() {
                   )}
 
                   <ChatAttachmentView attachments={message.attachments} />
+                  {message.sources && message.sources.length > 0 && (
+                    <div className="uf-ai-source-list" aria-label={t("Sources", "المصادر")}>
+                      <strong>{t("Sources", "المصادر")}</strong>
+                      <ul>{message.sources.map((source, i) => <li key={`${message.id}-source-${i}`}>{source}</li>)}</ul>
+                    </div>
+                  )}
                   {message.limitations?.map((limitation, i) => (
                     <small key={i}>{limitation}</small>
                   ))}
