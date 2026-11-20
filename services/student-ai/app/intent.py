@@ -6,13 +6,15 @@ import re
 from typing import Awaitable, Callable
 
 ALLOWED_INTENTS = frozenset({
-    "profile", "gpa", "attendance", "grades", "enrollments", "timetable", "degree_progress", "academic_standing", "course_catalog", "exam_schedule", "course_resources", "assessment_results", "academic_calendar", "support_requests", "appointments", "notifications", "emergency_alerts", "student_events", "announcements", "lost_and_found", "surveys", "graduation_audit", "student_specialization", "student_course_history", "student_financial_summary", "student_financial_transactions", "assignments", "instructor_office_hours", "complaints_incidents",
+    "institutional_knowledge", "course_content", "profile", "gpa", "attendance", "grades", "enrollments", "timetable", "degree_progress", "academic_standing", "course_catalog", "exam_schedule", "course_resources", "assessment_results", "academic_calendar", "support_requests", "appointments", "notifications", "emergency_alerts", "student_events", "announcements", "lost_and_found", "surveys", "graduation_audit", "student_specialization", "student_course_history", "student_financial_summary", "student_financial_transactions", "assignments", "instructor_office_hours", "complaints_incidents",
 })
 
-INTENT_INSTRUCTIONS = """Identify every distinct personal Cohort-record lookup required to answer
+INTENT_INSTRUCTIONS = """Identify every distinct personal Cohort-record lookup or official document search required to answer
 the student's latest message. Return a JSON object with an "intents" array.
 
 Allowed intent values:
+- "institutional_knowledge": official published university policies, regulations, procedures, fees, registration/admissions information, academic calendar rules, and institutional FAQs. Retrieve only authorized published document passages.
+- "course_content": explanations or summaries grounded in published course materials for the student's currently enrolled offerings. Retrieve only published passages allowed by enrollment and document audience.
 - "profile": the student's own profile, institutional/university/student ID or student number, full name, university email, programme, confirmed specialization, department, faculty, academic level, or enrollment/account status. Treat "my ID", "what is my ID", "student ID", "university ID", "institutional ID", "student number", and "registration number" as profile lookups.
 - "gpa": the student's GPA, CGPA, grade-point average, or cumulative average.
 - "attendance": the student's attendance, absences, lateness, or attendance percentage.
@@ -45,8 +47,7 @@ Rules:
 - Include ALL applicable intents, not just the primary one.
 - Return each intent at most once.
 - If no personal Cohort record lookup is needed, return {"intents": []}.
-- General explanations, study help, and general university-policy questions do not require
-  personal record retrieval unless the student also asks about their own records.
+- General explanations and study help do not require personal record retrieval. For university-policy or course-content questions, include institutional_knowledge or course_content when authoritative document evidence is needed; include personal record intents separately when asked.
 - Do not infer intent from incidental keywords; classify the actual request.
 - When asked for the student's ID/number, retrieve the profile and answer with institutional_id. Never use or reveal the internal student_id UUID as the student's ID. If institutional_id is missing, say it is unavailable; do not substitute a UUID.
 - Return ONLY valid JSON. Do not produce SQL, table names, user IDs, filters, or explanations.
