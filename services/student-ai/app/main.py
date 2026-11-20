@@ -160,6 +160,7 @@ async def chat(
     retrieved_context_parts: list[str] = []
     record_sources: list[str] = []
     document_sources: list[str] = []
+    document_retrieval_done = False
     try:
         intents = await classify_intents(
             payload.message,
@@ -169,12 +170,14 @@ async def chat(
         # answer rather than silently presenting an incomplete set as complete.
         for intent in intents:
             if intent in DOCUMENT_INTENTS:
-                document_context, citations = await document_retriever.retrieve(
-                    payload.message, intent, x_cohort_student_access_token
-                )
-                if document_context:
-                    retrieved_context_parts.append(f"[{intent.upper()} DOCUMENT PASSAGES]\n{document_context}")
-                document_sources.extend(citations)
+                if not document_retrieval_done:
+                    document_context, citations = await document_retriever.retrieve(
+                        payload.message, intent, x_cohort_student_access_token
+                    )
+                    if document_context:
+                        retrieved_context_parts.append(f"[OFFICIAL DOCUMENT PASSAGES]\n{document_context}")
+                    document_sources.extend(citations)
+                    document_retrieval_done = True
                 continue
             record_context, sources = await record_retriever.retrieve(
                 intent, x_cohort_student_access_token, student_id
