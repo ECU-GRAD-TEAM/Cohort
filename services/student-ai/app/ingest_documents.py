@@ -20,7 +20,9 @@ from docx import Document as DocxDocument
 from google import genai
 from google.genai import types
 from pypdf import PdfReader
+from dotenv import load_dotenv
 
+load_dotenv()
 
 EMBEDDING_MODEL = "gemini-embedding-001"
 EMBEDDING_DIMENSIONS = 1024
